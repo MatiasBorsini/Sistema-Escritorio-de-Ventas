@@ -132,4 +132,18 @@ Implementación en `feat/f01-local-auth`: `IHashContrasenas`/`Pbkdf2HashContrase
 - **Sesiones y autorización separadas:** `GestorSesiones` en memoria; `Autorizador` exige sesión vigente, re-lee al usuario (desactivar expulsa y revoca de inmediato) y solo concede permisos explícitos. Matriz configurable con denegación por defecto; únicos concedidos: `reintegro.autorizar` (ambos roles) y `reintegro.medio_excepcional` (solo dueña). Sin privilegios sobre descuentos, ajustes, fiados, anulaciones, reportes ni costos. Sin reintegros implementados: solo identificadores + pruebas.
 - **Auditoría:** inicio/cierre/alta/restablecimiento con actor correcto (fallos como sistema sin el nombre intentado); ningún registro contiene contraseñas.
 - **Pendiente para antes de producción (no inventado):** recuperación del acceso si el Administrador olvida su contraseña (sin maestras, puertas traseras ni recuperaciones anónimas); identidad de la persona que tendrá la cuenta Administrador; caducidad e inactividad de sesión (plazo a confirmar); complejidad más allá de longitud; matriz completa D-03.
+
+## 11. Matriz F01-T06 (85/85 correctas el 2026-09-21, equipo de desarrollo)
+
+Pruebas automáticas en este equipo, no validación en la PC del local. Cobertura preexistente (F01-T01…T05) salvo las 4 marcadas como nuevas, agregadas por no tener equivalente.
+
+**A. Migraciones (semántica: atomicidad por versión, no de la cadena):** vacía→vigente, V1→V3 y V2→V3 con datos y respaldo previo, re-ejecución vacía, desconocidas/huecos/heredadas rechazadas, fallo con reversión sin registro falso, respaldo obligatorio y bloqueante — cubiertas (EsquemaInicialTests, AuditoriaTests, RespaldoLocalTests).
+
+**B. Integridad:** FK activas por conexión e inserciones huérfanas sin parciales (preexistente); `RESTRICT` ante borrado con dependientes, unicidad de nombre de usuario y unicidad a mitad de operación (nuevas, IntegridadTests); `foreign_key_check` + `integrity_check` sobre base representativa (preexistente, vía respaldos).
+
+**C. Transacciones (operación ficticia con movimiento + auditoría):** confirmación conjunta, rollback al descartar, FK a mitad de operación, segunda conexión con solo confirmados, fallo de auditoría sin negocio persistido (preexistentes); violación de unicidad a mitad de operación (nueva).
+
+**D. Respaldos:** sin cambios en F01-T06; garantías de F01-T05 intactas y re-ejecutadas (15 pruebas).
+
+Sin defectos reales en código F01: las 4 pruebas nuevas pasaron contra la implementación existente a la primera (tras corregir el acceso a conexiones en la prueba, sin tocar producción).
 - **Pruebas F01-T04 (solo temporales):** login correcto/incorrecto sin enumeración, sales únicas por usuario, desactivado y sesión inválida/cierre, denegación por defecto, matriz de reintegros por rol, autorización en Application (ensamblado verificado, sin WPF), sesiones no forjables (forjada y sin sesión rechazadas), bootstrap sin reapertura con desactivados y con rol forzado a Administrador, alta/desactivación/restablecimiento solo con permiso (incluida propia con actual), denegación a dueña/empleada, sin auto-asignación de Administrador, último admin protegido, admin sin comerciales, ids impredecibles, política de longitud, huella anterior y conteo manipulado, auditoría sin secretos, mecanismo de huella a nivel repositorio, V2→V3 con datos, respaldo, conservación y re-ejecución vacía.
