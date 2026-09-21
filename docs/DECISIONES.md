@@ -2,10 +2,10 @@
 
 ## D-00 — Framework provisional de F00-T01
 
-- Estado: provisional.
+- Estado: antecedente reemplazado por D-15.
 - Fecha: 2026-09-20.
 - Fuente: estructura inicial de Codex; no es una decisión de la dueña.
-- Decisión: los proyectos usan `net8.0`; el ejecutable WPF usa `net8.0-windows`.
+- Decisión histórica: los proyectos usaron `net8.0`; el ejecutable WPF usó `net8.0-windows`.
 - Motivo: el entorno de desarrollo tiene el SDK 8.0 y el runtime Windows Desktop 8.0 instalados; .NET 8 es LTS y permite compilar el esqueleto sin agregar dependencias.
 - Criterio para confirmar o reemplazar: F00-T02 debe comprobar versión, edición y arquitectura del Windows de la PC del local, además del soporte vigente del framework elegido. No se realizará despliegue con esta decisión sin esa validación.
 
@@ -14,8 +14,8 @@
 - Estado: **provisional; decisión final bloqueada por falta de acceso a la PC del local**.
 - Fecha: 2026-09-20.
 - Fuente: verificación local y documentación oficial de Microsoft.
-- Candidata recomendada para decidir al validar el equipo: **.NET 10 LTS**. Microsoft indica soporte hasta el 14 de noviembre de 2028, mientras que .NET 8 LTS finaliza el 10 de noviembre de 2026. Fuentes: [ciclo de vida de .NET](https://learn.microsoft.com/lifecycle/products/microsoft-net-and-net-core) y [versiones y soporte de .NET](https://learn.microsoft.com/dotnet/core/releases-and-support).
-- Decisión actual: no se modifica ningún `TargetFramework`; se conserva `net8.0` / `net8.0-windows` únicamente para mantener el esqueleto compilable hasta validar el equipo real. No es una plataforma aprobada para instalar en el local, porque su soporte termina en noviembre de 2026.
+- Candidata recomendada para decidir al validar el equipo: **.NET 10 LTS**. Microsoft indica soporte hasta el 15 de noviembre de 2028, mientras que .NET 8 LTS finaliza el 11 de noviembre de 2026. Fuentes: [ciclo de vida de .NET](https://learn.microsoft.com/lifecycle/products/microsoft-net-and-net-core) y [versiones y soporte de .NET](https://learn.microsoft.com/dotnet/core/releases-and-support).
+- Decisión histórica: en ese momento no se modificó ningún `TargetFramework`; se conservó `net8.0` / `net8.0-windows` hasta realizar la migración controlada posterior. Ver D-15 para el estado actual.
 - Compatibilidad oficial con Windows 10: la tabla vigente de Microsoft limita Windows 10 a las ediciones LTSC y Enterprise; incluye las versiones 21H2, 1809 y 1607 de esos canales para .NET 8 y .NET 10. Por lo tanto, no se puede afirmar soporte oficial para una PC con Windows 10 de edición, versión o arquitectura desconocidas. Fuente: [instalación de .NET en Windows](https://learn.microsoft.com/dotnet/core/install/windows).
 - Distinción necesaria: una aplicación puede llegar a ejecutarse en un Windows no cubierto por esa tabla, pero Microsoft no la prueba ni da soporte oficial cuando el sistema operativo no tiene soporte. Esa posibilidad no habilita una decisión de despliegue.
 - Arquitectura: el proyecto no fija plataforma de CPU. La documentación oficial lista x86, x64 y Arm64 para .NET 8 y .NET 10 en las ediciones Windows 10 compatibles; la arquitectura real del local sigue sin confirmarse.
@@ -74,3 +74,15 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Decisión: se generó una carpeta self-contained Release para `win-x64` en `artifacts\publish\win-x64`, porque el equipo de desarrollo informa ese RID. El ejecutable contiene el runtime y dependencias necesarias para ese destino, sin requerir que el equipo de prueba tenga instalado el runtime .NET 8.
 - Límites: no se infiere que la PC del local sea x64 ni se modifica F00-T02. La carpeta no es un instalador; no se probaron instalación/desinstalación ni actualización. La ruta SQLite permanece fuera de ella, en la ubicación provisional de D-13.
 - Evidencia: carpeta generada sin bases de datos, respaldos, fuentes ni símbolos de depuración; el ejecutable se validó manualmente fuera de Visual Studio con navegación, SQLite, reapertura, vista previa, diálogo/cancelación de impresión, operación offline y fluidez cualitativa correctas.
+
+## D-15 — Migración controlada a .NET 10
+
+- Estado: migración técnica verificada en el equipo de desarrollo; aprobación de producción pendiente de F00-T02.
+- Fecha: 2026-09-20.
+- Fuente: instrucción de la persona usuaria y documentación oficial de Microsoft.
+- Decisión: los cinco proyectos ahora destinan `net10.0`; los dos proyectos Windows (WPF y pruebas) usan `net10.0-windows`. `Microsoft.Data.Sqlite` se actualizó de 8.0.31 a 10.0.12, la versión estable vigente de Microsoft/NuGet. Los paquetes de pruebas no cambiaron porque restore, compilaciones y pruebas fueron correctos con sus versiones existentes.
+- Motivo: .NET 10 es LTS hasta el 15 de noviembre de 2028, mientras que .NET 8 termina soporte el 11 de noviembre de 2026. Fuentes: [ciclo de vida de .NET](https://learn.microsoft.com/lifecycle/products/microsoft-net-and-net-core), [versiones y soporte](https://learn.microsoft.com/dotnet/core/releases-and-support), [instalación de .NET en Windows](https://learn.microsoft.com/dotnet/core/install/windows) y [Microsoft.Data.Sqlite 10.0.12](https://www.nuget.org/packages/Microsoft.Data.Sqlite/10.0.12).
+- Compatibilidad y límite: WPF solo se ejecuta en Windows y requiere el runtime Desktop cuando no se distribuye self-contained. La matriz oficial incluye .NET 10 para Windows 10 únicamente en ediciones LTSC/Enterprise señaladas por Microsoft, con x86, x64 y Arm64. No se conoce aún edición, versión ni arquitectura de la PC del local; que el programa pueda ejecutarse en otro Windows no equivale a soporte oficial. Por ello esta decisión no cierra F00-T02 ni autoriza instalación en producción.
+- Alcance conservado: no se modificaron arquitectura, lógica de SQLite, esquema/base existente ni ruta provisional D-13. Las pruebas automatizadas siguen usando una base temporal aislada.
+- Verificación técnica: SDK 10.0.401 y runtime Windows Desktop 10.0.12 disponibles. `dotnet restore LocalInfantil.sln`, build Debug y Release completaron sin advertencias ni errores; las 4 pruebas automatizadas superaron. La publicación self-contained Release `win-x64` se generó en `artifacts\publish\net10-win-x64` (407 archivos, 148.648.229 bytes), sin bases de datos, respaldos, fuentes, símbolos ni secretos detectados. El ejecutable inició y respondió técnicamente. Validación manual informada por la persona usuaria el 2026-09-21 desde esa carpeta, fuera de Visual Studio: apertura, navegación, SQLite, funcionamiento sin internet, vista previa, impresión de prueba y fluidez correctas, sin problemas observados.
+- Publicación: la primera restauración para RID falló porque el entorno aislado bloqueaba las consultas al feed de NuGet. Los paquetes runtime 10.0.12 ya estaban en caché; `dotnet restore LocalInfantil.sln --runtime win-x64 --ignore-failed-sources --disable-build-servers -m:1` y la publicación posterior sin restore finalizaron correctamente. Esta salida es solo para el equipo de desarrollo x64, no determina la arquitectura del local.

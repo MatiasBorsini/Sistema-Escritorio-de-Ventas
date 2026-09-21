@@ -5,9 +5,9 @@ Estructura inicial para una aplicación de escritorio de un único local de ropa
 ## Requisitos provisionales
 
 - Windows para compilar y ejecutar el proyecto WPF.
-- SDK de .NET 8.0.x o superior compatible con `net8.0`.
+- SDK de .NET 10.0.x compatible con `net10.0`.
 
-El framework objetivo sigue siendo `net8.0` / `net8.0-windows` **de forma provisional** para conservar el esqueleto compilable. .NET 8 finaliza soporte en noviembre de 2026; .NET 10 LTS es la candidata para la decisión final, sujeta a validar la versión, edición y arquitectura del Windows real del local. Ver [DECISIONES.md](docs/DECISIONES.md).
+Los proyectos usan `net10.0` / `net10.0-windows` como migración controlada y verificada en el equipo de desarrollo. .NET 10 es LTS hasta noviembre de 2028. Esto no aprueba su instalación en el local: la edición, versión y arquitectura del Windows real siguen pendientes en F00-T02. Ver [DECISIONES.md](docs/DECISIONES.md).
 
 ## Estructura
 
@@ -33,17 +33,18 @@ dotnet test LocalInfantil.sln --configuration Debug --no-build
 
 ## Publicación de prueba
 
-La publicación actual es una carpeta self-contained de prueba para la arquitectura confirmada del equipo de desarrollo (`win-x64`). No es un instalador ni valida la arquitectura de la PC del local.
+La publicación .NET 10 actual es una carpeta self-contained de prueba para la arquitectura confirmada del equipo de desarrollo (`win-x64`). No es un instalador ni valida la arquitectura de la PC del local. La publicación .NET 8 anterior permanece separada en `artifacts\publish\win-x64`.
 
 ```powershell
-dotnet publish src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --output artifacts\publish\win-x64 --disable-build-servers -m:1 -p:DebugType=None -p:DebugSymbols=false
-.\artifacts\publish\win-x64\LocalInfantil.Wpf.exe
+dotnet restore LocalInfantil.sln --runtime win-x64
+dotnet publish src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts\publish\net10-win-x64 --disable-build-servers -m:1 -p:DebugType=None -p:DebugSymbols=false
+.\artifacts\publish\net10-win-x64\LocalInfantil.Wpf.exe
 ```
 
 La carpeta publicada se puede eliminar sin borrar datos de usuario porque la comprobación SQLite usa `%LOCALAPPDATA%\LocalInfantil\Prototype\`, fuera de `artifacts\publish`. Para borrar solo la publicación de prueba:
 
 ```powershell
-Remove-Item -LiteralPath .\artifacts\publish\win-x64 -Recurse
+Remove-Item -LiteralPath .\artifacts\publish\net10-win-x64 -Recurse
 ```
 
 ## Convenciones
@@ -51,8 +52,8 @@ Remove-Item -LiteralPath .\artifacts\publish\win-x64 -Recurse
 - Código y documentación en español cuando describan el negocio; nombres de tipos y APIs de .NET se mantienen claros y consistentes.
 - `Nullable` e `ImplicitUsings` están habilitados en todos los proyectos.
 - Las dependencias siguen el sentido indicado en `ESTRUCTURA.md`; WPF nunca accede a SQLite directamente.
-- El único paquete de SQLite incorporado para F00-T04 es `Microsoft.Data.Sqlite` 8.0.31; no se utiliza Entity Framework ni otro ORM.
+- El único paquete de SQLite incorporado para F00-T04 es `Microsoft.Data.Sqlite` 10.0.12; no se utiliza Entity Framework ni otro ORM.
 
 ## Estado
 
-Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F00-T02 queda bloqueada hasta validar la PC del local; F00-T06 continúa pendiente de validación visual de la publicación, instalador/desinstalación reales y pruebas en ese equipo.
+Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F00-T02 queda bloqueada hasta validar la PC del local; F00-T06 sigue en curso con la validación manual de la publicación .NET 10 en el equipo de desarrollo ya registrada, y continúa pendiente de instalador/desinstalación reales y pruebas en ese equipo.
