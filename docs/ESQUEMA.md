@@ -147,3 +147,15 @@ Pruebas autom谩ticas en este equipo, no validaci贸n en la PC del local. Cobertur
 
 Sin defectos reales en c贸digo F01: las 4 pruebas nuevas pasaron contra la implementaci贸n existente a la primera (tras corregir el acceso a conexiones en la prueba, sin tocar producci贸n).
 - **Pruebas F01-T04 (solo temporales):** login correcto/incorrecto sin enumeraci贸n, sales 煤nicas por usuario, desactivado y sesi贸n inv谩lida/cierre, denegaci贸n por defecto, matriz de reintegros por rol, autorizaci贸n en Application (ensamblado verificado, sin WPF), sesiones no forjables (forjada y sin sesi贸n rechazadas), bootstrap sin reapertura con desactivados y con rol forzado a Administrador, alta/desactivaci贸n/restablecimiento solo con permiso (incluida propia con actual), denegaci贸n a due帽a/empleada, sin auto-asignaci贸n de Administrador, 煤ltimo admin protegido, admin sin comerciales, ids impredecibles, pol铆tica de longitud, huella anterior y conteo manipulado, auditor铆a sin secretos, mecanismo de huella a nivel repositorio, V2鈫扸3 con datos, respaldo, conservaci贸n y re-ejecuci贸n vac铆a.
+
+## 12. Cat醠ogo F02-T01+T02 (en curso, pendiente de revisi髇)
+
+Implementaci髇 en `feat/f02-products-variants`: `Application/Features/Catalogo/` (`PermisosCatalogo`, `Crear/Editar/DesactivarProducto`, `Crear/Editar/DesactivarVariante`, `ConsultasCatalogo`), `Contracts/DatosCatalogo.cs`, m閠odos agregados a `IRepositorioProductos/Variantes` y sus implementaciones. Sin migraci髇: se reutilizan las tablas V1 (V1/V2/V3 intactas). WPF sin cambios.
+
+- **SKU inmutable y sin reasignaci髇:** `variante.id`, `producto_id` y `sku` no tienen v韆 de modificaci髇 (el repositorio no expone setters y los casos de uso no los aceptan); la unicidad la impone la base. El historial referencia por id, nunca por SKU.
+- **Edici髇 con reemplazo total:** producto (nombre obligatorio, marca/categor韆 reemplazables) y variante (talle/color reemplazables, null los vac韆); el id no cambia. Sin listas cerradas de talles, colores, marcas ni categor韆s.
+- **Desactivaci髇 l骻ica:** variante con cualquier estado; producto solo sin variantes activas (en caso contrario se niega con error expl韈ito, sin cascadas silenciosas). Nada se borra f韘icamente.
+- **Lecturas con sesi髇 vigente** (sin permiso espec韋ico, interino hasta D-03). Propuesta pendiente sin habilitar: capacidad de lectura p鷅lica del cat醠ogo.
+- **Permisos definidos y no concedidos:** `catalogo.productos.gestionar` y `catalogo.variantes.gestionar` no figuran para ning鷑 rol en la matriz productiva (verificado por prueba); las pruebas los conceden en matrices propias.
+- **Pruebas del bloque (solo temporales):** integral de 10 pasos (Remera + variantes, sin talle/color/ambos, edici髇 con ids, SKU exacto, duplicado sin parciales, producto inexistente, desactivaci髇 con historial y auditor韆, rollback compuesto, denegaciones, suite previa verde) + matriz productiva que deniega.
+- **L韒ites:** sin precios, costos, stock inicial, ventas ni b鷖quedas avanzadas (otras tareas); sin escrituras desde WPF; ruta definitiva pendiente (D-13).

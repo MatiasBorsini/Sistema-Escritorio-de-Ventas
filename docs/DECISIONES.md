@@ -130,6 +130,14 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
 - Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación si el Administrador olvida su contraseña (sin maestras ni puertas traseras); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
 
+## D-23 — Catálogo F02-T01+T02 (permisos y reglas de integridad)
+
+- Estado: implementado y probado en `feat/f02-products-variants`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (bloque F02-T01+T02).
+- Decisión: permisos `catalogo.productos.gestionar` y `catalogo.variantes.gestionar` definidos y no concedidos a ningún rol (D-03 pendiente); SKU, producto e id de variante inmutables; edición por reemplazo total sin listas cerradas; desactivación lógica con negativa explícita si el producto conserva variantes activas; lecturas con sesión vigente sin permiso específico (interino); sin migración (tablas V1 reutilizadas).
+- Alcance: sin precios, costos, stock, ventas ni búsquedas avanzadas; sin escrituras desde WPF; base provisional intacta.
+
 ## D-22 — Respaldo local F01-T05 (mecanismo)
 
 - Estado: implementado y probado en `feat/f01-local-backup`; pendiente de revisión.

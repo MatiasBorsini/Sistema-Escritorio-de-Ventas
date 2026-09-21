@@ -163,8 +163,8 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Objetivo:** registrar mercadería sin depender de códigos de barras externos.
 
-- [ ] **F02-T01.** Alta/edición/consulta/desactivación de producto padre, marca, categoría y atributos necesarios; no eliminar productos con historial.
-- [ ] **F02-T02.** Variantes flexibles por talle/color, incluidos artículos sin alguno de esos atributos; SKU interno único y buscable.
+- [x] **F02-T01.** Alta/edición/consulta/desactivación de producto padre, marca, categoría y atributos necesarios; no eliminar productos con historial. Terminado el 2026-09-21 en `feat/f02-products-variants` con F02-T02: casos de uso + repos + permisos definidos sin conceder; 95/95 pruebas; ver `docs/ESQUEMA.md` §12 y D-23. Permisos denegados por defecto hasta D-03; catálogo no operativo para el local. F00-T02 sigue bloqueada y F00-T06 sigue en curso.
+- [x] **F02-T02.** Variantes flexibles por talle/color, incluidos artículos sin alguno de esos atributos; SKU interno único y buscable. Terminado en `feat/f02-products-variants` con F02-T01 (mismo alcance y evidencia).
 - [ ] **F02-T03.** Precio/costo y estado vigente; conservar instantáneas para ventas futuras. Si el método de costo aún no está confirmado, no publicar márgenes definitivos.
 - [ ] **F02-T04.** Búsqueda textual rápida e índices medidos; ficha de producto con variantes, existencias y estado.
 - [ ] **F02-T05.** Grilla de carga inicial de variantes, con separación inequívoca entre **establecer cantidad inicial** y **sumar ingreso**.
@@ -368,5 +368,7 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 | 2026-09-21 | F01-T04 | Terminado en `feat/f01-local-auth`; F00-T02 bloqueada, F00-T06 en curso | PBKDF2-SHA512 220k + política 12–256 + V3 + login/logout/sesiones no forjables/matriz/autorizador + regla Administrador (D-21); restore/build 0/0 y 66/66 pruebas en bases temporales; base provisional intacta | F01-T05…T06; recuperación del Administrador, identidad de su titular, inactividad, matriz D-03 |
 | 2026-09-21 | F01-T05 | Terminado en `feat/f01-local-backup`; F00-T02 bloqueada, F00-T06 en curso | `IServicioRespaldos`/`ServicioRespaldos` reutilizado por el migrador; restore/build 0/0 y 81/81 pruebas (15 de respaldo en temporales, incluido V1→V3 y V2→V3 con respaldo previo y publicación atómica); base provisional intacta | F01-T06; D-09 producción (carpeta, retención, cifrado, restauración, automatismos, Drive) |
 | 2026-09-21 | F01-T06 | Terminado en `feat/f01-integrity-tests`; F00-T02 bloqueada, F00-T06 en curso | Matriz §11 documentada; restore/build 0/0 y 85/85 pruebas en bases temporales (4 nuevas, resto preexistente verificado; sin defectos en código); base provisional intacta | F02; ruta de datos, respaldos, recuperación del Administrador, permisos no confirmados; sin validación en PC del local |
+
+| 2026-09-21 | F02-T01+T02 | Terminado en `feat/f02-products-variants`; F00-T02 bloqueada, F00-T06 en curso | Casos de uso + repos completados + permisos definidos sin conceder (D-23, denegados por defecto); restore/build 0/0 y 95/95 pruebas (10 integrales en temporales + matriz que deniega); sin migración; base provisional intacta | F02-T03…; D-03, D-11, ruta definitiva; catálogo no operativo |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

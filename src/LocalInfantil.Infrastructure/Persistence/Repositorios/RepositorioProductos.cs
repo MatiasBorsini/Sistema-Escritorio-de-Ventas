@@ -54,17 +54,92 @@ public sealed class RepositorioProductos : IRepositorioProductos
                 return null;
             }
 
-            return new ProductoRegistrado(
-                lector.GetString(0),
-                lector.GetString(1),
-                lector.IsDBNull(2) ? null : lector.GetString(2),
-                lector.IsDBNull(3) ? null : lector.GetString(3),
-                lector.GetInt64(4) == 1);
+            return Leer(lector);
         }
         catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
         {
             throw ErroresSqlite.OcupadoException(ex);
         }
+    }
+
+    public async Task ActualizarAsync(ISesionPersistencia sesion, string id, EdicionProducto edicion, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(edicion);
+        var s = Sesion(sesion);
+        ExigirEscritura(s);
+        if (string.IsNullOrWhiteSpace(edicion.Nombre))
+        {
+            throw new ArgumentException("El nombre es obligatorio.", nameof(edicion));
+        }
+
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "UPDATE producto SET nombre = $nombre, marca = $marca, categoria = $categoria WHERE id = $id;";
+            comando.Parameters.AddWithValue("$id", id);
+            comando.Parameters.AddWithValue("$nombre", edicion.Nombre);
+            comando.Parameters.AddWithValue("$marca", (object?)edicion.Marca ?? DBNull.Value);
+            comando.Parameters.AddWithValue("$categoria", (object?)edicion.Categoria ?? DBNull.Value);
+            await comando.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task DesactivarAsync(ISesionPersistencia sesion, string id, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        ExigirEscritura(s);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "UPDATE producto SET activo = 0 WHERE id = $id;";
+            comando.Parameters.AddWithValue("$id", id);
+            await comando.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<IReadOnlyList<ProductoRegistrado>> ListarAsync(ISesionPersistencia sesion, bool soloActivos, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = soloActivos
+                ? "SELECT id, nombre, marca, categoria, activo FROM producto WHERE activo = 1 ORDER BY nombre;"
+                : "SELECT id, nombre, marca, categoria, activo FROM producto ORDER BY nombre;";
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<ProductoRegistrado>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(Leer(lector));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    private static ProductoRegistrado Leer(SqliteDataReader lector)
+    {
+        return new ProductoRegistrado(
+            lector.GetString(0),
+            lector.GetString(1),
+            lector.IsDBNull(2) ? null : lector.GetString(2),
+            lector.IsDBNull(3) ? null : lector.GetString(3),
+            lector.GetInt64(4) == 1);
     }
 
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)
