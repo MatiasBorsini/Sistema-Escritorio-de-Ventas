@@ -47,6 +47,16 @@ La carpeta publicada se puede eliminar sin borrar datos de usuario porque la com
 Remove-Item -LiteralPath .\artifacts\publish\net10-win-x64 -Recurse
 ```
 
+## Instalador de prueba (F00-T06, Inno Setup 6)
+
+El instalador de prueba se genera con Inno Setup 6 a partir de la publicación anterior. Solo están versionados `installer/inno/LocalInfantil-Prototype.iss` y `installer/Build-PrototypeInstaller.ps1`; el Setup generado queda en `artifacts/installer/` (fuera de git). Instala por usuario (sin admin) en `%LOCALAPPDATA%\Programs\LocalInfantil-Prototype`, crea acceso directo en el menú Inicio y se desinstala desde Configuración > Aplicaciones instaladas sin tocar `%LOCALAPPDATA%\LocalInfantil` (D-13 sigue pendiente; la ruta SQLite provisional no cambia). Requiere tener instalado Inno Setup 6 (`ISCC.exe`). No incluye actualizaciones automáticas ni afirma compatibilidad con la PC del local.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\installer\Build-PrototypeInstaller.ps1
+```
+
+El procedimiento de prueba manual con datos ficticios aislados está en `docs/PRUEBAS_MANUALES.md`. No ejecutar instalación/desinstalación sin leerlo: protege la base provisional existente.
+
 ## Convenciones
 
 - Código y documentación en español cuando describan el negocio; nombres de tipos y APIs de .NET se mantienen claros y consistentes.
@@ -56,4 +66,4 @@ Remove-Item -LiteralPath .\artifacts\publish\net10-win-x64 -Recurse
 
 ## Estado
 
-Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F00-T02 queda bloqueada hasta validar la PC del local; F00-T06 sigue en curso con la validación manual de la publicación .NET 10 en el equipo de desarrollo ya registrada, y continúa pendiente de instalador/desinstalación reales y pruebas en ese equipo.
+Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F00-T02 queda bloqueada hasta validar la PC del local; F00-T06 sigue en curso: el instalador de prueba ya se genera y fue validado manualmente en una cuenta local estándar independiente, y resta la validación en ese equipo.

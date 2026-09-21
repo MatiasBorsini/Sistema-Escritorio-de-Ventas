@@ -31,5 +31,6 @@ appsettings.Local.json
 # Publicación e instaladores locales
 [Pp]ublish/
 artifacts/publish/
+artifacts/installer/
 *.msi
 *.exe
