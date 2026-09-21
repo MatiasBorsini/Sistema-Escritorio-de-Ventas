@@ -43,18 +43,19 @@ Mientras tanto, pueden abordarse F00-T03, F00-T04 y F00-T05 usando el framework 
 Se mantienen pendientes D-01 a D-13 de `PLAN.md`. Para F00 afectan especialmente:
 
 - D-08: falta validar el hardware, incluido el Windows real.
-- D-13: falta definir si ambas personas usan la misma sesión de Windows; por ello no se fija todavía la ruta de datos SQLite.
+- D-13: cuenta única de Windows confirmada por el desarrollador el 2026-09-21 (una sola PC, sin uso multi-cuenta); falta concretar la ruta definitiva de producción.
 
 No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promociones, costos, respaldos remotos ni actualizaciones.
 
 ## D-13 — Ruta SQLite provisional para F00-T04
 
-- Estado: pendiente de decisión definitiva; excepción limitada al prototipo implementada.
-- Fecha: 2026-09-20.
-- Fuente: instrucción de F00-T04 de la persona usuaria.
+- Estado: cuenta única confirmada; ruta definitiva de producción todavía pendiente.
+- Fecha: 2026-09-20 (provisional); actualización 2026-09-21.
+- Fuente: instrucción de F00-T04 de la persona usuaria; actualización confirmada por el desarrollador el 2026-09-21 (no es una decisión de la dueña).
+- Decisión registrada: el sistema funcionará en una sola computadora; la dueña y la empleada utilizarán una única cuenta de Windows; no se necesita compartir la base entre diferentes cuentas de Windows. Desaparece la incertidumbre sobre múltiples cuentas: una ruta bajo el perfil único (p. ej. `%LOCALAPPDATA%`) ya no produciría bases separadas por usuario.
 - Implementación provisional: al ejecutar la comprobación técnica desde la aplicación, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`. La construcción de esa ruta está centralizada en `RutaBaseDatosProvisional`; la implementación SQLite recibe cualquier ruta por constructor, por lo que las pruebas inyectan un directorio temporal independiente.
 - Alcance: contiene solamente la tabla técnica `technical_persistence_probe` y un valor generado para comprobar escritura/lectura. No contiene datos reales, entidades ni migraciones comerciales.
-- Decisión no tomada: esta ruta no queda aprobada para producción ni para datos del comercio. Si dueña y empleada usan cuentas distintas de Windows, `%LOCALAPPDATA%` produciría ubicaciones separadas; antes de datos reales se debe resolver la ruta compartida, sus permisos y el criterio de D-13.
+- Decisión no tomada: la ruta definitiva de producción todavía debe concretarse (carpeta exacta, permisos y recuperación), pero ya sin el escenario de cuentas múltiples. Ninguna ruta queda aprobada para datos del comercio hasta esa definición.
 
 ## D-08 — Impresión de prueba en F00-T05
 
