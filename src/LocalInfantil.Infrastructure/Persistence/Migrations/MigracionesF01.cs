@@ -3,7 +3,8 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// <summary>
 /// Catálogo de migraciones F01. La versión 1 crea el esquema inicial:
 /// usuarios, productos, variantes, precios, movimientos de inventario y
-/// estructuras mínimas de ventas, pagos y caja. Ver docs/ESQUEMA.md para
+/// estructuras mínimas de ventas, pagos y caja. La versión 2 agrega el
+/// registro mínimo de auditoría (F01-T03). Ver docs/ESQUEMA.md para
 /// el detalle de tablas, restricciones y decisiones pendientes.
 /// </summary>
 public static class MigracionesF01
@@ -11,6 +12,7 @@ public static class MigracionesF01
     public static IReadOnlyList<Migracion> Todas { get; } = new List<Migracion>
     {
         new(1, "esquema-inicial-f01", SqlV1),
+        new(2, "auditoria-f01", SqlV2),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -127,5 +129,22 @@ public static class MigracionesF01
         CREATE INDEX IF NOT EXISTS ix_venta_linea_venta ON venta_linea(venta_id);
         CREATE INDEX IF NOT EXISTS ix_pago_venta ON pago(venta_id);
         CREATE INDEX IF NOT EXISTS ix_caja_movimiento_sesion ON caja_movimiento(sesion_id);
+        """;
+
+    private const string SqlV2 = """
+        CREATE TABLE IF NOT EXISTS auditoria (
+            id TEXT PRIMARY KEY,
+            operacion_id TEXT NOT NULL CHECK (operacion_id <> ''),
+            tipo_evento TEXT NOT NULL CHECK (tipo_evento <> ''),
+            actor_tipo TEXT NOT NULL CHECK (actor_tipo IN ('usuario', 'sistema')),
+            actor_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            referencia_tipo TEXT NULL,
+            referencia_id TEXT NULL,
+            detalle TEXT NULL,
+            creado_en TEXT NOT NULL,
+            CHECK (actor_tipo <> 'usuario' OR actor_id IS NOT NULL)
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_auditoria_operacion ON auditoria(operacion_id);
         """;
 }

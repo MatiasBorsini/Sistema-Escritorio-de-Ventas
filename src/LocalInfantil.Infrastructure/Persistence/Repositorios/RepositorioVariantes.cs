@@ -7,12 +7,19 @@ namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 
 public sealed class RepositorioVariantes : IRepositorioVariantes
 {
+    private readonly IGeneradorIds _ids;
+
+    public RepositorioVariantes(IGeneradorIds ids)
+    {
+        _ids = ids ?? throw new ArgumentNullException(nameof(ids));
+    }
+
     public async Task<string> InsertarAsync(ISesionPersistencia sesion, NuevaVariante datos, string creadoEn, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(datos);
         var s = Sesion(sesion);
         ExigirEscritura(s);
-        var id = Guid.NewGuid().ToString("N");
+        var id = _ids.NuevoId();
         try
         {
             using var comando = s.Conexion.CreateCommand();

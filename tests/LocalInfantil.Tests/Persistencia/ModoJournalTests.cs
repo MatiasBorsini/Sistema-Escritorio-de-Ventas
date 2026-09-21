@@ -1,4 +1,5 @@
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Persistence.Migrations;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
@@ -24,7 +25,7 @@ public sealed class ModoJournalTests
 
             Assert.Equal("wal", await fabrica.EstablecerJournalAsync("wal"));
 
-            var repositorio = new RepositorioProductos();
+            var repositorio = new RepositorioProductos(new GeneradorIds());
             string id;
             await using (var sesion = await fabrica.IniciarAsync())
             {
@@ -53,7 +54,7 @@ public sealed class ModoJournalTests
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
             Assert.Equal("wal", await fabrica.EstablecerJournalAsync("wal"));
 
-            var repositorio = new RepositorioProductos();
+            var repositorio = new RepositorioProductos(new GeneradorIds());
             string idConfirmado;
             await using (var sesion = await fabrica.IniciarAsync())
             {
@@ -87,7 +88,7 @@ public sealed class ModoJournalTests
 
             Assert.Equal("delete", await fabrica.EstablecerJournalAsync("delete"));
 
-            var repositorio = new RepositorioProductos();
+            var repositorio = new RepositorioProductos(new GeneradorIds());
             string id;
             await using (var sesion = await fabrica.IniciarAsync())
             {

@@ -105,3 +105,11 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Decisión: modo de journaling **WAL**, establecido una sola vez por base (nunca en cada apertura). Motivo: en una PC de un solo puesto, los lectores (UI, futuros respaldos durante ventas) no se bloquean ante escritores; recuperación estándar ante cierres; archivos `-wal`/`-shm` transitorios ya ignorados en git. El diario convencional (`delete`) también se verificó funcional como base de comparación. Esta decisión NO afirma resistencia a cortes eléctricos.
 - Alcance: `FabricaConexionesSqlite` (ruta explícita, `foreign_keys` y `busy_timeout` por conexión, `CommandTimeout` derivado y en cada comando incluidos pragmas), sesiones de escritura (`BEGIN IMMEDIATE`) y lectura (sin transacción), `AlmacenamientoOcupadoException` solo para `BUSY`/`LOCKED` (el resto, incluido `INTERRUPT`, se propaga sin disfrazar) sin reintentos automáticos, migrador con 60 s por comando, repositorios mínimos (productos, variantes, precios, movimientos) con interfaces en Application. Hallazgo: el `BeginTransaction()` implícito colgaba ~30 s ante contienda; el control explícito con tiempos configurados lo redujo al tiempo esperado (prueba con límite de 15 s, código 5 verificado).
 - D-13 sigue pendiente (ruta definitiva de producción); la base provisional de F00 no fue tocada.
+
+## D-19 — Operaciones, reloj y auditoría F01-T03
+
+- Estado: implementado y probado en `feat/f01-operation-audit`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (F01-T03).
+- Decisión: identificadores centralizados e inyectables (`IGeneradorIds`; GUID sin guiones en producción); reloj UTC inyectable (`IReloj`; sistema en producción, fijo en pruebas; formato `"o"` al persistir); auditoría mínima en tabla `auditoria` (migración V2, sin alterar V1) con `operacion_id`, `tipo_evento` libre, `actor_tipo` usuario/sistema con `actor_id` obligatorio para usuario, referencia opcional y detalle sin secretos. `operacion_id` correlaciona pero no garantiza idempotencia por sí solo. Negocio y auditoría comparten sesión/transacción.
+- Alcance: sin permisos (F01-T04), sin autenticación, sin respaldos generales (F01-T05), sin ventas ni catálogo; sin cableado al arranque; base provisional intacta.

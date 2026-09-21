@@ -7,12 +7,19 @@ namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 
 public sealed class RepositorioPrecios : IRepositorioPrecios
 {
+    private readonly IGeneradorIds _ids;
+
+    public RepositorioPrecios(IGeneradorIds ids)
+    {
+        _ids = ids ?? throw new ArgumentNullException(nameof(ids));
+    }
+
     public async Task<string> FijarAsync(ISesionPersistencia sesion, NuevoPrecio datos, string creadoEn, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(datos);
         var s = Sesion(sesion);
         ExigirEscritura(s);
-        var id = Guid.NewGuid().ToString("N");
+        var id = _ids.NuevoId();
         try
         {
             using var comando = s.Conexion.CreateCommand();

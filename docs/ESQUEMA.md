@@ -29,6 +29,8 @@
 
 Índices (todos justificados por consultas de conciliación): `ix_variante_producto`, `ix_precio_variante`, `ix_movimiento_variante`, `ix_venta_linea_venta`, `ix_pago_venta`, `ix_caja_movimiento_sesion`.
 
+La migración V2 agrega `auditoria` (ver §8); V1 publicada en main no se modificó.
+
 ## 3. Migraciones: reglas obligatorias
 
 1. Versión identificable (`schema_migrations`), ejecución única, en orden, cada una en su transacción.
@@ -86,3 +88,15 @@ Implementación: `Application/Abstractions/` (`ISesionPersistencia`, `IFabricaSe
 - **Bloqueos sin reintentos:** solo `SQLITE_BUSY` (5) y `SQLITE_LOCKED` (6) se traducen a `AlmacenamientoOcupadoException` con la técnica anidada; `SQLITE_INTERRUPT` (9) y el resto se propagan sin disfrazar. No hay reintentos automáticos de escritura: repetir podría duplicar una operación ya confirmada. Un tiempo vencido en la confirmación deja estado desconocido: no reintentar a ciegas, conciliar con `operacion_id`.
 - **Tiempos en todos los comandos:** cada comando de sesiones, repositorios, fábrica (incluidos pragmas y `BEGIN IMMEDIATE`) y migrador (60 s fijos, con holgura para `VACUUM INTO`) lleva `CommandTimeout` explícito; no hay bucles de reintento en el código.
 - **Pruebas F01-T02 (solo temporales):** FK activas en cada conexión; escritura/lectura/cierre/reapertura por repositorios; bloqueo entre conexiones con fallo rápido mapeado (< 15 s, código 5) y sin parciales; rollback compuesto ante error intermedio; round-trip de precios (vigencia) y movimientos (suma); opciones inválidas rechazadas; distinción 5/6 frente a 9/1/19 sin disfrazar; journal WAL/delete, persistencia, integridad y estabilidad del modo.
+
+## 8. Operaciones, reloj y auditoría F01-T03 (en curso, pendiente de revisión)
+
+Implementación en `feat/f01-operation-audit`: `IGeneradorIds`/`GeneradorIds` (GUID sin guiones, como V1) con `GeneradorIdsSecuencial` para pruebas; `IReloj`/`RelojSistema` (UTC) con `RelojFijo` para pruebas; migración V2 `auditoria-f01`; `IRepositorioAuditoria`/`RepositorioAuditoria` (recibe generador y reloj, escribe en la misma sesión de la operación).
+
+- **Identificadores:** centralizados e inyectables; los 4 repositorios V1 ahora reciben `IGeneradorIds` (antes `Guid` directo; la sonda F00 y el migrador no se tocaron, fuera de alcance). Consultar devuelve los ids guardados, nunca genera nuevos.
+- **Reloj:** `DateTimeOffset` UTC formateado `"o"` al persistir (misma convención §1). El código nuevo no usa `DateTime.UtcNow` disperso; el existente del migrador se conserva sin refactorizar.
+- **Auditoría (`auditoria`):** `operacion_id`, `tipo_evento` (texto libre, sin taxonomía inventada), `actor_tipo IN ('usuario','sistema')` con `actor_id` obligatorio para `usuario` (restricción a nivel de base: no se atribuye a una persona sin conocerla; `actor_id` referencia a `usuario`), `referencia_tipo`/`referencia_id` libres cuando corresponda, `detalle` sin secretos, `creado_en`, índice por `operacion_id`. Sin permisos (F01-T04).
+- **`operacion_id` correlaciona pero no garantiza idempotencia por sí solo:** permite rastrear qué registros pertenecen a la misma operación; la protección contra duplicados (p. ej. doble confirmación) se implementará sobre esta base en F04 y requiere verificación explícita antes de reejecutar.
+- **Atomicidad conjunta:** negocio + auditoría comparten sesión/transacción (demostrado con operación ficticia: producto de prueba + 2 eventos; ante fallo de un evento, ni el producto ni la auditoría persisten).
+- **Pruebas F01-T03 (solo temporales):** ids distintos y estables; reloj fijo determinista; escritura/lectura/correlación; rollback conjunto; actor sin id rechazado; V1→V2 real con datos ficticios, respaldo verificado, conservación y re-ejecución vacía.
+- **Límites:** sin cableado al arranque; sin autenticación/permisos (F01-T04); sin respaldos generales (F01-T05); sin ventas ni catálogo comercial; ruta definitiva pendiente (D-13).

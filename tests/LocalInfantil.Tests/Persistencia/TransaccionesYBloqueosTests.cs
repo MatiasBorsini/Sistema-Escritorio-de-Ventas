@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Persistence.Migrations;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
@@ -23,7 +24,7 @@ public sealed class TransaccionesYBloqueosTests
         {
             await new MigradorBaseDatos(ruta).MigrarAsync();
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
-            var variantes = new RepositorioVariantes();
+            var variantes = new RepositorioVariantes(new GeneradorIds());
 
             await using (var primera = await fabrica.IniciarAsync())
             {
@@ -51,8 +52,8 @@ public sealed class TransaccionesYBloqueosTests
         {
             await new MigradorBaseDatos(ruta).MigrarAsync();
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
-            var productos = new RepositorioProductos();
-            var variantes = new RepositorioVariantes();
+            var productos = new RepositorioProductos(new GeneradorIds());
+            var variantes = new RepositorioVariantes(new GeneradorIds());
 
             string productoId;
             await using (var sesion = await fabrica.IniciarAsync())
@@ -85,7 +86,7 @@ public sealed class TransaccionesYBloqueosTests
             await new MigradorBaseDatos(ruta).MigrarAsync();
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
             var rapida = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta, esperaBloqueoMs: 500));
-            var productos = new RepositorioProductos();
+            var productos = new RepositorioProductos(new GeneradorIds());
 
             await using var bloqueo = await fabrica.IniciarAsync();
             await productos.InsertarAsync(bloqueo, new NuevoProducto("Bloqueante", null, null), Fecha1);
@@ -104,7 +105,7 @@ public sealed class TransaccionesYBloqueosTests
             await bloqueo.RevertirAsync();
 
             await using var verificacion = await fabrica.IniciarAsync();
-            var movimientos = new RepositorioMovimientos();
+            var movimientos = new RepositorioMovimientos(new GeneradorIds());
             Assert.Equal(0, await movimientos.SumarPorVarianteAsync(verificacion, "sin-variante"));
         }
         finally
@@ -121,8 +122,8 @@ public sealed class TransaccionesYBloqueosTests
         {
             await new MigradorBaseDatos(ruta).MigrarAsync();
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
-            var productos = new RepositorioProductos();
-            var variantes = new RepositorioVariantes();
+            var productos = new RepositorioProductos(new GeneradorIds());
+            var variantes = new RepositorioVariantes(new GeneradorIds());
 
             string productoId;
             await using (var sesion = await fabrica.IniciarAsync())
@@ -151,10 +152,10 @@ public sealed class TransaccionesYBloqueosTests
         {
             await new MigradorBaseDatos(ruta).MigrarAsync();
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
-            var productos = new RepositorioProductos();
-            var variantes = new RepositorioVariantes();
-            var precios = new RepositorioPrecios();
-            var movimientos = new RepositorioMovimientos();
+            var productos = new RepositorioProductos(new GeneradorIds());
+            var variantes = new RepositorioVariantes(new GeneradorIds());
+            var precios = new RepositorioPrecios(new GeneradorIds());
+            var movimientos = new RepositorioMovimientos(new GeneradorIds());
 
             string varianteId;
             await using (var sesion = await fabrica.IniciarAsync())

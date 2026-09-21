@@ -7,12 +7,19 @@ namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 
 public sealed class RepositorioMovimientos : IRepositorioMovimientos
 {
+    private readonly IGeneradorIds _ids;
+
+    public RepositorioMovimientos(IGeneradorIds ids)
+    {
+        _ids = ids ?? throw new ArgumentNullException(nameof(ids));
+    }
+
     public async Task<string> RegistrarAsync(ISesionPersistencia sesion, NuevoMovimiento datos, string creadoEn, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(datos);
         var s = Sesion(sesion);
         ExigirEscritura(s);
-        var id = Guid.NewGuid().ToString("N");
+        var id = _ids.NuevoId();
         try
         {
             using var comando = s.Conexion.CreateCommand();

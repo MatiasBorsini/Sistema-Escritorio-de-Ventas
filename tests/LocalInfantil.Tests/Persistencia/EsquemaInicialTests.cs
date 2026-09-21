@@ -15,7 +15,7 @@ public sealed class EsquemaInicialTests
         var (directorio, ruta) = CrearBaseTemporal();
         try
         {
-            var aplicadas = await new MigradorBaseDatos(ruta).MigrarAsync();
+            var aplicadas = await new MigradorBaseDatos(ruta).MigrarAsync(CatalogoV1(), null);
 
             Assert.Equal(new[] { 1 }, aplicadas);
 
@@ -60,8 +60,8 @@ public sealed class EsquemaInicialTests
         {
             var migrador = new MigradorBaseDatos(ruta);
 
-            var primera = await migrador.MigrarAsync();
-            var segunda = await migrador.MigrarAsync();
+            var primera = await migrador.MigrarAsync(CatalogoV1(), null);
+            var segunda = await migrador.MigrarAsync(CatalogoV1(), null);
 
             Assert.Equal(new[] { 1 }, primera);
             Assert.Empty(segunda);
@@ -193,7 +193,7 @@ public sealed class EsquemaInicialTests
         var respaldos = Path.Combine(directorio, "respaldos");
         try
         {
-            var catalogoV1 = MigracionesF01.Todas;
+            var catalogoV1 = CatalogoV1();
             Assert.Equal(new[] { 1 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null));
 
             await InsertarRegistrosFicticiosAsync(ruta);
@@ -239,7 +239,7 @@ public sealed class EsquemaInicialTests
         var (directorio, ruta) = CrearBaseTemporal();
         try
         {
-            var catalogoV1 = MigracionesF01.Todas;
+            var catalogoV1 = CatalogoV1();
             await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null);
             await InsertarRegistrosFicticiosAsync(ruta);
 
@@ -275,7 +275,7 @@ public sealed class EsquemaInicialTests
         var respaldos = Path.Combine(directorio, "respaldos");
         try
         {
-            var catalogoV1 = MigracionesF01.Todas;
+            var catalogoV1 = CatalogoV1();
             await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null);
             await InsertarRegistrosFicticiosAsync(ruta);
 
@@ -318,7 +318,7 @@ public sealed class EsquemaInicialTests
         var (directorio, ruta) = CrearBaseTemporal();
         try
         {
-            var catalogoV1 = MigracionesF01.Todas;
+            var catalogoV1 = CatalogoV1();
             await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null);
             await InsertarRegistrosFicticiosAsync(ruta);
 
@@ -428,7 +428,7 @@ public sealed class EsquemaInicialTests
                 await legado.ExecuteNonQueryAsync();
             }
 
-            var catalogoV2 = MigracionesF01.Todas
+            var catalogoV2 = CatalogoV1()
                 .Concat(new[]
                 {
                     new Migracion(
@@ -492,6 +492,15 @@ public sealed class EsquemaInicialTests
         using var comando = conexion.CreateCommand();
         comando.CommandText = "PRAGMA integrity_check;";
         return await comando.ExecuteScalarAsync() as string;
+    }
+
+    /// <summary>
+    /// Catálogo fijado a V1 para las pruebas del esquema inicial: el catálogo
+    /// productivo crece con cada migración y estos tests verifican V1.
+    /// </summary>
+    private static List<Migracion> CatalogoV1()
+    {
+        return MigracionesF01.Todas.Where(m => m.Version == 1).ToList();
     }
 
     private static (string Directorio, string Ruta) CrearBaseTemporal()
