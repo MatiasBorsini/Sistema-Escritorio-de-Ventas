@@ -1,0 +1,35 @@
+# Resultados de compilación y configuración local
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Bases SQLite y archivos transitorios: los datos operativos no pertenecen al repositorio.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Respaldos, diagnósticos y secretos
+backups/
+logs/
+*.log
+*.bak
+*.pfx
+*.p12
+*.pem
+*.key
+*.token
+secrets.json
+appsettings.Local.json
+
+# Publicación e instaladores locales
+[Pp]ublish/
+artifacts/publish/
+*.msi
+*.exe

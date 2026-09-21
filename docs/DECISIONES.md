@@ -1,0 +1,76 @@
+# Decisiones técnicas y pendientes
+
+## D-00 — Framework provisional de F00-T01
+
+- Estado: provisional.
+- Fecha: 2026-09-20.
+- Fuente: estructura inicial de Codex; no es una decisión de la dueña.
+- Decisión: los proyectos usan `net8.0`; el ejecutable WPF usa `net8.0-windows`.
+- Motivo: el entorno de desarrollo tiene el SDK 8.0 y el runtime Windows Desktop 8.0 instalados; .NET 8 es LTS y permite compilar el esqueleto sin agregar dependencias.
+- Criterio para confirmar o reemplazar: F00-T02 debe comprobar versión, edición y arquitectura del Windows de la PC del local, además del soporte vigente del framework elegido. No se realizará despliegue con esta decisión sin esa validación.
+
+## D-00 — Actualización F00-T02: versión de .NET y compatibilidad Windows
+
+- Estado: **provisional; decisión final bloqueada por falta de acceso a la PC del local**.
+- Fecha: 2026-09-20.
+- Fuente: verificación local y documentación oficial de Microsoft.
+- Candidata recomendada para decidir al validar el equipo: **.NET 10 LTS**. Microsoft indica soporte hasta el 14 de noviembre de 2028, mientras que .NET 8 LTS finaliza el 10 de noviembre de 2026. Fuentes: [ciclo de vida de .NET](https://learn.microsoft.com/lifecycle/products/microsoft-net-and-net-core) y [versiones y soporte de .NET](https://learn.microsoft.com/dotnet/core/releases-and-support).
+- Decisión actual: no se modifica ningún `TargetFramework`; se conserva `net8.0` / `net8.0-windows` únicamente para mantener el esqueleto compilable hasta validar el equipo real. No es una plataforma aprobada para instalar en el local, porque su soporte termina en noviembre de 2026.
+- Compatibilidad oficial con Windows 10: la tabla vigente de Microsoft limita Windows 10 a las ediciones LTSC y Enterprise; incluye las versiones 21H2, 1809 y 1607 de esos canales para .NET 8 y .NET 10. Por lo tanto, no se puede afirmar soporte oficial para una PC con Windows 10 de edición, versión o arquitectura desconocidas. Fuente: [instalación de .NET en Windows](https://learn.microsoft.com/dotnet/core/install/windows).
+- Distinción necesaria: una aplicación puede llegar a ejecutarse en un Windows no cubierto por esa tabla, pero Microsoft no la prueba ni da soporte oficial cuando el sistema operativo no tiene soporte. Esa posibilidad no habilita una decisión de despliegue.
+- Arquitectura: el proyecto no fija plataforma de CPU. La documentación oficial lista x86, x64 y Arm64 para .NET 8 y .NET 10 en las ediciones Windows 10 compatibles; la arquitectura real del local sigue sin confirmarse.
+
+### Verificaciones ejecutadas en el entorno de desarrollo
+
+- Entorno disponible: Windows `10.0.22631`, RID `win-x64`; es un entorno de desarrollo Windows 11, no evidencia sobre la PC del local.
+- SDK instalados: .NET SDK 8.0.424 y 9.0.304. Runtimes Desktop: 8.0.19, 8.0.30 y 9.0.8. No hay SDK ni runtime .NET 10, por lo que no fue posible compilar la alternativa .NET 10 localmente sin instalar componentes nuevos.
+- `dotnet build LocalInfantil.sln --configuration Debug --no-restore`: correcto, 0 advertencias y 0 errores.
+- `dotnet test LocalInfantil.sln --configuration Debug --no-build`: correcto, 1 de 1 prueba superada.
+- Se inició temporalmente `LocalInfantil.Wpf.exe`: el proceso permaneció activo y respondía. La sesión de automatización no expuso una ventana nativa y el proceso no informó un identificador de ventana, por lo que **la apertura visual de `MainWindow` no queda verificada**. El proceso se cerró al finalizar la comprobación.
+- Rendimiento: no se evaluó en la PC objetivo ni con la carga funcional futura. El consumo observado durante el intento de arranque del esqueleto no representa una medición del sistema del local.
+
+### Validación obligatoria pendiente en la PC del local
+
+1. Registrar edición, versión/build, canal de soporte y arquitectura de Windows.
+2. Confirmar que ese Windows sigue en soporte oficial y que aparece en la matriz de .NET de la versión elegida.
+3. Instalar el runtime **Desktop** de la versión aprobada y abrir el prototipo WPF en sesión interactiva.
+4. Medir de forma cualitativa el arranque y la respuesta con la memoria disponible; el hardware estimado de 4 GB no está confirmado.
+
+Mientras tanto, pueden abordarse F00-T03, F00-T04 y F00-T05 usando el framework provisional, sabiendo que deberán recompilarse y repetirse sus verificaciones si la decisión final cambia. Esta tarea no inicia esas fases.
+
+## Decisiones del plan aún abiertas
+
+Se mantienen pendientes D-01 a D-13 de `PLAN.md`. Para F00 afectan especialmente:
+
+- D-08: falta validar el hardware, incluido el Windows real.
+- D-13: falta definir si ambas personas usan la misma sesión de Windows; por ello no se fija todavía la ruta de datos SQLite.
+
+No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promociones, costos, respaldos remotos ni actualizaciones.
+
+## D-13 — Ruta SQLite provisional para F00-T04
+
+- Estado: pendiente de decisión definitiva; excepción limitada al prototipo implementada.
+- Fecha: 2026-09-20.
+- Fuente: instrucción de F00-T04 de la persona usuaria.
+- Implementación provisional: al ejecutar la comprobación técnica desde la aplicación, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`. La construcción de esa ruta está centralizada en `RutaBaseDatosProvisional`; la implementación SQLite recibe cualquier ruta por constructor, por lo que las pruebas inyectan un directorio temporal independiente.
+- Alcance: contiene solamente la tabla técnica `technical_persistence_probe` y un valor generado para comprobar escritura/lectura. No contiene datos reales, entidades ni migraciones comerciales.
+- Decisión no tomada: esta ruta no queda aprobada para producción ni para datos del comercio. Si dueña y empleada usan cuentas distintas de Windows, `%LOCALAPPDATA%` produciría ubicaciones separadas; antes de datos reales se debe resolver la ruta compartida, sus permisos y el criterio de D-13.
+
+## D-08 — Impresión de prueba en F00-T05
+
+- Estado: prototipo validado; pendiente de validación con la impresora y la PC del local.
+- Fecha: 2026-09-20.
+- Fuente: instrucción de F00-T05 de la persona usuaria.
+- Implementación: se usa únicamente WPF estándar (`FixedDocument`, `DocumentViewer` y `PrintDialog`), sin biblioteca externa ni modelo de impresora supuesto. El documento contiene datos ficticios y se etiqueta como prueba, no como factura ni venta.
+- Flujo: primero se abre una vista previa modal; desde ella, «Imprimir…» abre el diálogo nativo de Windows para seleccionar impresora y confirmar. Cancelar no envía ningún trabajo y los errores se muestran en la misma vista.
+- Validación de prototipo informada por la persona usuaria: vista previa correcta, cancelación sin trabajo e impresión correcta mediante Microsoft Print to PDF.
+- Pendiente: de forma obligatoria antes de producción, repetir la prueba con la impresora física y la PC del local.
+
+## D-14 — Publicación de prueba F00-T06
+
+- Estado: provisional; no es instalador ni decisión de despliegue.
+- Fecha: 2026-09-20.
+- Fuente: publicación técnica de F00-T06 solicitada por la persona usuaria.
+- Decisión: se generó una carpeta self-contained Release para `win-x64` en `artifacts\publish\win-x64`, porque el equipo de desarrollo informa ese RID. El ejecutable contiene el runtime y dependencias necesarias para ese destino, sin requerir que el equipo de prueba tenga instalado el runtime .NET 8.
+- Límites: no se infiere que la PC del local sea x64 ni se modifica F00-T02. La carpeta no es un instalador; no se probaron instalación/desinstalación ni actualización. La ruta SQLite permanece fuera de ella, en la ubicación provisional de D-13.
+- Evidencia: carpeta generada sin bases de datos, respaldos, fuentes ni símbolos de depuración; el ejecutable se validó manualmente fuera de Visual Studio con navegación, SQLite, reapertura, vista previa, diálogo/cancelación de impresión, operación offline y fluidez cualitativa correctas.

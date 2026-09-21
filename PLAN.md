@@ -1,0 +1,362 @@
+# PLAN.md — Sistema de gestión para local de ropa infantil
+
+> **Versión del plan:** 1.0 · **Estado:** planificación técnica inicial · **Idioma del proyecto:** español.
+>
+> Documento de trabajo para el desarrollador y para Codex. Este archivo **no certifica que un requisito no validado haya sido aprobado por la dueña**. Actualizar las decisiones y los estados a medida que se resuelvan.
+
+## 0. Objetivo y límites
+
+Construir una aplicación de escritorio para gestionar un **único local de ropa infantil en Argentina**, utilizada en **una computadora Windows** por la dueña y su empleada. Las operaciones de mostrador deben funcionar **sin internet**. El software debe ser ágil en una PC potencialmente antigua (estimación no verificada: i3 antiguo, 4 GB RAM, SSD y Windows 10).
+
+El negocio necesita trabajar con prendas y variantes (talle/color), ventas y pagos, inventario, recepción de mercadería, caja, cambios/devoluciones y posiblemente cuentas corrientes. El sistema es deliberadamente **flexible en decisiones comerciales**, pero estricto en integridad de datos, movimientos de dinero y trazabilidad.
+
+**Fuera de alcance inicial:** varias sucursales, acceso remoto de la dueña, servidor propio, e-commerce, aplicación móvil, sincronización entre varias cajas y reservas/señas (reservadas para una versión posterior). No agregar ninguna de estas características sin una decisión explícita.
+
+### 0.1. Decisiones confirmadas
+
+- Plataforma: aplicación de escritorio **Windows**, **una sola PC**, operación local/offline.
+- Usuarios: **dueña y empleada**; los permisos serán configurables. Ambas pueden autorizar devoluciones de dinero. La dueña decide el medio de reintegro excepcional; el medio habitual es efectivo.
+- Medios de cobro que el local acepta: **efectivo, transferencia, tarjeta de débito, tarjeta de crédito y billeteras virtuales**. Contemplar pagos combinados.
+- La mercadería llega **sin códigos de barras**. Existe **impresora común**; no dar por adquiridos lector ni impresora de etiquetas.
+- Cambios: por talle/color y por otros productos; reconocer el **importe originalmente pagado**; si el artículo nuevo es más caro, cobrar la diferencia; si es más barato, el cliente puede agregar productos y se reintegra el remanente.
+- Devoluciones con reintegro: permitidas. **Dueña y empleada** pueden autorizarlas; efectivo es el medio normal.
+- Promoción específica de dos prendas: la **devolución voluntaria parcial** normalmente requiere devolver ambas; cambiar el talle de una puede conservar la promoción cuando se mantienen sus condiciones. No extrapolar esta regla a todas las promociones ni a reclamos amparados por derechos legales.
+- Plazos de cambios: **no bloquear por vencimiento**; permitir excepciones comerciales con registro.
+- Reservas y señas: **versión posterior**.
+- La dueña **no necesita acceso remoto**.
+- Respaldo remoto: **Google Drive**, con copias **cada dos horas y al cerrar caja**; funcionamiento offline implica cola de pendientes y reintentos al volver la conexión.
+- Desarrollo incremental: primera versión funcional seguida por ampliaciones.
+- Actualizaciones automáticas cuando exista internet, con instalación **controlada en un momento seguro**, no durante una venta.
+
+### 0.2. Decisiones técnicas provisionales, NO irrevocables
+
+- **C# + WPF + SQLite** como candidato inicial. Comprobar compatibilidad de la versión elegida de .NET con el Windows real antes de fijarla y antes de instalar en producción; no seleccionar una versión sin soporte para salir del paso.
+- Una solución .NET modular **sin servidor HTTP, microservicios ni contenedores**. No añadir dependencias porque sí.
+- SQLite como archivo local fuera de `Program Files` y fuera de la carpeta del instalador; transacciones explícitas, claves foráneas, migraciones versionadas y copias consistentes.
+- Se priorizan controles WPF estándar, navegación por teclado y virtualización de listas. No incluir estilos/animaciones pesadas sin necesidad.
+
+### 0.3. Decisiones pendientes: NO INVENTAR
+
+| ID | Tema | Qué falta resolver | Tratamiento mientras tanto |
+|---|---|---|---|
+| D-01 | Facturación fiscal | Procedimiento real y definición con contador; integración vs. emisión externa; cómo vincular comprobantes | Registrar referencia fiscal opcional; **no presentar un ticket interno como factura**. Bloquea salida a producción sin procedimiento confirmado. |
+| D-02 | Cuentas corrientes | Confirmar uso efectivo, límites, plazos, quién autoriza nuevas ventas fiadas y pagos parciales | Diseñar extensión; no activar venta fiada sin política validada. |
+| D-03 | Permisos | Matriz completa dueña/empleada: descuentos, ajustes, ventas fiadas, anulación, reportes, costos | Infraestructura configurable; solo fijar reintegros ya confirmados. |
+| D-04 | Excepciones de reintegro | Cómo registra la dueña autorización de otro medio si no está presente | Mantener efectivo como flujo normal; no inventar autorización remota. |
+| D-05 | Política de promociones | Otras promociones y condiciones para mantener/recalcular descuentos | Soportar vínculo entre líneas de venta y promoción; implementar únicamente reglas confirmadas. |
+| D-06 | Cambios | Comprobantes/identificación alternativa, estado de producto, tratamiento de descuentos de varios artículos | Diseñar estructura flexible; no introducir bloqueos arbitrarios. |
+| D-07 | Costos | Criterio de valoración de reposiciones y margen bruto | Guardar costos históricos cuando se acuerde el método; no mostrar ganancia neta ficticia. |
+| D-08 | Hardware | Modelo de impresora, versión/edición/arquitectura real de Windows, rendimiento | Usar impresión estándar en prototipo; validar PC real antes del despliegue. |
+| D-09 | Respaldo | Retención, cifrado/recuperación de clave, ubicación de copia local, ejecución con POS cerrado | Diseñar opciones y registrar decisión antes de poner datos reales. |
+| D-10 | Actualizaciones | Proveedor/canal de publicación, firma, política de instalación y recuperación | Desarrollar una actualización de prueba antes de producción. |
+| D-11 | Identificación | Convención de códigos internos, etiquetas futuras, talles reales, artículos sin variantes | Soportar SKU interno y entrada manual, sin depender de lector. |
+| D-12 | Obligaciones comerciales | Verificación de políticas de cambios, promociones, medios de pago y reintegros aplicables en Argentina | Validar con dueña/contador y asesoramiento adecuado; no implementar reglas incompatibles con obligaciones legales. |
+| D-13 | Usuarios de Windows y ruta de datos | ¿La dueña y la empleada comparten sesión de Windows o tienen cuentas distintas? | No fijar `%LOCALAPPDATA%` sin comprobarlo; si son cuentas distintas, evaluar ruta compartida protegida y permisos. Ver `ESTRUCTURA.md`. |
+
+**Regla de decisiones:** actualizar esta tabla con fecha, respuesta, fuente (dueña/desarrollador/contador), impacto y criterio de aceptación; no sustituir «pendiente» por una suposición.
+
+---
+
+## 1. Instrucciones permanentes para Codex
+
+1. **Leer todo `PLAN.md` y el código relevante antes de cambiar archivos.** Identificar fase activa, tarea concreta, dependencias y pendientes.
+2. **Implementar una sola tarea identificada (ej. F02-T03) por iteración.** No avanzar de fase por cuenta propia ni generar toda la app en una solicitud.
+3. Antes de programar, comunicar brevemente: alcance, archivos previstos, dependencias, migraciones y pruebas. Si una decisión pendiente bloquea la tarea, detener únicamente ese punto y continuar con trabajo independiente; **no inventar reglas de negocio**.
+4. Mantener **interfaz / aplicación / dominio / infraestructura** separadas sin crear abstracciones innecesarias. Nada de SQL dentro de controles XAML ni lógica de negocio en code-behind. Se admite code-behind limitado a detalles visuales.
+5. No eliminar ventas, cobros, movimientos de stock ni asientos de cuenta corriente para corregir errores: usar anulaciones, reversos o movimientos compensatorios auditables.
+6. En cada operación que altere venta, pagos, caja, deuda o stock, usar **transacciones atómicas**, validación e identificadores de operación. Prevenir confirmaciones duplicadas.
+7. Manejar dinero mediante representaciones decimales exactas (`decimal` en C# y un formato persistido exacto definido explícitamente, preferentemente unidades menores enteras si la política de precios lo permite). **No usar `double`/`float` para importes.** Definir y probar redondeos antes de aplicarlos.
+8. Priorizar rendimiento: consultas paginadas, índices justificados, virtualización de grillas, tareas de I/O fuera del hilo UI. No cargar el catálogo entero al iniciar.
+9. No exponer credenciales de Drive ni claves de cifrado en repositorio, logs, muestras o instalador. Guardar secretos mediante mecanismo seguro compatible con Windows.
+10. Escribir pruebas del dominio y de integración para cada operación relevante; realizar pruebas manuales para impresión, instalador y restauración. **Compilar no equivale a probar.**
+11. Cualquier migración de esquema requiere versión, ensayo sobre una copia, respaldo anterior, verificación y tratamiento explícito de fallos. No reescribir datos históricos silenciosamente.
+12. Al cerrar cada tarea, informar: cambios, pruebas ejecutadas y resultados reales, limitaciones, decisiones pendientes y próximo paso propuesto. Solo marcar `[x]` si se verificaron todos los criterios.
+13. No agregar acceso remoto, API web, módulos de marketing, fiado habilitado ni integraciones fiscales sin requerimiento validado.
+14. Mantener el proyecto construible después de cada tarea. Proteger los datos de prueba y conservar respaldo antes de ensayos destructivos.
+
+### Formato de seguimiento por tarea
+
+```md
+#### Fxx-Tyy — Nombre de tarea
+- Estado: [ ] Pendiente / [>] En curso / [x] Terminado / [!] Bloqueado
+- Objetivo:
+- Dependencias:
+- Archivos afectados:
+- Criterios de aceptación:
+- Pruebas realizadas y resultado:
+- Pendientes / decisiones:
+```
+
+### Definición de terminado (DoD) de CADA tarea
+
+- [ ] Compila en la configuración acordada, sin errores nuevos.
+- [ ] Respeta alcance y decisiones; no incorpora suposiciones ocultas.
+- [ ] Pruebas automáticas pertinentes ejecutadas y documentadas; pruebas manuales descritas cuando correspondan.
+- [ ] Gestión de errores y mensajes entendibles para la empleada.
+- [ ] No expone datos sensibles ni rompe la trazabilidad.
+- [ ] Si modifica persistencia, incluye migración y prueba con datos existentes.
+- [ ] Se actualizan este plan y el registro de decisiones cuando corresponda.
+
+---
+
+## 2. Arquitectura objetivo mínima
+
+```text
+LocalInfantil.Wpf             -> Vistas, ViewModels, comandos, navegación y validación visual
+LocalInfantil.Application     -> Casos de uso: vender, cobrar, ajustar stock, cambiar, etc.
+LocalInfantil.Domain          -> Entidades, reglas puras y tipos de valor
+LocalInfantil.Infrastructure  -> SQLite, repositorios, impresión, backups, Drive y actualización
+LocalInfantil.Tests           -> Pruebas del dominio y de integración (separar si crecen)
+```
+
+El árbol concreto de carpetas, dependencias y responsabilidades está en **`ESTRUCTURA.md`**. `LocalInfantil` es un nombre provisional del proyecto; decidir el nombre definitivo al iniciar F00. La estructura final se materializa por fases: **no crear carpetas vacías de módulos futuros**. La dirección de dependencias debe impedir que el dominio dependa de WPF o de SQLite.
+
+- **Datos:** SQLite local; una única fuente de verdad. La interfaz nunca debe abrir conexiones SQL directamente.
+- **Interfaz:** WPF/MVVM pragmático. Validaciones en UI para ayudar al usuario; reglas definitivas en aplicación/dominio.
+- **Servicios externos:** Drive y actualizador no pueden impedir ventas offline. Registro de fallas y reintentos.
+- **Impresión:** adaptador desacoplado; el negocio puede registrar una venta aunque falle la impresión y debe poder reimprimir sin duplicar la venta.
+- **Auditoría:** usuario, fecha, tipo de operación, identificador correlacionado y detalle mínimo necesario; nunca contraseñas o tokens.
+- **Fechas y dinero:** acordar convenciones de fechas, zona horaria y formato de moneda; guardar marcas temporales de forma consistente y presentar horario del local.
+- **Diagnóstico:** logs locales con rotación, información técnica acotada, sin secretos ni datos personales innecesarios.
+
+### Invariantes obligatorias
+
+- Una venta confirmada no existe a medias: líneas, pagos iniciales, deuda si corresponde y movimientos de stock quedan consistentes.
+- Una venta fiada no registra como cobrado el saldo pendiente; un abono posterior no cuenta como segunda venta.
+- El stock se explica mediante movimientos; no se sobrescribe un número sin registrar causa.
+- El reembolso genera movimiento financiero y, cuando aplique, afecta la caja; la devolución de prenda solo aumenta stock vendible si fue clasificada apta.
+- Se conservan los importes originales y las condiciones promocionales de cada venta; cambios posteriores son nuevas operaciones auditables.
+- La flexibilidad comercial permite ajustes explícitos con motivo/permisos, nunca ediciones silenciosas de históricos.
+- Copias no verificadas o pendientes de subida **no** se muestran como respaldos remotos exitosos.
+
+---
+
+## 3. Roadmap de implementación
+
+### F00 — Viabilidad técnica y arranque (primera fase; comenzar aquí)
+
+**Objetivo:** confirmar que el stack es viable y que el ciclo compilar → instalar → abrir → guardar → imprimir funciona en una PC Windows de prueba sin construir todavía la aplicación completa.
+
+- [x] **F00-T01.** Crear repositorio, `.gitignore`, `README.md`, `PLAN.md`, `ESTRUCTURA.md` y estructura mínima de solución conforme a `ESTRUCTURA.md`; fijar convenciones de código y comandos de build/test. Usar framework provisional solo si es necesario para compilar, anotarlo y validarlo en F00-T02.
+- [!] **F00-T02.** Elegir versión de .NET/WPF tras verificar compatibilidad y soporte con el Windows concreto; anotar la decisión en `docs/DECISIONES.md`. Si no se dispone de la PC, conservar decisión como provisional y probar en un entorno representativo. **Bloqueada para cierre:** falta validar edición, versión y arquitectura de la PC del local.
+- [x] **F00-T03.** Crear ventana WPF funcional con navegación básica y datos ficticios; abrir sin internet y comprobar que no hay operaciones bloqueadas por servicios externos.
+- [x] **F00-T04.** Integrar SQLite en una ruta de datos de usuario y ejecutar una lectura/escritura simple mediante infraestructura, sin SQL en la vista. Validaciones automáticas y manuales correctas, incluida la reapertura y la operación sin conexión. D-13 sigue pendiente para cualquier uso con datos reales.
+- [x] **F00-T05.** Probar impresión básica en impresora común o, si no está disponible, generar vista previa y registrar la prueba real como pendiente. Vista previa, diálogo de Windows, cancelación sin trabajo e impresión de prueba con Microsoft Print to PDF validados manualmente. La prueba con el equipo físico del local sigue pendiente fuera de este cierre técnico.
+- [>] **F00-T06.** Publicar instalador/prototipo de prueba, abrirlo y medir cualitativamente arranque y fluidez; probar en la PC real cuando esté disponible. Publicación self-contained de prueba `win-x64` validada manualmente; faltan instalador/desinstalación reales y PC del local.
+
+**Aceptación:** arranca offline, crea/lee datos locales, interfaz no se congela en operaciones simples, puede instalarse y desinstalarse sin borrar datos de usuario; limitaciones de Windows/impresora documentadas. **No desarrollar módulos comerciales antes de validar este hito.**
+
+### F01 — Fundamentos: persistencia, operaciones y seguridad básica
+
+**Objetivo:** establecer datos seguros y un esqueleto reutilizable antes de introducir dinero real.
+
+- [ ] **F01-T01.** Especificar esquema inicial y migraciones versionadas: usuarios, productos, variantes, precios, movimientos y estructuras mínimas de ventas/pagos/caja; documentar claves, restricciones y referencias.
+- [ ] **F01-T02.** Configurar SQLite: claves foráneas, modo de journaling elegido y probado, manejo de errores de bloqueo, transacciones y repositorios.
+- [ ] **F01-T03.** Crear identificadores estables de operaciones, reloj inyectable para pruebas y registro de auditoría mínimo.
+- [ ] **F01-T04.** Implementar autenticación local con contraseñas protegidas mediante algoritmo adecuado, roles y permisos por operación; permisos no confirmados permanecen configurables/no concedidos automáticamente.
+- [ ] **F01-T05.** Crear respaldo LOCAL consistente, validación y restauración de ensayo sobre copia de prueba; nunca copiar en caliente el archivo SQLite sin procedimiento consistente.
+- [ ] **F01-T06.** Crear pruebas de migración, integridad referencial y fallo/reversión de transacciones.
+
+**Aceptación:** restauración de prueba exitosa; operaciones fallidas no dejan datos parciales; usuarios separados; el almacenamiento persiste después de reinstalar/actualizar el prototipo.
+
+### F02 — Catálogo y variantes
+
+**Objetivo:** registrar mercadería sin depender de códigos de barras externos.
+
+- [ ] **F02-T01.** Alta/edición/consulta/desactivación de producto padre, marca, categoría y atributos necesarios; no eliminar productos con historial.
+- [ ] **F02-T02.** Variantes flexibles por talle/color, incluidos artículos sin alguno de esos atributos; SKU interno único y buscable.
+- [ ] **F02-T03.** Precio/costo y estado vigente; conservar instantáneas para ventas futuras. Si el método de costo aún no está confirmado, no publicar márgenes definitivos.
+- [ ] **F02-T04.** Búsqueda textual rápida e índices medidos; ficha de producto con variantes, existencias y estado.
+- [ ] **F02-T05.** Grilla de carga inicial de variantes, con separación inequívoca entre **establecer cantidad inicial** y **sumar ingreso**.
+
+**Aceptación:** un producto con distintos talles/colores no mezcla existencias; búsqueda por texto/SKU responde sin cargar todas las filas; un producto usado puede desactivarse conservando historial.
+
+### F03 — Proveedores, ingresos y stock trazable
+
+**Objetivo:** poder explicar cada unidad que entra o sale.
+
+- [ ] **F03-T01.** Registro mínimo de proveedores, solo campos comerciales acordados.
+- [ ] **F03-T02.** Recepción con productos, variantes, cantidades y costos; confirmación atómica que genera movimientos de ingreso.
+- [ ] **F03-T03.** Ajustes de inventario con motivo, responsable y movimientos inmutables/compensables.
+- [ ] **F03-T04.** Consulta de existencias e historial por SKU; distinguir stock dañado/no vendible cuando corresponda.
+- [ ] **F03-T05.** Inventario físico simple: registrar conteo, mostrar diferencias y aprobar ajuste; si el alcance se reduce, dejar el conteo formal para ampliación sin permitir ajustes invisibles.
+
+**Aceptación:** ingreso + ajuste explican exactamente las existencias; nunca hay modificación de stock sin movimiento; revertir recepción errónea no borra historial.
+
+### F04 — Punto de venta y pagos (primer flujo comercial integral)
+
+**Objetivo:** completar una venta real de punta a punta, inicialmente con datos de prueba.
+
+- [ ] **F04-T01.** Pantalla POS optimizada para teclado: buscar, seleccionar variante, carrito, cantidades, totales, validación de stock; venta en espera si se valida la necesidad.
+- [ ] **F04-T02.** Registrar medios de pago confirmados y pagos combinados como movimientos separados; validar suma, saldo, vuelto y estado de cobranza.
+- [ ] **F04-T03.** Confirmar venta en transacción atómica con líneas, importes históricos, pagos y salidas de stock. Proteger contra doble clic/confirmación duplicada.
+- [ ] **F04-T04.** Ticket **interno no fiscal** imprimible/reimprimible; número estable y enlace opcional a referencia fiscal externa. Procedimiento fiscal real pendiente de D-01.
+- [ ] **F04-T05.** Correcciones/anulaciones mediante reversos auditados; no eliminar ventas. No activar funciones cuya autorización aún no está definida.
+- [ ] **F04-T06.** Tests: último artículo, pago combinado, vuelto, pago insuficiente, error al persistir, impresión fallida y venta duplicada.
+
+**Aceptación:** venta completada modifica stock una sola vez, cobros coinciden con pagos, ticket reimpreso no altera registros y una falla intermedia revierte toda la confirmación. **Prohibido uso productivo si D-01 y estrategia de respaldos remotos siguen abiertos.**
+
+### F05 — Caja y conciliación básica
+
+**Objetivo:** registrar dinero real sin confundirlo con ventas.
+
+- [ ] **F05-T01.** Apertura, fondo inicial y sesión de caja vinculada al usuario.
+- [ ] **F05-T02.** Cobros automáticos de ventas y egresos/ingresos manuales clasificados; retiros del propietario separados de gastos.
+- [ ] **F05-T03.** Arqueo ciego de efectivo, saldo teórico, diferencia y cierre registrado.
+- [ ] **F05-T04.** Desglose de medios electrónicos como cobros para conciliación, **sin tratarlos como efectivo contado**.
+- [ ] **F05-T05.** Reintegros, anulaciones y correcciones de medio de pago reflejados correctamente en caja.
+- [ ] **F05-T06.** Tests: apertura, cobro mixto, egreso, devolución en efectivo, diferencia y cierre duplicado.
+
+**Aceptación:** caja esperada se reconcilia con movimientos; el cierre no modifica ni reescribe ventas; existe rastro de quién abrió/cerró.
+
+### F06 — Cambios, devoluciones y reglas comerciales flexibles
+
+**Objetivo:** una operación genérica para devolver N artículos y entregar M artículos, en lugar de programar cada combinación por separado.
+
+- [ ] **F06-T01.** Recuperar venta original y unidades todavía disponibles para devolución; evitar devolver la misma unidad dos veces.
+- [ ] **F06-T02.** Registrar múltiples artículos de entrada y salida, reconocer importes originalmente pagados y calcular diferencias.
+- [ ] **F06-T03.** Diferencia positiva → cobrar; negativa → permitir agregar artículos o reintegrar resto. El reintegro habitual es efectivo; otro medio requiere decisión/autorización de dueña.
+- [ ] **F06-T04.** Clasificar prendas devueltas aptas/no aptas; solo aptas ingresan a stock vendible.
+- [ ] **F06-T05.** Promoción específica de dos artículos: mostrar vínculo y advertir devolución parcial voluntaria; permitir cambio de talle que conserva condiciones; excepción comercial explícita/auditada, sin bloquear derechos legales.
+- [ ] **F06-T06.** Fechas y plazo visibles, **sin bloqueo rígido por vencimiento**; ajustes comerciales explícitos con permisos a definir.
+- [ ] **F06-T07.** Reintegros en caja, reversos fiscales externos según procedimiento D-01 y auditoría. Probar cambios sin diferencia, con diferencia en ambos sentidos, devolución completa, parcial e intento duplicado.
+
+**Aceptación:** stock, importes, caja e historial quedan consistentes en todas las combinaciones probadas; no se edita el precio de la venta original; las excepciones no borran el historial.
+
+### F07 — Clientes y cuentas corrientes (activación condicionada)
+
+**Objetivo:** clientes y, **solo después de validar D-02 y D-03**, fiados y pagos de deuda.
+
+- [ ] **F07-T01.** Cliente opcional para venta común; ficha mínima y consulta de historial cuando corresponda.
+- [ ] **F07-T02.** Definir con dueña política de fiado, autorizaciones, límites, vencimientos y tratamiento de ajustes: registrar decisión antes de programar activación.
+- [ ] **F07-T03.** Modelo de cuenta corriente con cargos, abonos, ajustes auditados y saldo derivado, sin sobreescrituras arbitrarias.
+- [ ] **F07-T04.** Venta fiada total/parcial: registrar venta y stock; solo el importe recibido afecta cobros/caja; registrar deuda por el resto.
+- [ ] **F07-T05.** Abonos por distintos medios, recibo y consulta de saldos; abono no crea segunda venta.
+- [ ] **F07-T06.** Tests: pago parcial, abono excesivo según política, anulación, devolución de venta fiada, saldo y permisos.
+
+**Aceptación:** saldo explicable desde movimientos, caja no incluye saldos impagos, permisos de fiado validados. Si la política no se confirma, entregar clientes sin habilitar fiados y marcar F07 parcial.
+
+### F08 — Respaldos remotos y recuperación (obligatorio antes de producción)
+
+**Objetivo:** automatizar la protección de datos del negocio.
+
+- [ ] **F08-T01.** Fijar retención, cifrado, recuperación de clave, carpeta local y comportamiento con POS cerrado con la dueña/desarrollador (D-09).
+- [ ] **F08-T02.** Programar respaldo consistente SQLite **cada 2 h y al cerrar caja**, separado del archivo en uso, verificando integridad.
+- [ ] **F08-T03.** Comprimir/cifrar, versionar y conservar localmente; cola para subidas pendientes.
+- [ ] **F08-T04.** Autenticación Google Drive adecuada para app de escritorio, permisos mínimos, tokens protegidos; subida y confirmación remota.
+- [ ] **F08-T05.** Reintentos tras desconexión, límites razonables, estado último local/remoto y alertas de error sin bloquear el POS.
+- [ ] **F08-T06.** Asistente/procedimiento de restauración probado de punta a punta en equipo de prueba; impedir sobrescribir datos actuales sin respaldo y confirmación.
+- [ ] **F08-T07.** Pruebas: respaldo durante ventas, sin internet, apagado/arranque, corrupción de copia, credenciales caducadas, restauración con migraciones.
+
+**Aceptación:** se restaura una venta, su pago y sus movimientos desde Drive en prueba controlada; hay historial de versiones; una falla de red no interrumpe cobro; el indicador distingue «local», «pendiente» y «remoto confirmado».
+
+### F09 — Reportes básicos y operación cotidiana
+
+**Objetivo:** información útil que no contradiga ventas ni caja.
+
+- [ ] **F09-T01.** Ventas diarias/mensuales y filtro de fechas; separar ventas brutas/netas y cobros.
+- [ ] **F09-T02.** Desglose por medio de pago, efectivo teórico e historial de caja.
+- [ ] **F09-T03.** Stock actual, unidades más vendidas y artículos sin movimiento con fecha de ingreso/temporada cuando existan esos datos.
+- [ ] **F09-T04.** Margen bruto **solo si se aprobó D-07** y con fórmula explicada; nunca etiquetar como ganancia neta.
+- [ ] **F09-T05.** Medición de rendimiento en catálogo representativo y ajustes de índices/consultas.
+
+**Aceptación:** reportes cuadran con ventas/pagos de pruebas, devoluciones no se cuentan dos veces, consultas frecuentes son ágiles.
+
+### F10 — Instalación, actualización y entrega
+
+**Objetivo:** que el familiar pueda usarlo sin depender de un entorno de desarrollo.
+
+- [ ] **F10-T01.** Empaquetado e instalador Windows; datos almacenados fuera del directorio de instalación; acceso directo y desinstalación segura.
+- [ ] **F10-T02.** Canal de publicación y actualización automática segura; descargar con internet e instalar cuando no haya venta/cambio/cierre abierto.
+- [ ] **F10-T03.** Backup previo a migraciones; pruebas de actualización, interrupción de energía simulada y procedimiento de recuperación.
+- [ ] **F10-T04.** Probar con la PC del local: inicio, búsqueda, venta, impresión, cierre y backup; registrar RAM, tiempos y bloqueos reales.
+- [ ] **F10-T05.** Validar facturación/procedimiento con dueña y contador, permisos, precios, datos iniciales y condiciones comerciales antes de uso real.
+- [ ] **F10-T06.** Documentar guía de uso breve, recuperación, contacto de soporte y procedimiento manual si la PC falla.
+
+**Aceptación:** instalación limpia, upgrade sin pérdida de datos, respaldo/restauración comprobados, procedimiento fiscal acordado y una jornada de prueba sin inconsistencias graves. Solo entonces habilitar producción.
+
+### F11 — Funcionalidades posteriores, NO empezar sin validar necesidad
+
+- [ ] Reservas y señas con stock disponible vs. reservado y política de cancelación.
+- [ ] Códigos de barras/lector, etiquetas e impresora específica cuando se adquiera hardware.
+- [ ] Promociones adicionales, fidelización con tratamiento adecuado de datos, reportes avanzados y cualquier otro requerimiento surgido del uso real.
+
+---
+
+## 4. Orden de implementación y entregas
+
+| Entrega | Fases | Resultado comprobable | ¿Usar con datos reales? |
+|---|---|---|---|
+| E0 | F00 | Prototipo abre offline, guarda y prueba impresión/instalador | No |
+| E1 | F01–F03 | Productos, stock e ingresos consistentes; backup local de prueba | No |
+| E2 | F04–F05 | Venta, pagos y caja completos con pruebas | No, hasta resolver fiscalidad y protección remota |
+| E3 | F06–F07 | Cambios y clientes/cuentas corrientes si se aprueban reglas | No, hasta validación final |
+| E4 | F08–F10 | Drive, restauración, reportes, actualizaciones, validación PC real | Sí, solo después del checklist de salida |
+| E5 | F11 | Ampliaciones validadas por uso real | Según cada entrega |
+
+**No es una estimación de fechas ni horas.** Si alguna tarea resulta demasiado grande, descomponerla conservando sus criterios de aceptación.
+
+---
+
+## 5. Escenarios de prueba obligatorios de punta a punta
+
+- [ ] Dos intentos de vender la última unidad: no se genera stock incorrecto.
+- [ ] Doble clic en «Confirmar»: no se duplica la venta ni el cobro.
+- [ ] Cobro combinado y vuelto: sumas exactas, sin redondeos ocultos.
+- [ ] Error de disco/SQLite durante confirmación: ninguna operación parcial persistida.
+- [ ] Ticket no imprime: venta confirmada sigue intacta y se puede reimprimir.
+- [ ] Anulación: registra reverso y no elimina evidencia.
+- [ ] Cambio de talle de promoción válida: conserva la promoción según regla acordada.
+- [ ] Devolución voluntaria parcial de promoción por dos: advertencia y flujo de excepción auditada; distinguir reclamo legal.
+- [ ] Cambio por artículos más baratos: agrega productos y reintegra diferencia en efectivo; caja refleja egreso.
+- [ ] Prenda devuelta defectuosa: no vuelve a stock vendible.
+- [ ] Devolución repetida de una unidad: se detecta y no duplica ingreso ni reintegro.
+- [ ] Fiado y abonos, **si está habilitado**: venta una sola vez; caja solo cobros; saldo correcto.
+- [ ] Cierre de caja ciego: registra diferencias sin alterar ventas.
+- [ ] Pérdida de internet: venta continúa, Drive queda pendiente y reintenta.
+- [ ] Restauración desde una copia remota: cuadran ventas, stock y caja del punto restaurado.
+- [ ] Actualización con base existente: migración correcta, respaldo previo y sin pérdida de datos.
+- [ ] PC de 4 GB (si se confirma): POS responde fluidamente durante búsqueda/cobro mientras se realiza respaldo.
+
+---
+
+## 6. Checklist antes de utilizar el sistema en el local
+
+- [ ] Dueña valida flujos principales, permisos y política de fiado (o fiado permanece deshabilitado).
+- [ ] Procedimiento de facturación fiscal definido y operativo; un ticket interno no se confunde con factura.
+- [ ] Políticas comerciales verificadas para cambios, defectos, promociones y medios de pago.
+- [ ] Stock inicial revisado y conciliado físicamente.
+- [ ] Caja inicial y medios de pago configurados.
+- [ ] Usuarios individuales creados; contraseñas y autorizaciones verificadas.
+- [ ] Impresión probada con el equipo real.
+- [ ] Respaldo local y Drive probados; restauración real de prueba documentada.
+- [ ] Retención, clave de cifrado, instrucciones de recuperación y persona responsable definidos.
+- [ ] Instalación y actualización en equipo real probadas; estrategia de seguridad/soporte para Windows confirmada.
+- [ ] Guía breve para empleada y dueña, incluyendo corte de luz, falla de impresión y pérdida de PC.
+
+---
+
+## 7. Primera instrucción lista para pegar en Codex
+
+```text
+Leé PLAN.md y ESTRUCTURA.md completos. Vamos a ejecutar exclusivamente F00-T01 (estructura inicial del proyecto).
+
+Antes de editar, decime brevemente qué archivos vas a crear y qué decisiones técnicas siguen pendientes. No inventes datos del hardware, versiones de .NET ni reglas comerciales.
+
+Creá la estructura mínima necesaria para una solución C# + WPF + SQLite candidata conforme a ESTRUCTURA.md, el .gitignore y README con instrucciones de compilación. No crees carpetas vacías de módulos futuros; no construyas ventas, stock ni pantallas adicionales. Evitá paquetes innecesarios. Si se necesita fijar una versión provisional de .NET para compilar, documentala como tal para F00-T02.
+
+Al terminar, ejecutá los comandos de compilación disponibles en el entorno e informá el resultado real. Si el entorno no puede compilar WPF por no ser Windows, dejá instrucciones de validación para Windows y no afirmes que compiló. Marcá F00-T01 como completada únicamente si cumple sus criterios; proponé F00-T02 como siguiente paso, sin ejecutarla.
+```
+
+## 8. Registro de avance
+
+| Fecha | Tarea | Estado | Evidencia / commit | Pendientes |
+|---|---|---|---|---|
+| 2026-09-20 | F00-T01 | Terminado | `dotnet build` correcto (0 advertencias, 0 errores); `dotnet test` correcto (1/1) | Framework `net8.0` provisional y compatibilidad con PC real pendientes para F00-T02 |
+| 2026-09-20 | F00-T02 | Bloqueado para cierre | .NET 8 compiló y pruebas 1/1; .NET 10 LTS evaluado documentalmente; intento de apertura WPF no verificable visualmente en esta sesión | PC del local: edición/build/canal/arquitectura de Windows, apertura interactiva y evaluación básica de rendimiento |
+| 2026-09-20 | F00-T03 | Terminado | Navegación MVVM con datos ficticios; compilación correcta (0/0); pruebas 2/2; validación manual interactiva correcta, incluido el cierre, informada por la persona usuaria | — |
+| 2026-09-20 | F00-T04 | Terminado | Restauración y compilación correctas (0/0); pruebas 4/4, incluida SQLite temporal con reapertura; validación manual de escritura, lectura, coincidencia, reapertura y operación sin conexión correcta | D-13 continúa pendiente; la ruta predeterminada no está aprobada para datos reales |
+| 2026-09-20 | F00-T05 | Terminado | Compilación correcta (0/0); pruebas 4/4; validación manual de vista previa, diálogo, cancelación e impresión de prueba con Microsoft Print to PDF correcta | Probar con la impresora física y la PC del local antes de producción (D-08) |
+| 2026-09-20 | F00-T06 | En curso: instalador y PC real pendientes | Publicación self-contained Release `win-x64` validada manualmente: apertura fuera de Visual Studio, navegación, SQLite, reapertura, vista previa, diálogo/cancelación de impresión, operación offline y fluidez cualitativa correctas | Instalador y desinstalación reales que preserven datos de usuario; prueba de rendimiento/compatibilidad en la PC del local |
+
+> Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.
