@@ -38,17 +38,17 @@ public sealed class FijarPrecio
 
     public async Task<string> EjecutarAsync(string varianteId, long importeMinor, string? idSesion, CancellationToken cancellationToken = default)
     {
-        if (importeMinor < 0)
-        {
-            throw new ArgumentException("El importe no puede ser negativo.", nameof(importeMinor));
-        }
-
         if (idSesion is null)
         {
             throw new SesionInvalidaException();
         }
 
         var actor = await _autorizador.AutorizarAsync(idSesion, PermisosCatalogo.PreciosGestionar, cancellationToken);
+
+        if (importeMinor < 0)
+        {
+            throw new ArgumentException("El importe no puede ser negativo.", nameof(importeMinor));
+        }
 
         await using var sesion = await _fabrica.IniciarAsync(cancellationToken);
         var variante = await _variantes.ObtenerPorIdAsync(sesion, varianteId, cancellationToken);

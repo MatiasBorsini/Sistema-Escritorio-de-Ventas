@@ -32,17 +32,17 @@ public sealed class CrearProducto
     public async Task<string> EjecutarAsync(NuevoProducto datos, string? idSesion, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(datos);
-        if (string.IsNullOrWhiteSpace(datos.Nombre))
-        {
-            throw new ArgumentException("El nombre es obligatorio.", nameof(datos));
-        }
-
         if (idSesion is null)
         {
             throw new SesionInvalidaException();
         }
 
         var actor = await _autorizador.AutorizarAsync(idSesion, PermisosCatalogo.ProductosGestionar, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(datos.Nombre))
+        {
+            throw new ArgumentException("El nombre es obligatorio.", nameof(datos));
+        }
 
         await using var sesion = await _fabrica.IniciarAsync(cancellationToken);
         var id = await _productos.InsertarAsync(sesion, datos, _reloj.UtcNow().ToString("o"), cancellationToken);

@@ -35,17 +35,17 @@ public sealed class CrearVariante
     public async Task<string> EjecutarAsync(NuevaVariante datos, string? idSesion, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(datos);
-        if (string.IsNullOrWhiteSpace(datos.Sku))
-        {
-            throw new ArgumentException("El SKU es obligatorio.", nameof(datos));
-        }
-
         if (idSesion is null)
         {
             throw new SesionInvalidaException();
         }
 
         var actor = await _autorizador.AutorizarAsync(idSesion, PermisosCatalogo.VariantesGestionar, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(datos.Sku))
+        {
+            throw new ArgumentException("El SKU es obligatorio.", nameof(datos));
+        }
 
         await using var sesion = await _fabrica.IniciarAsync(cancellationToken);
         var producto = await _productos.ObtenerPorIdAsync(sesion, datos.ProductoId, cancellationToken);

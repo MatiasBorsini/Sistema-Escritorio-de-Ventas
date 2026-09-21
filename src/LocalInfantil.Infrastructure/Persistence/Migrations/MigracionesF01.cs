@@ -1,13 +1,9 @@
 namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 
 /// <summary>
-/// Catálogo de migraciones F01. La versión 1 crea el esquema inicial:
-/// usuarios, productos, variantes, precios, movimientos de inventario y
-/// estructuras mínimas de ventas, pagos y caja. La versión 2 agrega el
-/// registro mínimo de auditoría (F01-T03). La versión 3 agrega la huella
-/// de contraseña a usuario (F01-T04). La versión 4 garantiza un solo precio
-/// vigente por variante mediante índice único parcial (F02-T03).
-/// Ver docs/ESQUEMA.md.
+/// Catálogo de migraciones F01/F02/F03. V1: esquema inicial. V2: auditoría.
+/// V3: huella de contraseña. V4: precio vigente único. V5: proveedores y
+/// recepciones con costo histórico informado (F03-T01+T02). Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -17,6 +13,7 @@ public static class MigracionesF01
         new(2, "auditoria-f01", SqlV2),
         new(3, "huella-contrasena-f01", SqlV3),
         new(4, "precio-vigente-unico-f02", SqlV4),
+        new(5, "proveedores-recepcion-f03", SqlV5),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -158,5 +155,37 @@ public static class MigracionesF01
 
     private const string SqlV4 = """
         CREATE UNIQUE INDEX IF NOT EXISTS ix_precio_vigente_unico ON precio(variante_id) WHERE vigente_hasta IS NULL;
+        """;
+
+    private const string SqlV5 = """
+        CREATE TABLE IF NOT EXISTS proveedor (
+            id TEXT PRIMARY KEY,
+            nombre TEXT NOT NULL CHECK (nombre <> ''),
+            activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+            creado_en TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS recepcion (
+            id TEXT PRIMARY KEY,
+            proveedor_id TEXT NOT NULL REFERENCES proveedor(id) ON DELETE RESTRICT,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (operacion_id <> ''),
+            comprobante_ref TEXT NULL,
+            creado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS recepcion_linea (
+            id TEXT PRIMARY KEY,
+            recepcion_id TEXT NOT NULL REFERENCES recepcion(id) ON DELETE RESTRICT,
+            variante_id TEXT NOT NULL REFERENCES variante(id) ON DELETE RESTRICT,
+            cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+            costo_unitario_minor INTEGER NULL CHECK (costo_unitario_minor IS NULL OR costo_unitario_minor >= 0),
+            moneda TEXT NULL,
+            CHECK ((costo_unitario_minor IS NULL AND moneda IS NULL) OR (costo_unitario_minor IS NOT NULL AND moneda IS NOT NULL AND moneda <> ''))
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_recepcion_proveedor ON recepcion(proveedor_id);
+        CREATE INDEX IF NOT EXISTS ix_recepcion_linea_recepcion ON recepcion_linea(recepcion_id);
+        CREATE INDEX IF NOT EXISTS ix_recepcion_linea_variante ON recepcion_linea(variante_id);
         """;
 }

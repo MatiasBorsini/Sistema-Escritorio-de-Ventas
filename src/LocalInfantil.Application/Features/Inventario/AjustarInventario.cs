@@ -39,6 +39,13 @@ public sealed class AjustarInventario
 
     public async Task<string> EjecutarAsync(string varianteId, long cantidad, string motivo, string operacionId, string? idSesion, CancellationToken cancellationToken = default)
     {
+        if (idSesion is null)
+        {
+            throw new SesionInvalidaException();
+        }
+
+        var actor = await _autorizador.AutorizarAsync(idSesion, PermisosInventario.AjusteStock, cancellationToken);
+
         if (cantidad == 0)
         {
             throw new ArgumentException("La cantidad de ajuste no puede ser cero.", nameof(cantidad));
@@ -53,13 +60,6 @@ public sealed class AjustarInventario
         {
             throw new ArgumentException("La operación necesita identificador.", nameof(operacionId));
         }
-
-        if (idSesion is null)
-        {
-            throw new SesionInvalidaException();
-        }
-
-        var actor = await _autorizador.AutorizarAsync(idSesion, PermisosInventario.AjusteStock, cancellationToken);
 
         await using var sesion = await _fabrica.IniciarAsync(cancellationToken);
         if (await _movimientos.ExistePorOperacionAsync(sesion, operacionId, cancellationToken))

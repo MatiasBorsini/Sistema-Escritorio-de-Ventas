@@ -179,3 +179,14 @@ Implementacion en `feat/f03-adjustments-stock-history`: `AjustarInventario`, `Co
 - **Permiso definido y no concedido:** `inventario.ajuste_stock` no figura para ningun rol en la matriz productiva; las pruebas lo conceden en matrices propias.
 - **Pruebas del bloque (solo temporales):** integral de 12 pasos + compensatorio; suite previa verde.
 - **Limites:** proveedores/recepcion (F03-T01/T02), costos, ventas, caja; ruta definitiva (D-13).
+
+## 15. Bloque F03-T01+T02 (en curso, pendiente de revision)
+
+Implementacion en `feat/f03-suppliers-receiving`: `Crear/Editar/DesactivarProveedor`, `ConsultasProveedores`, `ConfirmarRecepcion`, `PermisosCompras`, `DatosCompras`, `RepositorioProveedores/Recepciones`, migracion V5. Sin cambios en V1-V4. WPF sin cambios.
+
+- **Proveedores (F03-T01):** id estable, nombre obligatorio (sin unicidad inventada), activo/inactivo, edicion y desactivacion logica; sin borrado (la FK lo impediria de todos modos). Sin contacto/CUIT: propuestas no aprobadas, sin validaciones fiscales.
+- **Recepcion (F03-T02):** cabecera (proveedor, operacion_id UNIQUE del llamador, comprobante opcional, responsable) + lineas (variante, cantidad > 0) + movimientos `ingreso` + auditoria, todo en una transaccion; doble confirmacion imposible (chequeo + UNIQUE, incluso tras reapertura); rollback total; historial inmutable.
+- **Costo historico (D-07 parcial):** `costo_unitario_minor` + `moneda` tal cual informados, NULL = desconocido (nunca cero implicito), sin descomponer IVA/flete/descuentos y sin promedios/FIFO/margenes. Suficiente para el alcance de T02 (recepcion con costos); la valoracion queda pendiente.
+- **Permisos definidos y no concedidos:** `compras.proveedores.gestionar` y `compras.recepcion.confirmar`; pruebas en matrices propias.
+- **Pruebas del bloque (solo temporales):** integral de 12 pasos + costo NULL, reapertura, rollback, filas invalidas, desactivacion con historial, denegaciones, matriz que deniega, regresion de carga/ajustes, V4-V5 con datos y respaldo.
+- **Limites:** la recepcion SUMA existencias (nunca ESTABLECE); costos sin D-07; ventas/caja (F04/F05); ruta definitiva (D-13).

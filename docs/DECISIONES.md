@@ -128,7 +128,15 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Fecha: 2026-09-21.
 - Fuente: regla de negocio confirmada por la persona usuaria (avanza D-03 solo en este punto; el resto de la matriz sigue pendiente).
 - Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
-- Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación si el Administrador olvida su contraseña (sin maestras ni puertas traseras); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
+- Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación de contraseñas (Administrador y dueña) sin solución aprobada (sin maestras, puertas traseras, Firebase, servidor externo, dominio ni códigos); permisos individuales por usuario y administración desde la cuenta de la dueña (requisitos acordados, aún no implementados; autenticación sin cambios en este bloque); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
+
+## D-26 — Bloque F03-T01+T02 (proveedores y recepción)
+
+- Estado: implementado y probado en `feat/f03-suppliers-receiving`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (bloque F03-T01+T02).
+- Decisión: proveedores mínimos sin contacto/CUIT obligatorios; recepción atómica multi-línea con costo histórico informado (NULL = desconocido, sin descomponer impuestos ni promedios); permisos `compras.proveedores.gestionar` y `compras.recepcion.confirmar` definidos sin conceder; migración V5.
+- Alcance: sin SUMAR distinto de ingreso, sin costos D-07, sin ventas/caja; V1-V4 intactas; base provisional intacta.
 
 ## D-25 — Bloque F03-T03+T04 (ajustes e historial)
 

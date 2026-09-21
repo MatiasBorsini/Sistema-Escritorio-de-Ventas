@@ -515,6 +515,35 @@ public sealed class EsquemaInicialTests
         return Convert.ToInt64(await comando.ExecuteScalarAsync());
     }
 
+    [Fact]
+    public async Task Migracion_V4_V5_con_datos_respaldo_y_sin_duplicados()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        var respaldos = Path.Combine(directorio, "respaldos");
+        try
+        {
+            var catalogoV4 = MigracionesF01.Todas.Where(m => m.Version <= 4).ToList();
+            Assert.Equal(new[] { 1, 2, 3, 4 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV4, null));
+            await InsertarRegistrosFicticiosAsync(ruta);
+
+            Assert.Equal(new[] { 5 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+
+            var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
+            Assert.Equal("ok", await ConsultarIntegridadAsync(archivo));
+            await using var verificacion = await AbrirConexionAsync(ruta);
+            Assert.Equal("Remera Ficticia", await ConsultarTextoAsync(verificacion, "SELECT nombre FROM producto WHERE id = 'p-ficticio';"));
+            using var tablas = verificacion.CreateCommand();
+            tablas.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('proveedor', 'recepcion', 'recepcion_linea');";
+            Assert.Equal(3L, await tablas.ExecuteScalarAsync());
+
+            Assert.Empty(await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
     private static async Task InsertarRegistrosFicticiosAsync(string ruta)
     {
         await using var conexion = await AbrirConexionAsync(ruta);

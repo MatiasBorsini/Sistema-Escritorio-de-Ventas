@@ -213,7 +213,7 @@ public sealed class PreciosBusquedaCargaTests
     }
 
     [Fact]
-    public async Task Migracion_V3_V4_con_datos_y_respaldo()
+    public async Task Migracion_V3_V5_con_datos_y_respaldo()
     {
         var directorio = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
         var ruta = Path.Combine(directorio, "precios-f01.db");
@@ -237,7 +237,7 @@ public sealed class PreciosBusquedaCargaTests
                 await sesion.ConfirmarAsync();
             }
 
-            Assert.Equal(new[] { 4 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 4, 5 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             await using var lectura = await fabrica.IniciarLecturaAsync();

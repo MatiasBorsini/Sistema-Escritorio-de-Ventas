@@ -40,6 +40,13 @@ public sealed class CargarExistenciaInicial
     public async Task EjecutarAsync(IReadOnlyList<FilaCargaInicial> filas, string operacionId, string? idSesion, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filas);
+        if (idSesion is null)
+        {
+            throw new SesionInvalidaException();
+        }
+
+        var actor = await _autorizador.AutorizarAsync(idSesion, PermisosInventario.CargaInicialEstablecer, cancellationToken);
+
         if (filas.Count == 0)
         {
             throw new ArgumentException("La grilla no tiene filas.", nameof(filas));
@@ -48,11 +55,6 @@ public sealed class CargarExistenciaInicial
         if (string.IsNullOrWhiteSpace(operacionId))
         {
             throw new ArgumentException("La operación necesita identificador.", nameof(operacionId));
-        }
-
-        if (idSesion is null)
-        {
-            throw new SesionInvalidaException();
         }
 
         var vistos = new HashSet<string>(StringComparer.Ordinal);
@@ -68,8 +70,6 @@ public sealed class CargarExistenciaInicial
                 throw new ArgumentException($"Variante duplicada en la grilla: '{fila.VarianteId}'.", nameof(filas));
             }
         }
-
-        var actor = await _autorizador.AutorizarAsync(idSesion, PermisosInventario.CargaInicialEstablecer, cancellationToken);
 
         await using var sesion = await _fabrica.IniciarAsync(cancellationToken);
         if (await _movimientos.ExistePorOperacionAsync(sesion, operacionId, cancellationToken))
