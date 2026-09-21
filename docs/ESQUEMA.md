@@ -1,7 +1,7 @@
-# ESQUEMA.md — Esquema inicial F01-T01 y migraciones versionadas
+# ESQUEMA.md — Esquema inicial F01-T01, migraciones y fundamentos F01-T02
 
-> Estado: esquema V1 implementado y probado en `feat/f01-initial-schema` (2026-09-21).
-> F01-T01 sigue en curso: el cierre requiere F01-T02…T06. F00-T02 bloqueada, F00-T06 en curso.
+> Estado: F01-T01 terminado; F01-T02 implementado y probado en `feat/f01-sqlite-foundations` (2026-09-21), pendiente de revisión.
+> F00-T02 bloqueada, F00-T06 en curso.
 
 ## 1. Convenciones (valen para todas las tablas)
 
@@ -9,7 +9,7 @@
 - **Dinero:** `INTEGER` en unidades menores (centavos ARS) + columna `moneda TEXT` (`'ARS'` por defecto). Nunca `REAL` ni punto flotante para importes.
 - **Fechas:** `TEXT` en UTC ISO-8601. Comparaciones de orden sobre texto son válidas en ese formato.
 - **Borrados:** no existen `DELETE` sobre registros comerciales. Todas las foráneas usan `ON DELETE RESTRICT` y las entidades se desactivan con `activo`/`estado`. Las correcciones futuras son reversos auditables, nunca edición silenciosa.
-- **Conexiones:** el migrador activa `PRAGMA foreign_keys = ON` en cada conexión que abre. El modo de journaling, bloqueos y repositorios pertenecen a F01-T02 y no se deciden aquí.
+- **Conexiones:** la fábrica abre cada conexión con `PRAGMA foreign_keys = ON` y `PRAGMA busy_timeout` configurado. El modo de journaling se establece una sola vez (ver §7) y nunca en cada apertura.
 
 ## 2. Tablas de la migración V1 (`esquema-inicial-f01`)
 
@@ -51,7 +51,6 @@ Implementación: `src/LocalInfantil.Infrastructure/Persistence/Migrations/` (`Mi
 - Promociones y reglas de cambio/devolución → D-05/F06 (solo `promocion_ref` como gancho).
 - Descuentos e impuestos → sin política confirmada.
 - Normalización de marca/categoría/talle → F02 (D-11).
-- Journaling, repositorios, transacciones de negocio → F01-T02.
 - Reloj, identificadores y auditoría → F01-T03.
 - Respaldo local y restauración → F01-T05.
 - Ruta definitiva de producción → pendiente (D-13: cuenta única ya confirmada, falta concretar la carpeta).
@@ -71,9 +70,19 @@ Implementación: `src/LocalInfantil.Infrastructure/Persistence/Migrations/` (`Mi
 - Historial con salto (V2 sin V1): rechazado sin ejecutar migraciones, datos intactos, sin respaldo generado.
 - La base provisional del equipo no fue tocada por ninguna prueba (verificación punto 7: el código de migraciones y las pruebas no referencian su ruta; solo usan directorios temporales con GUID).
 
-## 6. Limitaciones que quedan para F01-T02 y F01-T05
+## 6. Limitaciones que quedan para F01-T05 y otros
 
-- **F01-T02:** modo de journaling sin evaluar (SQLite usa el diario de rollback por defecto; WAL no medido); sin manejo de `busy`/bloqueos ni reintentos; sin repositorios ni transacciones de negocio; sin ajuste de `PRAGMA` (`synchronous`, `cache_size`, `temp_store`); cada conexión futura de la aplicación deberá activar `foreign_keys` igual que el migrador.
 - **F01-T05:** sin procedimiento de respaldo/restauración de producción (ubicación, retención, ensayo de restauración); el respaldo previo a migrar va al directorio que indique el llamador, sin retención automática; sin cableado del migrador al arranque (cuando se conecte, un fallo debe impedir operar).
 - **F02-T03:** superposición de vigencias de precios no impedida a nivel de base (resolver la política antes de fijarla en esquema).
 - Compatibilidad entre versiones reales solo probada a nivel de mecanismo (V1→V2 simulada); cada migración futura necesita su propia prueba de actualización con datos ficticios.
+
+## 7. Fundamentos SQLite F01-T02 (fábrica, journaling, bloqueos, transacciones, repositorios)
+
+Implementación: `Application/Abstractions/` (`ISesionPersistencia`, `IFabricaSesionesPersistencia`, `AlmacenamientoOcupadoException`, `IRepositorio{Productos,Variantes,Precios,Movimientos}`), `Application/Contracts/` (`Datos{Producto,Variante,Precio,Movimiento}` con `creadoEn` explícito hasta que F01-T03 aporte el reloj), `Infrastructure/Persistence/Sqlite/` (`OpcionesConexionSqlite`, `FabricaConexionesSqlite`, `SesionPersistenciaSqlite`) y `Infrastructure/Persistence/Repositorios/` (4 repositorios mínimos sobre el esquema V1). WPF no contiene SQL ni referencias nuevas: los repositorios solo se usan desde pruebas.
+
+- **Journaling elegido: WAL.** Evidencia reproducible: se establece y persiste tras reapertura con datos e integridad `ok`; un lector concurrente lee lo confirmado durante una escritura sin confirmar; el modo no cambia en cada apertura; el diario convencional (`delete`) también se verificó como base funcional. Motivo: en una PC de un solo puesto, los lectores (UI, futuros respaldos durante ventas) no deben bloquearse ante escritores; archivos `-wal`/`-shm` transitorios, ya ignorados en git. Esto NO demuestra resistencia a cortes eléctricos: esa garantía requiere otras verificaciones.
+- **Sesiones explícitas:** las de escritura abren con `BEGIN IMMEDIATE` (toman el bloqueo al iniciar, sin sorpresas a mitad de la operación); las de lectura (`IniciarLecturaAsync`) no abren transacción y nunca bloquean escritores; confirmar una sesión de lectura o escribir en ella es un error. Liberar sin confirmar revierte. Hallazgo de diseño: el `BeginTransaction()` implícito de la primera versión colgaba ~30 s ante contienda; el control explícito lo redujo al tiempo configurado (ver pruebas).
+- **Tiempos configurables (dos capas):** `OpcionesConexionSqlite` exige ruta explícita y `EsperaBloqueoMs > 0` (por defecto 5000 ms: cubre bloqueos breves sin congelar; el E/S corre fuera del hilo UI). Capa 1: `PRAGMA busy_timeout` por conexión. Capa 2: `CommandTimeout` en cada comando (incluido el `BEGIN`), derivado en segundos con un mínimo de 1. El modo de journaling nunca se reestablece al abrir.
+- **Bloqueos sin reintentos:** solo `SQLITE_BUSY` (5) y `SQLITE_LOCKED` (6) se traducen a `AlmacenamientoOcupadoException` con la técnica anidada; `SQLITE_INTERRUPT` (9) y el resto se propagan sin disfrazar. No hay reintentos automáticos de escritura: repetir podría duplicar una operación ya confirmada. Un tiempo vencido en la confirmación deja estado desconocido: no reintentar a ciegas, conciliar con `operacion_id`.
+- **Tiempos en todos los comandos:** cada comando de sesiones, repositorios, fábrica (incluidos pragmas y `BEGIN IMMEDIATE`) y migrador (60 s fijos, con holgura para `VACUUM INTO`) lleva `CommandTimeout` explícito; no hay bucles de reintento en el código.
+- **Pruebas F01-T02 (solo temporales):** FK activas en cada conexión; escritura/lectura/cierre/reapertura por repositorios; bloqueo entre conexiones con fallo rápido mapeado (< 15 s, código 5) y sin parciales; rollback compuesto ante error intermedio; round-trip de precios (vigencia) y movimientos (suma); opciones inválidas rechazadas; distinción 5/6 frente a 9/1/19 sin disfrazar; journal WAL/delete, persistencia, integridad y estabilidad del modo.

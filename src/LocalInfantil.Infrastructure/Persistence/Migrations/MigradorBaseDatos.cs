@@ -27,6 +27,13 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// </summary>
 public sealed class MigradorBaseDatos
 {
+    /// <summary>
+    /// Tiempo máximo por comando, en segundos. Las migraciones corren con la
+    /// aplicación detenida y VACUUM INTO sobre bases en crecimiento necesita
+    /// holgura; finito para no colgar jamás ante un bloqueo ajeno.
+    /// </summary>
+    private const int TimeoutSegundos = 60;
+
     private readonly string _rutaBaseDatos;
 
     public MigradorBaseDatos(string rutaBaseDatos)
@@ -83,9 +90,8 @@ public sealed class MigradorBaseDatos
         await using var conexion = new SqliteConnection(cadenaConexion);
         await conexion.OpenAsync(cancellationToken);
 
-        using (var pragma = conexion.CreateCommand())
+        using (var pragma = CrearComando(conexion, "PRAGMA foreign_keys = ON;"))
         {
-            pragma.CommandText = "PRAGMA foreign_keys = ON;";
             await pragma.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -161,15 +167,14 @@ public sealed class MigradorBaseDatos
 
         // Primera escritura admitida: recién después de validar el historial
         // y de generar el respaldo. En bases preexistentes esta tabla ya existe.
-        using (var bitacora = conexion.CreateCommand())
+        using (var bitacora = CrearComando(conexion, """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version INTEGER PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                aplicada_en TEXT NOT NULL
+            );
+            """))
         {
-            bitacora.CommandText = """
-                CREATE TABLE IF NOT EXISTS schema_migrations (
-                    version INTEGER PRIMARY KEY,
-                    nombre TEXT NOT NULL,
-                    aplicada_en TEXT NOT NULL
-                );
-                """;
             await bitacora.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -179,17 +184,15 @@ public sealed class MigradorBaseDatos
             using var transaccion = conexion.BeginTransaction();
             try
             {
-                using (var ddl = conexion.CreateCommand())
+                using (var ddl = CrearComando(conexion, migracion.Sql))
                 {
                     ddl.Transaction = transaccion;
-                    ddl.CommandText = migracion.Sql;
                     await ddl.ExecuteNonQueryAsync(cancellationToken);
                 }
 
-                using (var registro = conexion.CreateCommand())
+                using (var registro = CrearComando(conexion, "INSERT INTO schema_migrations (version, nombre, aplicada_en) VALUES ($version, $nombre, $aplicadaEn);"))
                 {
                     registro.Transaction = transaccion;
-                    registro.CommandText = "INSERT INTO schema_migrations (version, nombre, aplicada_en) VALUES ($version, $nombre, $aplicadaEn);";
                     registro.Parameters.AddWithValue("$version", migracion.Version);
                     registro.Parameters.AddWithValue("$nombre", migracion.Nombre);
                     registro.Parameters.AddWithValue("$aplicadaEn", DateTime.UtcNow.ToString("o"));
@@ -209,13 +212,20 @@ public sealed class MigradorBaseDatos
         return resultado;
     }
 
+    private static SqliteCommand CrearComando(SqliteConnection conexion, string sql)
+    {
+        var comando = conexion.CreateCommand();
+        comando.CommandText = sql;
+        comando.CommandTimeout = TimeoutSegundos;
+        return comando;
+    }
+
     private static async Task<bool> ExisteTablaAsync(
         SqliteConnection conexion,
         string tabla,
         CancellationToken cancellationToken)
     {
-        using var comando = conexion.CreateCommand();
-        comando.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $tabla;";
+        using var comando = CrearComando(conexion, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $tabla;");
         comando.Parameters.AddWithValue("$tabla", tabla);
         return Convert.ToInt64(await comando.ExecuteScalarAsync(cancellationToken)) > 0;
     }
@@ -232,9 +242,8 @@ public sealed class MigradorBaseDatos
             directorioRespaldos,
             $"respaldo-previo-v{versionActual}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}.db");
 
-        using (var vacuum = conexion.CreateCommand())
+        using (var vacuum = CrearComando(conexion, $"VACUUM INTO '{respaldo.Replace("'", "''")}';"))
         {
-            vacuum.CommandText = $"VACUUM INTO '{respaldo.Replace("'", "''")}';";
             await vacuum.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -245,8 +254,7 @@ public sealed class MigradorBaseDatos
             Mode = SqliteOpenMode.ReadOnly,
         }.ToString());
         await conexionRespaldo.OpenAsync(cancellationToken);
-        using var integridad = conexionRespaldo.CreateCommand();
-        integridad.CommandText = "PRAGMA integrity_check;";
+        using var integridad = CrearComando(conexionRespaldo, "PRAGMA integrity_check;");
         var resultado = await integridad.ExecuteScalarAsync(cancellationToken) as string;
         if (!string.Equals(resultado, "ok", StringComparison.OrdinalIgnoreCase))
         {
