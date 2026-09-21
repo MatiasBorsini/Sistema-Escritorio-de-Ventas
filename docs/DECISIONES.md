@@ -129,3 +129,11 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Fuente: regla de negocio confirmada por la persona usuaria (avanza D-03 solo en este punto; el resto de la matriz sigue pendiente).
 - Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
 - Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación si el Administrador olvida su contraseña (sin maestras ni puertas traseras); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
+
+## D-22 — Respaldo local F01-T05 (mecanismo)
+
+- Estado: implementado y probado en `feat/f01-local-backup`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (F01-T05).
+- Decisión: `VACUUM INTO` como mecanismo (instantánea atómica, válida en uso y en WAL, sin copiar en caliente ni arrastrar auxiliares); verificado = `integrity_check` ok + `foreign_key_check` vacío + esquema reconocido + versiones esperadas; restauración solo como ensayo en temporal aislado, nunca sobre el origen. El migrador reutiliza este servicio para su respaldo previo.
+- Alcance: rutas explícitas del llamador (producción pendiente, D-09); sin Drive, sin automatismos, sin cableado al arranque ni al cierre de caja; sin restauración destructiva; V1/V2/V3 intactas; base provisional intacta.

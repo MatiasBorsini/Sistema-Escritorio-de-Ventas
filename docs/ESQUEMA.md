@@ -54,7 +54,7 @@ Implementación: `src/LocalInfantil.Infrastructure/Persistence/Migrations/` (`Mi
 - Descuentos e impuestos → sin política confirmada.
 - Normalización de marca/categoría/talle → F02 (D-11).
 - Reloj, identificadores y auditoría → F01-T03.
-- Respaldo local y restauración → F01-T05.
+- Respaldo de producción, retención, cifrado y Drive → F01-T05 (§10) y F08 (D-09).
 - Ruta definitiva de producción → pendiente (D-13: cuenta única ya confirmada, falta concretar la carpeta).
 
 ## 5. Pruebas (16/16 correctas el 2026-09-21, solo bases temporales aisladas)
@@ -72,9 +72,9 @@ Implementación: `src/LocalInfantil.Infrastructure/Persistence/Migrations/` (`Mi
 - Historial con salto (V2 sin V1): rechazado sin ejecutar migraciones, datos intactos, sin respaldo generado.
 - La base provisional del equipo no fue tocada por ninguna prueba (verificación punto 7: el código de migraciones y las pruebas no referencian su ruta; solo usan directorios temporales con GUID).
 
-## 6. Limitaciones que quedan para F01-T05 y otros
+## 6. Limitaciones que quedan para otros
 
-- **F01-T05:** sin procedimiento de respaldo/restauración de producción (ubicación, retención, ensayo de restauración); el respaldo previo a migrar va al directorio que indique el llamador, sin retención automática; sin cableado del migrador al arranque (cuando se conecte, un fallo debe impedir operar).
+- **F01-T05 producción:** sin ubicación, retención, cifrado ni ensayo de restauración reales (ver D-09 y §10); el respaldo previo a migrar va al directorio que indique el llamador, sin retención automática; sin cableado del migrador al arranque (cuando se conecte, un fallo debe impedir operar).
 - **F02-T03:** superposición de vigencias de precios no impedida a nivel de base (resolver la política antes de fijarla en esquema).
 - Compatibilidad entre versiones reales solo probada a nivel de mecanismo (V1→V2 simulada); cada migración futura necesita su propia prueba de actualización con datos ficticios.
 
@@ -99,7 +99,18 @@ Implementación en `feat/f01-operation-audit`: `IGeneradorIds`/`GeneradorIds` (G
 - **`operacion_id` correlaciona pero no garantiza idempotencia por sí solo:** permite rastrear qué registros pertenecen a la misma operación; la protección contra duplicados (p. ej. doble confirmación) se implementará sobre esta base en F04 y requiere verificación explícita antes de reejecutar.
 - **Atomicidad conjunta:** negocio + auditoría comparten sesión/transacción (demostrado con operación ficticia: producto de prueba + 2 eventos; ante fallo de un evento, ni el producto ni la auditoría persisten).
 - **Pruebas F01-T03 (solo temporales):** ids distintos y estables; reloj fijo determinista; escritura/lectura/correlación; rollback conjunto; actor sin id rechazado; V1→V2 real con datos ficticios, respaldo verificado, conservación y re-ejecución vacía.
-- **Límites:** sin cableado al arranque; sin autenticación/permisos (F01-T04); sin respaldos generales (F01-T05); sin ventas ni catálogo comercial; ruta definitiva pendiente (D-13).
+- **Límites:** sin cableado al arranque; sin autenticación/permisos (F01-T04); sin respaldos remotos (F08) ni copias automáticas; sin ventas ni catálogo comercial; ruta definitiva pendiente (D-13).
+
+## 10. Respaldo local F01-T05 (en curso, pendiente de revisión)
+
+Implementación en `feat/f01-local-backup`: `IServicioRespaldos`/`ServicioRespaldos` (`Infrastructure/Persistence/Respaldos/`), excepciones `RespaldoFallidoException`/`RespaldoInvalidoException`, registros `RespaldoVerificado`/`VerificacionRespaldo`. El migrador reutiliza el servicio para su respaldo previo (sin duplicar lógica; mantiene su nombre `respaldo-previo-vN`).
+
+- **Mecanismo y justificación:** `VACUUM INTO` sobre la base indicada: instantánea atómica válida con la base en uso y en cualquier journaling (el WAL se consolida en la copia), sin copiar el `.db` en caliente y sin arrastrar `-wal`/`-shm`/`-journal` (solo se crea el `.db` destino, con nombre único que jamás se sobrescribe). Publicación segura: se escribe un temporal exclusivo en el mismo directorio, se verifica y recién entonces se publica con un movimiento atómico; ante un fallo solo se limpia ese temporal y ningún nombre definitivo aparece incompleto. Bloqueos breves únicamente; sin detener la operación. Los respaldos quedan fuera del repositorio y del instalador.
+- **Verificado significa:** `integrity_check` ok en conexión independiente de solo lectura + `foreign_key_check` vacío + `schema_migrations` presente + versiones exactamente las esperadas (si se indican). Solo entonces el respaldo cuenta como exitoso; ante cualquier fallo no queda éxito falso (los parciales propios se eliminan, los anteriores no se tocan) y no hay reintentos.
+- **Restauración de ensayo:** verifica primero, copia solo el `.db` a un directorio temporal aislado (nunca al origen), reabre y comprueba integridad; el contenido y la escritura posterior los verifica el llamador. Nunca sobrescribe el origen ni borra el respaldo original. La copia hereda modo de diario convencional (propio de `VACUUM INTO`); la producción re-establecerá WAL al restaurar (procedimiento pendiente).
+- **Errores:** origen inexistente, destino inválido, corrupción, esquema no reconocido, versiones inesperadas y destino ocupado se traducen a fallos explícitos tipados, sin secretos en mensajes.
+- **Pruebas F01-T05 (solo temporales):** recuperación exacta fila por fila, WAL con operaciones confirmadas, integridad + FK, ruta distinta sin tocar origen, reapertura con escrituras, rechazo de corrupto/no reconocido/versiones, destino inválido, dos consecutivos, fallo sin destruir anteriores, publicación atómica sin temporales ante fallo de verificación, migrador V1→V3 y V2→V3 con respaldo previo correspondiente al estado anterior, fallo de respaldo que impide migrar, ensayo sin sobrescritura ni auxiliares, provisional intacta.
+- **Pendiente para producción (D-09, sin inventar):** carpeta definitiva, cantidad/antigüedad de copias, cifrado y su clave, procedimiento definitivo de restauración, copias automáticas y Drive (F08).
 
 ## 9. Autenticación local F01-T04 (en curso, pendiente de revisión)
 

@@ -1,3 +1,4 @@
+using LocalInfantil.Application.Abstractions;
 using Microsoft.Data.Sqlite;
 
 namespace LocalInfantil.Infrastructure.Persistence.Migrations;
@@ -162,7 +163,7 @@ public sealed class MigradorBaseDatos
                     "Toda migración con datos exige respaldo previo verificado.");
             }
 
-            await RespaldarYVerificarAsync(conexion, aplicadas, directorioRespaldos, cancellationToken);
+            await RespaldarYVerificarAsync(aplicadas, directorioRespaldos, cancellationToken);
         }
 
         // Primera escritura admitida: recién después de validar el historial
@@ -231,35 +232,19 @@ public sealed class MigradorBaseDatos
     }
 
     private async Task RespaldarYVerificarAsync(
-        SqliteConnection conexion,
         HashSet<int> aplicadas,
         string directorioRespaldos,
         CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(directorioRespaldos);
         var versionActual = aplicadas.Count == 0 ? 0 : aplicadas.Max();
-        var respaldo = Path.Combine(
-            directorioRespaldos,
-            $"respaldo-previo-v{versionActual}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}.db");
-
-        using (var vacuum = CrearComando(conexion, $"VACUUM INTO '{respaldo.Replace("'", "''")}';"))
+        var servicio = new Respaldos.ServicioRespaldos(new Tiempo.RelojSistema());
+        try
         {
-            await vacuum.ExecuteNonQueryAsync(cancellationToken);
+            await servicio.CrearRespaldoAsync(_rutaBaseDatos, directorioRespaldos, null, $"respaldo-previo-v{versionActual}", cancellationToken);
         }
-
-        await using var conexionRespaldo = new SqliteConnection(new SqliteConnectionStringBuilder
+        catch (RespaldoInvalidoException ex)
         {
-            DataSource = respaldo,
-            Pooling = false,
-            Mode = SqliteOpenMode.ReadOnly,
-        }.ToString());
-        await conexionRespaldo.OpenAsync(cancellationToken);
-        using var integridad = CrearComando(conexionRespaldo, "PRAGMA integrity_check;");
-        var resultado = await integridad.ExecuteScalarAsync(cancellationToken) as string;
-        if (!string.Equals(resultado, "ok", StringComparison.OrdinalIgnoreCase))
-        {
-            File.Delete(respaldo);
-            throw new InvalidOperationException("El respaldo previo no superó integrity_check. Migración abortada.");
+            throw new InvalidOperationException("El respaldo previo no superó la verificación. Migración abortada.", ex);
         }
     }
 }
