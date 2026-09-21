@@ -8,4 +8,5 @@ namespace LocalInfantil.Application.Features.Inventario;
 public static class PermisosInventario
 {
     public const string CargaInicialEstablecer = "inventario.carga_inicial";
+    public const string AjusteStock = "inventario.ajuste_stock";
 }

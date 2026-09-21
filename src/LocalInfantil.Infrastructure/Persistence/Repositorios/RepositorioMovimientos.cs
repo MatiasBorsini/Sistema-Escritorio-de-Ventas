@@ -93,6 +93,53 @@ public sealed class RepositorioMovimientos : IRepositorioMovimientos
         }
     }
 
+    public async Task<IReadOnlyList<MovimientoHistorial>> ListarPorVarianteAsync(ISesionPersistencia sesion, string varianteId, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        if (limite < 1 || limite > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limite), "El límite debe estar entre 1 y 100.");
+        }
+
+        if (desplazamiento < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(desplazamiento), "El desplazamiento no puede ser negativo.");
+        }
+
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = """
+                SELECT m.id, m.tipo, m.cantidad, m.motivo, u.nombre, m.operacion_id, m.creado_en
+                FROM movimiento_inventario m LEFT JOIN usuario u ON u.id = m.creado_por_usuario_id
+                WHERE m.variante_id = $variante ORDER BY m.creado_en, m.id LIMIT $limite OFFSET $desplazamiento;
+                """;
+            comando.Parameters.AddWithValue("$variante", varianteId);
+            comando.Parameters.AddWithValue("$limite", limite);
+            comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<MovimientoHistorial>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(new MovimientoHistorial(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.GetInt64(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.IsDBNull(4) ? null : lector.GetString(4),
+                    lector.GetString(5),
+                    lector.GetString(6)));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)
     {
         if (sesion is not ISesionSqlite s)

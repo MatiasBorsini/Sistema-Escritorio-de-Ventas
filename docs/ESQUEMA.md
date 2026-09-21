@@ -169,3 +169,13 @@ Implementacion en `feat/f02-prices-search-initial-stock`: `FijarPrecio`, `Cargar
 - **Carga inicial (F02-T05, solo ESTABLECER):** grilla multi-fila en una transaccion con `operacion_id` del llamador (reintento seguro), rechazo de repetidos, de filas invalidas/duplicadas y de variantes con historial (eso es ajuste F03); movimientos `inicial` con responsable y auditoria correlacionada; rollback total ante fallo. Logica probada; ViewModel/pantalla pendientes. SUMAR mercaderia es F03 (no implementado).
 - **Permisos definidos y no concedidos:** `catalogo.precios.gestionar` e `inventario.carga_inicial` no figuran para ningun rol en la matriz productiva; las pruebas los conceden en matrices propias.
 - **Limites:** costos/margenes (D-07, T03 parcial), recepcion/ajustes/ventas (F03/F04), busquedas avanzadas futuras, ruta definitiva (D-13).
+
+## 14. Bloque F03-T03+T04 (en curso, pendiente de revision)
+
+Implementacion en `feat/f03-adjustments-stock-history`: `AjustarInventario`, `ConsultasInventario`, `PermisosInventario.AjusteStock`, `ExistenciaVariante`/`MovimientoHistorial`, `ListarPorVarianteAsync` en movimientos. Sin migracion (V1-V4 intactas). WPF sin cambios.
+
+- **Ajustes (F03-T03):** movimiento `ajuste` nuevo e inmutable (+/-/nunca 0) con motivo obligatorio; validaciones con datos confirmados dentro de la misma transaccion de escritura (existencia resultante no negativa, operacion_id no repetido, variante existente); responsable = actor autenticado; movimiento + auditoria en una tx con rollback total. Correccion de errores via compensatorio que cita la operacion original (sin editar historia; V5 evaluada e innecesaria).
+- **Existencias e historial (F03-T04):** por variante/SKU desde movimientos confirmados; historial con fecha, tipo, cantidad, motivo, responsable y operacion_id, orden estable y paginado en SQL (una sola ronda con JOIN); inactivas visibles. Sin clasificacion de danado/no vendible (pendiente, no inventada).
+- **Permiso definido y no concedido:** `inventario.ajuste_stock` no figura para ningun rol en la matriz productiva; las pruebas lo conceden en matrices propias.
+- **Pruebas del bloque (solo temporales):** integral de 12 pasos + compensatorio; suite previa verde.
+- **Limites:** proveedores/recepcion (F03-T01/T02), costos, ventas, caja; ruta definitiva (D-13).

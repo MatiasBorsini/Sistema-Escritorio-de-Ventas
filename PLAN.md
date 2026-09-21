@@ -177,8 +177,8 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 - [ ] **F03-T01.** Registro mínimo de proveedores, solo campos comerciales acordados.
 - [ ] **F03-T02.** Recepción con productos, variantes, cantidades y costos; confirmación atómica que genera movimientos de ingreso.
-- [ ] **F03-T03.** Ajustes de inventario con motivo, responsable y movimientos inmutables/compensables.
-- [ ] **F03-T04.** Consulta de existencias e historial por SKU; distinguir stock dañado/no vendible cuando corresponda.
+- [x] **F03-T03.** Ajustes de inventario con motivo, responsable y movimientos inmutables/compensables. Terminado el 2026-09-21 en `feat/f03-adjustments-stock-history`: `AjustarInventario` auditado y compensatorio; ver `docs/ESQUEMA.md` §14 y D-25. Sin declarar F03 terminada ni el sistema listo para producción.
+- [>] **F03-T04.** Consulta de existencias e historial por SKU; distinguir stock dañado/no vendible cuando corresponda. En curso en `feat/f03-adjustments-stock-history`: `ConsultasInventario` + historial paginado; dañado pendiente sin inventar.
 - [ ] **F03-T05.** Inventario físico simple: registrar conteo, mostrar diferencias y aprobar ajuste; si el alcance se reduce, dejar el conteo formal para ampliación sin permitir ajustes invisibles.
 
 **Aceptación:** ingreso + ajuste explican exactamente las existencias; nunca hay modificación de stock sin movimiento; revertir recepción errónea no borra historial.
@@ -371,5 +371,7 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 
 | 2026-09-21 | F02-T01+T02 | Terminado en `feat/f02-products-variants`; F00-T02 bloqueada, F00-T06 en curso | Casos de uso + repos completados + permisos definidos sin conceder (D-23, denegados por defecto); restore/build 0/0 y 95/95 pruebas (10 integrales en temporales + matriz que deniega); sin migración; base provisional intacta | F02-T03…; D-03, D-11, ruta definitiva; catálogo no operativo |
 | 2026-09-21 | F02-T03+T04+T05 | Terminado T04, en curso T03 (costos D-07) y T05 (grilla visual); F00-T02 bloqueada, F00-T06 en curso | Precios (V4) + búsqueda/ficha medidas + carga inicial ESTABLECER; restore/build 0/0 y 106/106 pruebas (11 nuevas en temporales); V1/V2/V3 intactas; base provisional intacta | F03; D-03, D-07, D-09, ruta definitiva |
+
+| 2026-09-21 | F03-T03+T04 | Terminado T03, en curso T04 (dañado pendiente); F00-T02 bloqueada, F00-T06 en curso | `AjustarInventario` + `ConsultasInventario` + permiso definido sin conceder (D-25); restore/build 0/0 y 113/113 pruebas (8 en temporales, incl. anti-duplicado tras reapertura); sin migración; base provisional intacta | Resto F03 (T01/T02/T05); D-03, D-13, dañado pendiente |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

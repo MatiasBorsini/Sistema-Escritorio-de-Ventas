@@ -130,6 +130,14 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
 - Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación si el Administrador olvida su contraseña (sin maestras ni puertas traseras); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
 
+## D-25 — Bloque F03-T03+T04 (ajustes e historial)
+
+- Estado: implementado y probado en `feat/f03-adjustments-stock-history`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (bloque F03-T03+T04).
+- Decisión: ajustes por movimientos inmutables con motivo y responsable, sin stock negativo resultante y sin duplicar por `operacion_id`; corrección solo por compensatorio; existencias derivadas e historial paginado; permiso `inventario.ajuste_stock` definido sin conceder; sin clasificación de dañado (pendiente); sin migración (V5 innecesaria).
+- Alcance: sin proveedores/recepción, costos, ventas ni caja; sin escrituras desde WPF; V1-V4 intactas; base provisional intacta.
+
 ## D-24 — Bloque F02-T03+T04+T05 (precios, búsqueda, carga inicial)
 
 - Estado: implementado y probado en `feat/f02-prices-search-initial-stock`; pendiente de revisión.
