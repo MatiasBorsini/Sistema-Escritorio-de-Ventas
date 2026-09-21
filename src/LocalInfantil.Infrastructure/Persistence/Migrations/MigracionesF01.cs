@@ -5,8 +5,9 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// usuarios, productos, variantes, precios, movimientos de inventario y
 /// estructuras mínimas de ventas, pagos y caja. La versión 2 agrega el
 /// registro mínimo de auditoría (F01-T03). La versión 3 agrega la huella
-/// de contraseña a usuario (F01-T04); las filas preexistentes quedan con
-/// NULL y la aplicación las trata como no autenticables. Ver docs/ESQUEMA.md.
+/// de contraseña a usuario (F01-T04). La versión 4 garantiza un solo precio
+/// vigente por variante mediante índice único parcial (F02-T03).
+/// Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -15,6 +16,7 @@ public static class MigracionesF01
         new(1, "esquema-inicial-f01", SqlV1),
         new(2, "auditoria-f01", SqlV2),
         new(3, "huella-contrasena-f01", SqlV3),
+        new(4, "precio-vigente-unico-f02", SqlV4),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -152,5 +154,9 @@ public static class MigracionesF01
 
     private const string SqlV3 = """
         ALTER TABLE usuario ADD COLUMN huella_contrasena TEXT NULL;
+        """;
+
+    private const string SqlV4 = """
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_precio_vigente_unico ON precio(variante_id) WHERE vigente_hasta IS NULL;
         """;
 }

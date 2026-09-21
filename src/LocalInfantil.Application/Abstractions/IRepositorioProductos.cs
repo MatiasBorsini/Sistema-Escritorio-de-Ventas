@@ -13,4 +13,6 @@ public interface IRepositorioProductos
     Task DesactivarAsync(ISesionPersistencia sesion, string id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ProductoRegistrado>> ListarAsync(ISesionPersistencia sesion, bool soloActivos, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ProductoRegistrado>> BuscarAsync(ISesionPersistencia sesion, string texto, int limite, int desplazamiento, CancellationToken cancellationToken = default);
 }

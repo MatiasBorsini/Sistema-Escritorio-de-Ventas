@@ -9,4 +9,5 @@ public static class PermisosCatalogo
 {
     public const string ProductosGestionar = "catalogo.productos.gestionar";
     public const string VariantesGestionar = "catalogo.variantes.gestionar";
+    public const string PreciosGestionar = "catalogo.precios.gestionar";
 }

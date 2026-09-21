@@ -59,6 +59,40 @@ public sealed class RepositorioMovimientos : IRepositorioMovimientos
         }
     }
 
+    public async Task<long> ContarPorVarianteAsync(ISesionPersistencia sesion, string varianteId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT COUNT(*) FROM movimiento_inventario WHERE variante_id = $variante;";
+            comando.Parameters.AddWithValue("$variante", varianteId);
+            return Convert.ToInt64(await comando.ExecuteScalarAsync(cancellationToken));
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<bool> ExistePorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT 1 FROM movimiento_inventario WHERE operacion_id = $operacion LIMIT 1;";
+            comando.Parameters.AddWithValue("$operacion", operacionId);
+            return await comando.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)
     {
         if (sesion is not ISesionSqlite s)

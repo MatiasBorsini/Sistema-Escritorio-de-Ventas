@@ -130,6 +130,14 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
 - Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación si el Administrador olvida su contraseña (sin maestras ni puertas traseras); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
 
+## D-24 — Bloque F02-T03+T04+T05 (precios, búsqueda, carga inicial)
+
+- Estado: implementado y probado en `feat/f02-prices-search-initial-stock`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (bloque F02-T03+T04+T05).
+- Decisión: precios con historial por filas y vigencia única (índice parcial V4); sin costos por D-07 pendiente (T03 parcial); búsqueda SQL paginada sin FTS (mediciones: 8 ms / 5 ms); carga inicial solo ESTABLECE con `operacion_id` anti-duplicado; permisos `catalogo.precios.gestionar` e `inventario.carga_inicial` definidos sin conceder; ViewModel de grilla pendiente.
+- Alcance: sin recepción/ajustes/ventas (F03/F04); sin escrituras desde WPF; V1/V2/V3 intactas; base provisional intacta.
+
 ## D-23 — Catálogo F02-T01+T02 (permisos y reglas de integridad)
 
 - Estado: implementado y probado en `feat/f02-products-variants`; pendiente de revisión.

@@ -75,6 +75,25 @@ public sealed class RepositorioPrecios : IRepositorioPrecios
         }
     }
 
+    public async Task FinalizarVigenteAsync(ISesionPersistencia sesion, string varianteId, string fecha, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        ExigirEscritura(s);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "UPDATE precio SET vigente_hasta = $fecha WHERE variante_id = $variante AND vigente_hasta IS NULL;";
+            comando.Parameters.AddWithValue("$variante", varianteId);
+            comando.Parameters.AddWithValue("$fecha", fecha);
+            await comando.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)
     {
         if (sesion is not ISesionSqlite s)

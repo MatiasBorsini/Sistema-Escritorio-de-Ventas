@@ -58,6 +58,25 @@ public sealed class ConsultasCatalogo
         return await _variantes.ListarPorProductoAsync(sesion, productoId, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ProductoRegistrado>> BuscarProductosAsync(string texto, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        return await _productos.BuscarAsync(sesion, texto ?? string.Empty, limite, desplazamiento, cancellationToken);
+    }
+
+    public async Task<FichaProducto?> ObtenerFichaAsync(string productoId, string fecha, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        var producto = await _productos.ObtenerPorIdAsync(sesion, productoId, cancellationToken);
+        if (producto is null)
+        {
+            return null;
+        }
+
+        var variantes = await _variantes.ObtenerFichaPorProductoAsync(sesion, productoId, fecha, cancellationToken);
+        return new FichaProducto(producto, variantes);
+    }
+
     private async Task<ISesionPersistencia> SesionValidadaAsync(string? idSesion, CancellationToken cancellationToken)
     {
         if (idSesion is null || _sesiones.Obtener(idSesion) is null)

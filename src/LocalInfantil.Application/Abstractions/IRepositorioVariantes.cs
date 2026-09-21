@@ -17,4 +17,6 @@ public interface IRepositorioVariantes
     Task<IReadOnlyList<VarianteRegistrada>> ListarPorProductoAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
 
     Task<long> ContarActivasPorProductoAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<FichaVariante>> ObtenerFichaPorProductoAsync(ISesionPersistencia sesion, string productoId, string fecha, CancellationToken cancellationToken = default);
 }

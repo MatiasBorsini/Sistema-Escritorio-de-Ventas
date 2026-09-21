@@ -166,6 +166,45 @@ public sealed class RepositorioVariantes : IRepositorioVariantes
         }
     }
 
+    public async Task<IReadOnlyList<FichaVariante>> ObtenerFichaPorProductoAsync(ISesionPersistencia sesion, string productoId, string fecha, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = """
+                SELECT v.id, v.sku, v.talle, v.color, v.activa,
+                    (SELECT p.importe_minor FROM precio p WHERE p.variante_id = v.id AND p.vigente_desde <= $fecha AND (p.vigente_hasta IS NULL OR $fecha < p.vigente_hasta) ORDER BY p.vigente_desde DESC LIMIT 1),
+                    (SELECT p.moneda FROM precio p WHERE p.variante_id = v.id AND p.vigente_desde <= $fecha AND (p.vigente_hasta IS NULL OR $fecha < p.vigente_hasta) ORDER BY p.vigente_desde DESC LIMIT 1),
+                    COALESCE((SELECT SUM(m.cantidad) FROM movimiento_inventario m WHERE m.variante_id = v.id), 0)
+                FROM variante v WHERE v.producto_id = $producto ORDER BY v.sku;
+                """;
+            comando.Parameters.AddWithValue("$producto", productoId);
+            comando.Parameters.AddWithValue("$fecha", fecha);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<FichaVariante>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(new FichaVariante(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.IsDBNull(2) ? null : lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.GetInt64(4) == 1,
+                    lector.IsDBNull(5) ? null : lector.GetInt64(5),
+                    lector.IsDBNull(6) ? null : lector.GetString(6),
+                    lector.GetInt64(7)));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static VarianteRegistrada Leer(SqliteDataReader lector)
     {
         return new VarianteRegistrada(

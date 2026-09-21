@@ -7,4 +7,8 @@ public interface IRepositorioMovimientos
     Task<string> RegistrarAsync(ISesionPersistencia sesion, NuevoMovimiento datos, string creadoEn, CancellationToken cancellationToken = default);
 
     Task<long> SumarPorVarianteAsync(ISesionPersistencia sesion, string varianteId, CancellationToken cancellationToken = default);
+
+    Task<long> ContarPorVarianteAsync(ISesionPersistencia sesion, string varianteId, CancellationToken cancellationToken = default);
+
+    Task<bool> ExistePorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default);
 }

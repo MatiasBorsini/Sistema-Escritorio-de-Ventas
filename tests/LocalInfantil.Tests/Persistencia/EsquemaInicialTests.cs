@@ -455,6 +455,66 @@ public sealed class EsquemaInicialTests
         }
     }
 
+    [Fact]
+    public async Task Migracion_V4_con_vigencias_incompatibles_falla_sin_cambios()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        var respaldos = Path.Combine(directorio, "respaldos");
+        try
+        {
+            var catalogoV3 = MigracionesF01.Todas.Where(m => m.Version <= 3).ToList();
+            Assert.Equal(new[] { 1, 2, 3 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV3, null));
+            await InsertarRegistrosFicticiosAsync(ruta);
+
+            await using (var conexion = await AbrirConexionAsync(ruta))
+            {
+                foreach (var sql in new[]
+                {
+                    "INSERT INTO precio (id, variante_id, importe_minor, vigente_desde, creado_en) VALUES ('px-1', 'v-ficticia', 10000, '2026-09-21T12:00:00Z', '2026-09-21T12:00:00Z');",
+                    "INSERT INTO precio (id, variante_id, importe_minor, vigente_desde, creado_en) VALUES ('px-2', 'v-ficticia', 12000, '2026-09-21T12:00:00Z', '2026-09-21T12:00:00Z');",
+                })
+                {
+                    using var comando = conexion.CreateCommand();
+                    comando.CommandText = sql;
+                    await comando.ExecuteNonQueryAsync();
+                }
+            }
+
+            await Assert.ThrowsAsync<SqliteException>(
+                () => new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+
+            await using var verificacion = await AbrirConexionAsync(ruta);
+            Assert.Equal(new[] { 1L, 2L, 3L }, await VersionesAsync(verificacion));
+            Assert.Equal(3L, await ContarAsync(verificacion, "precio", "variante_id = 'v-ficticia'"));
+            Assert.Equal("Remera Ficticia", await ConsultarTextoAsync(verificacion, "SELECT nombre FROM producto WHERE id = 'p-ficticio';"));
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
+    private static async Task<List<long>> VersionesAsync(SqliteConnection conexion)
+    {
+        var versiones = new List<long>();
+        using var consulta = conexion.CreateCommand();
+        consulta.CommandText = "SELECT version FROM schema_migrations ORDER BY version;";
+        await using var lector = await consulta.ExecuteReaderAsync();
+        while (await lector.ReadAsync())
+        {
+            versiones.Add(lector.GetInt64(0));
+        }
+
+        return versiones;
+    }
+
+    private static async Task<long> ContarAsync(SqliteConnection conexion, string tabla, string condicion)
+    {
+        using var comando = conexion.CreateCommand();
+        comando.CommandText = $"SELECT COUNT(*) FROM {tabla} WHERE {condicion};";
+        return Convert.ToInt64(await comando.ExecuteScalarAsync());
+    }
+
     private static async Task InsertarRegistrosFicticiosAsync(string ruta)
     {
         await using var conexion = await AbrirConexionAsync(ruta);

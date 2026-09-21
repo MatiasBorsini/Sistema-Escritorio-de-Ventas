@@ -425,7 +425,7 @@ public sealed class AutenticacionTests
     }
 
     [Fact]
-    public async Task Migracion_V2_V3_con_datos_respaldo_y_sin_duplicados()
+    public async Task Migracion_V2_V4_con_datos_respaldo_y_sin_duplicados()
     {
         var directorio = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
         var ruta = Path.Combine(directorio, "auth-f01.db");
@@ -453,7 +453,7 @@ public sealed class AutenticacionTests
                 await insercion.ExecuteNonQueryAsync();
             }
 
-            Assert.Equal(new[] { 3 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 3, 4 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             await using var lectura = await fabrica.IniciarLecturaAsync();

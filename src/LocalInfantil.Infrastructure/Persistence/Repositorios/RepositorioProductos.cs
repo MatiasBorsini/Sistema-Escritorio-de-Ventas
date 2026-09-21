@@ -132,6 +132,42 @@ public sealed class RepositorioProductos : IRepositorioProductos
         }
     }
 
+    public async Task<IReadOnlyList<ProductoRegistrado>> BuscarAsync(ISesionPersistencia sesion, string texto, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        if (limite < 1 || limite > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limite), "El límite debe estar entre 1 y 100.");
+        }
+
+        if (desplazamiento < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(desplazamiento), "El desplazamiento no puede ser negativo.");
+        }
+
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, nombre, marca, categoria, activo FROM producto WHERE nombre LIKE $t OR marca LIKE $t OR categoria LIKE $t ORDER BY nombre, id LIMIT $limite OFFSET $desplazamiento;";
+            comando.Parameters.AddWithValue("$t", $"%{texto.Trim()}%");
+            comando.Parameters.AddWithValue("$limite", limite);
+            comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<ProductoRegistrado>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(Leer(lector));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ProductoRegistrado Leer(SqliteDataReader lector)
     {
         return new ProductoRegistrado(

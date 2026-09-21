@@ -165,9 +165,9 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 - [x] **F02-T01.** Alta/edición/consulta/desactivación de producto padre, marca, categoría y atributos necesarios; no eliminar productos con historial. Terminado el 2026-09-21 en `feat/f02-products-variants` con F02-T02: casos de uso + repos + permisos definidos sin conceder; 95/95 pruebas; ver `docs/ESQUEMA.md` §12 y D-23. Permisos denegados por defecto hasta D-03; catálogo no operativo para el local. F00-T02 sigue bloqueada y F00-T06 sigue en curso.
 - [x] **F02-T02.** Variantes flexibles por talle/color, incluidos artículos sin alguno de esos atributos; SKU interno único y buscable. Terminado en `feat/f02-products-variants` con F02-T01 (mismo alcance y evidencia).
-- [ ] **F02-T03.** Precio/costo y estado vigente; conservar instantáneas para ventas futuras. Si el método de costo aún no está confirmado, no publicar márgenes definitivos.
-- [ ] **F02-T04.** Búsqueda textual rápida e índices medidos; ficha de producto con variantes, existencias y estado.
-- [ ] **F02-T05.** Grilla de carga inicial de variantes, con separación inequívoca entre **establecer cantidad inicial** y **sumar ingreso**.
+- [>] **F02-T03.** Precio/costo y estado vigente; conservar instantáneas para ventas futuras. Si el método de costo aún no está confirmado, no publicar márgenes definitivos. Precios implementados con V4; costos pendientes D-07.
+- [x] **F02-T04.** Búsqueda textual rápida e índices medidos; ficha de producto con variantes, existencias y estado. Terminada el 2026-09-21: búsqueda paginada + ficha medidas (8 ms / 5 ms), sin FTS.
+- [>] **F02-T05.** Grilla de carga inicial de variantes, con separación inequívoca entre **establecer cantidad inicial** y **sumar ingreso**. Carga inicial implementada y probada; grilla visual pendiente; SUMAR es F03.
 
 **Aceptación:** un producto con distintos talles/colores no mezcla existencias; búsqueda por texto/SKU responde sin cargar todas las filas; un producto usado puede desactivarse conservando historial.
 
@@ -370,5 +370,6 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 | 2026-09-21 | F01-T06 | Terminado en `feat/f01-integrity-tests`; F00-T02 bloqueada, F00-T06 en curso | Matriz §11 documentada; restore/build 0/0 y 85/85 pruebas en bases temporales (4 nuevas, resto preexistente verificado; sin defectos en código); base provisional intacta | F02; ruta de datos, respaldos, recuperación del Administrador, permisos no confirmados; sin validación en PC del local |
 
 | 2026-09-21 | F02-T01+T02 | Terminado en `feat/f02-products-variants`; F00-T02 bloqueada, F00-T06 en curso | Casos de uso + repos completados + permisos definidos sin conceder (D-23, denegados por defecto); restore/build 0/0 y 95/95 pruebas (10 integrales en temporales + matriz que deniega); sin migración; base provisional intacta | F02-T03…; D-03, D-11, ruta definitiva; catálogo no operativo |
+| 2026-09-21 | F02-T03+T04+T05 | Terminado T04, en curso T03 (costos D-07) y T05 (grilla visual); F00-T02 bloqueada, F00-T06 en curso | Precios (V4) + búsqueda/ficha medidas + carga inicial ESTABLECER; restore/build 0/0 y 106/106 pruebas (11 nuevas en temporales); V1/V2/V3 intactas; base provisional intacta | F03; D-03, D-07, D-09, ruta definitiva |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.
