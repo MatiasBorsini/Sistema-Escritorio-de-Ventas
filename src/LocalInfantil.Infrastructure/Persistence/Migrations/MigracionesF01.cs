@@ -4,8 +4,9 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// Catálogo de migraciones F01. La versión 1 crea el esquema inicial:
 /// usuarios, productos, variantes, precios, movimientos de inventario y
 /// estructuras mínimas de ventas, pagos y caja. La versión 2 agrega el
-/// registro mínimo de auditoría (F01-T03). Ver docs/ESQUEMA.md para
-/// el detalle de tablas, restricciones y decisiones pendientes.
+/// registro mínimo de auditoría (F01-T03). La versión 3 agrega la huella
+/// de contraseña a usuario (F01-T04); las filas preexistentes quedan con
+/// NULL y la aplicación las trata como no autenticables. Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -13,6 +14,7 @@ public static class MigracionesF01
     {
         new(1, "esquema-inicial-f01", SqlV1),
         new(2, "auditoria-f01", SqlV2),
+        new(3, "huella-contrasena-f01", SqlV3),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -146,5 +148,9 @@ public static class MigracionesF01
         );
 
         CREATE INDEX IF NOT EXISTS ix_auditoria_operacion ON auditoria(operacion_id);
+        """;
+
+    private const string SqlV3 = """
+        ALTER TABLE usuario ADD COLUMN huella_contrasena TEXT NULL;
         """;
 }

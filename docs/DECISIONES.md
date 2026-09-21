@@ -113,3 +113,19 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Fuente: instrucción de la persona usuaria (F01-T03).
 - Decisión: identificadores centralizados e inyectables (`IGeneradorIds`; GUID sin guiones en producción); reloj UTC inyectable (`IReloj`; sistema en producción, fijo en pruebas; formato `"o"` al persistir); auditoría mínima en tabla `auditoria` (migración V2, sin alterar V1) con `operacion_id`, `tipo_evento` libre, `actor_tipo` usuario/sistema con `actor_id` obligatorio para usuario, referencia opcional y detalle sin secretos. `operacion_id` correlaciona pero no garantiza idempotencia por sí solo. Negocio y auditoría comparten sesión/transacción.
 - Alcance: sin permisos (F01-T04), sin autenticación, sin respaldos generales (F01-T05), sin ventas ni catálogo; sin cableado al arranque; base provisional intacta.
+
+## D-20 — Autenticación local F01-T04
+
+- Estado: implementado y probado en `feat/f01-local-auth`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: instrucción de la persona usuaria (F01-T04).
+- Decisión: PBKDF2-HMAC-SHA512 (220000 iteraciones, sal 16 bytes, subclave 32 bytes, formato versionado `v1$…`, comparación constante; conteos manipulados no se ejecutan) sin dependencias nuevas; política 12–256 sin clases arbitrarias; cuentas locales independientes de Windows; error genérico sin enumeración con verificación señuelo y retardo de 500 ms sin bloqueos; sesiones en memoria no forjables (resolución interna) con relectura de vigencia; alta inicial solo en base sin historial de usuarios (ni desactivados), en la misma transacción; alta posterior y todo restablecimiento denegados por defecto hasta D-03 (ni la sesión válida los concede); matriz configurable con denegación por defecto y solo los dos permisos de reintegro confirmados; auditoría sin secretos.
+- Alcance: migración V3 solo agrega `huella_contrasena` (V1/V2 intactas); sin pantallas ni cableado al arranque; sin operaciones comerciales; sin licencias; pendientes la administración por rol, la recuperación autorizada, la caducidad/inactividad de sesión, el plazo correspondiente y la matriz completa (D-03); base provisional intacta.
+
+## D-21 — Administración de cuentas por rol Administrador (regla confirmada)
+
+- Estado: implementado y probado en `feat/f01-local-auth`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: regla de negocio confirmada por la persona usuaria (avanza D-03 solo en este punto; el resto de la matriz sigue pendiente).
+- Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
+- Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación si el Administrador olvida su contraseña (sin maestras ni puertas traseras); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
