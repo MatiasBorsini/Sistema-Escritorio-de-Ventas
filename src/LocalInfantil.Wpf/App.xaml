@@ -42,6 +42,9 @@
         <DataTemplate DataType="{x:Type viewModels:RecepcionesConsultaViewModel}">
             <views:RecepcionesConsultaView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ConteoViewModel}">
+            <views:ConteoView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:AppRootViewModel}">
             <views:AppRootView />
         </DataTemplate>

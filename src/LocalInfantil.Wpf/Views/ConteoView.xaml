@@ -1,0 +1,65 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.ConteoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+        <StackPanel>
+            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Conteo físico — borradores y aprobación"/>
+            <TextBlock Foreground="#6B7280" TextWrapping="Wrap" Text="Parcial: no elegidas quedan fuera (no cero). Cantidades enteras >=0. Foto desactualizada si hubo movimientos, incluso con saldo igual." Margin="0,4,0,8"/>
+            <TextBlock Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
+            <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <Button Content="Refrescar borradores" Padding="8,4" Command="{Binding RefrescarCommand}"/>
+                <TextBlock Margin="8,6,0,0" FontFamily="Consolas" FontSize="11" Text="{Binding OperacionId, StringFormat=operacion_id: {0}}"/>
+            </StackPanel>
+            <ListBox MaxHeight="120" ItemsSource="{Binding Conteos}" SelectedItem="{Binding Seleccionado}" DisplayMemberPath="Id"/>
+            <GroupBox Header="Informe (esperado / contado / diferencia)" Margin="0,8,0,8" Padding="8">
+                <ItemsControl ItemsSource="{Binding Informe}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Sku}" FontFamily="Consolas" FontSize="11" Width="120"/>
+                                <TextBlock Text="{Binding Esperado}" Width="80"/>
+                                <TextBlock Text="{Binding Contado}" Width="80"/>
+                                <TextBlock Text="{Binding Diferencia}" Width="80" Foreground="#B45309"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </GroupBox>
+            <GroupBox Header="Selección para crear/corregir (SKU y cantidad contada)" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <ItemsControl ItemsSource="{Binding FilasSeleccion}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <TextBox Width="140" Text="{Binding Sku, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU"/>
+                                    <TextBox Width="90" Margin="8,0,0,0" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad >=0"/>
+                                    <TextBlock Margin="8,4,0,0" Foreground="#6B7280" FontSize="11" Text="{Binding Detalle}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="+ Fila" Padding="8,4" Command="{Binding AgregarFilaCommand}"/>
+                        <Button Content="− Fila" Margin="8,0,0,0" Padding="8,4" Command="{Binding QuitarFilaCommand}"/>
+                        <Button Content="Crear borrador" Margin="8,0,0,0" Padding="8,4" Command="{Binding CrearCommand}"/>
+                        <Button Content="Corregir borrador" Margin="8,0,0,0" Padding="8,4" Command="{Binding CorregirCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Solicitar aprobación" Padding="8,4" Command="{Binding SolicitarAprobarCommand}"/>
+                <Button Content="Cancelar" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarAprobarCommand}"/>
+            </StackPanel>
+            <Border Margin="0,8,0,0" Padding="8" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" Visibility="{Binding ConfirmacionAprobarVisible, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Foreground="#991B1B" TextWrapping="Wrap" Text="¿Confirmás aprobar? Diferencia cero sin movimiento; diferencias generan ajustes. Doble aprobación bloqueada; foto vieja requiere nuevo conteo."/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Confirmar aprobación" Padding="8,4" Command="{Binding AprobarCommand}"/>
+                        <Button Content="Cancelar" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarAprobarCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

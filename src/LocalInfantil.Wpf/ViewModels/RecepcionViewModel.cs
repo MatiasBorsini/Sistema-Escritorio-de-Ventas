@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Wpf.Infra;
 
@@ -72,6 +73,73 @@ public sealed class RecepcionViewModel : ViewModelBase
             foreach (var p in lista) Proveedores.Add(p);
         }
         catch (Exception ex) { Error = MensajeError(ex); }
+        await VerificarPendienteAsync();
+    }
+
+    public async Task VerificarPendienteAsync()
+    {
+        var yaOcupado = Ocupado;
+        if (!yaOcupado) Ocupado = true;
+        try
+        {
+            RecepcionPendienteDto? pendiente;
+            try
+            {
+                pendiente = AlmacenRecepcionPendiente.Cargar(_servicios.RutaBaseDatos);
+            }
+            catch (Exception ex)
+            {
+                Error = $"Archivo pendiente corrupto o ilegible: {MensajeError(ex)}. Bloqueado hasta reconciliar o eliminar manualmente el archivo pendiente.";
+                return;
+            }
+            if (pendiente is null) return;
+            bool existe;
+            try
+            {
+                existe = await _servicios.ConsultasRecepciones.ExisteOperacionAsync(pendiente.OperacionId, _idSesion());
+            }
+            catch (Exception ex)
+            {
+                Error = $"Pendiente incierto (operacion_id {pendiente.OperacionId}) no se pudo verificar: {MensajeError(ex)}. Conservando para reintento idempotente.";
+                _operacionId = pendiente.OperacionId;
+                OnPropertyChanged(nameof(OperacionId));
+                _ultimasLineas = pendiente.Lineas;
+                _ultimoProveedorId = pendiente.ProveedorId;
+                _ultimoComprobante = pendiente.ComprobanteRef;
+                return;
+            }
+            if (existe)
+            {
+                Mensaje = $"Reconciliación tras reinicio: la recepción con operacion_id {pendiente.OperacionId} ya quedó registrada. No se duplicó.";
+                try { AlmacenRecepcionPendiente.Eliminar(_servicios.RutaBaseDatos); }
+                catch (Exception ex) { Error = $"No se pudo eliminar el pendiente tras reconciliación: {MensajeError(ex)}. Requiere reconciliación manual."; return; }
+                _operacionId = _servicios.GeneradorIds.NuevoId();
+                OnPropertyChanged(nameof(OperacionId));
+                _ultimasLineas = null;
+                _ultimoProveedorId = null;
+                _ultimoComprobante = null;
+            }
+            else
+            {
+                Mensaje = $"Pendiente incierto recuperado tras reinicio (operacion_id {pendiente.OperacionId}). Reintentá exactamente mismo proveedor/comprobante/líneas con mismo id.";
+                _operacionId = pendiente.OperacionId;
+                OnPropertyChanged(nameof(OperacionId));
+                _ultimasLineas = pendiente.Lineas;
+                _ultimoProveedorId = pendiente.ProveedorId;
+                _ultimoComprobante = pendiente.ComprobanteRef;
+                Filas.Clear();
+                foreach (var l in pendiente.Lineas)
+                {
+                    string sku = l.VarianteId;
+                    Filas.Add(new FilaRecepcionViewModel { Sku = sku, CantidadTexto = l.Cantidad.ToString(), CostoTexto = l.CostoUnitarioMinor.HasValue ? (l.CostoUnitarioMinor.Value / 100m).ToString("F2", CultureInfo.InvariantCulture) : string.Empty, Moneda = l.Moneda ?? "ARS" });
+                }
+                if (Filas.Count == 0) Filas.Add(new FilaRecepcionViewModel());
+                var prov = Proveedores.FirstOrDefault(p => p.Id == pendiente.ProveedorId);
+                if (prov is not null) ProveedorSeleccionado = prov;
+                ComprobanteRef = pendiente.ComprobanteRef;
+            }
+        }
+        finally { if (!yaOcupado) Ocupado = false; }
     }
 
     public Task ConfirmarAsyncPublic() => ConfirmarAsync();
@@ -169,11 +237,23 @@ public sealed class RecepcionViewModel : ViewModelBase
             _ultimoComprobante = null;
         }
 
+        // Persistencia durable: guardar pendiente ANTES de enviar; si falla, no ejecutar
+        try
+        {
+            AlmacenRecepcionPendiente.Guardar(_servicios.RutaBaseDatos, _operacionId, ProveedorSeleccionado.Id, comprobante, lineas);
+        }
+        catch (Exception ex)
+        {
+            Error = $"No se pudo guardar de forma fiable el estado pendiente antes de enviar: {MensajeError(ex)}. No se ejecutó la recepción.";
+            return;
+        }
+
         Ocupado = true;
         try
         {
             var id = await _servicios.CasoConfirmarRecepcion.EjecutarAsync(ProveedorSeleccionado.Id, lineas, _operacionId, comprobante, _idSesion());
             Mensaje = $"SUMAR INGRESO DE MERCADERÍA — Recepción {id} confirmada: {lineas.Count} variante(s) sumadas. No es ESTABLECER.";
+            AlmacenRecepcionPendiente.Eliminar(_servicios.RutaBaseDatos);
             _operacionId = _servicios.GeneradorIds.NuevoId();
             OnPropertyChanged(nameof(OperacionId));
             _ultimasLineas = null;
@@ -185,6 +265,7 @@ public sealed class RecepcionViewModel : ViewModelBase
             _ultimasLineas = lineas;
             _ultimoProveedorId = ProveedorSeleccionado.Id;
             _ultimoComprobante = comprobante;
+            // Pendiente ya guardado durablemente, se conserva para reintento tras reinicio
             var msg = ex is InvalidOperationException && ex.Message.Contains("ya fue registrada")
                 ? "Esta recepción ya existe con ese operacion_id."
                 : MensajeError(ex) + $" (sin éxito parcial; reintentá con mismo operacion_id y mismas filas/proveedor/comprobante: {_operacionId})";
@@ -203,9 +284,44 @@ public sealed class RecepcionViewModel : ViewModelBase
     private static bool TryParseArs(string texto, out long minor)
     {
         minor = 0;
-        var t = texto.Trim().Replace("ARS", "", StringComparison.OrdinalIgnoreCase).Trim().Replace(',', '.');
-        if (!decimal.TryParse(t, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var dec) || dec < 0) return false;
-        minor = (long)Math.Round(dec * 100m, MidpointRounding.AwayFromZero);
+        var raw = texto.Trim();
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        // Rechazar negativo
+        if (raw.Contains('-')) return false;
+        var t = raw.Replace("ARS", "", StringComparison.OrdinalIgnoreCase).Trim();
+        if (string.IsNullOrWhiteSpace(t)) return false;
+        // Manejo de separadores: admitir 1.234,50 (punto miles, coma decimal), 1234,50 y 1234.50
+        // Rechazar ambiguo como 1,234.50 (coma miles, punto decimal)
+        bool tieneComa = t.Contains(',');
+        bool tienePunto = t.Contains('.');
+        string normalizado;
+        if (tieneComa && tienePunto)
+        {
+            // ',' debe ser decimal y estar después del último '.'
+            if (t.LastIndexOf(',') < t.LastIndexOf('.')) return false;
+            // No debe haber más de una coma
+            if (t.Count(c => c == ',') != 1) return false;
+            normalizado = t.Replace(".", "").Replace(',', '.');
+        }
+        else if (tieneComa)
+        {
+            if (t.Count(c => c == ',') != 1) return false;
+            normalizado = t.Replace(',', '.');
+        }
+        else
+        {
+            normalizado = t;
+        }
+        if (!decimal.TryParse(normalizado, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var dec)) return false;
+        if (dec < 0) return false;
+        // Fuera de rango para centavos
+        if (dec > (decimal)long.MaxValue / 100m) return false;
+        // Rechazar más de dos decimales significativos sin redondeo silencioso
+        var decRedondeado = Math.Round(dec, 2, MidpointRounding.AwayFromZero);
+        if (dec != decRedondeado) return false;
+        // Verificar que no tenga más de 2 decimales en texto original (evitar 1.234,567)
+        // Ya cubierto por comparación anterior
+        minor = (long)(dec * 100m);
         return true;
     }
     private static string MensajeError(Exception ex) => ex is LocalInfantil.Application.Abstractions.AccesoDenegadoException ? "Permiso denegado." : ex is LocalInfantil.Application.Abstractions.SesionInvalidaException ? "Sesión inválida." : ex.Message;

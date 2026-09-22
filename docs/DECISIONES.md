@@ -217,3 +217,12 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Fuente: bloque autorizado (Proveedores/Recepcion/RecepcionesConsulta ViewModels).
 - Regla: `IRepositorioRecepciones.Listar/Obtener` + `ConsultasRecepciones` (sesión vigente, sin SQL en WPF); `ServiciosComerciales` reutiliza `Crear/Editar/DesactivarProveedor`, `ConfirmarRecepcion` (SUMAR ingreso, costo NULL vs 0, ARS exacto, variantes repetidas/cantidades inválidas sin parciales) y `RevertirRecepcion` (COMPLETA con motivo, stock insuficiente rechaza toda, no doble, conserva recepción/costos/movimientos/auditoría); operacion_id estable con instantánea inmutable y rotación solo tras éxito; selector fail-closed con hard-link (FileIndex) y reparse de todos los antecesores, ouvre handle de solo metadatos (CreateFile acceso cero) sin leer SQLite, `--dev-db` inválido produce error; V1-V7 intactas, sin V8.
 - Alcance: sin reversión parcial/devolución/nota crédito/contabilidad, sin POS/caja/Drive, sin valoración costos, validación visual pendiente.
+
+## D-32 — Incidente base provisional (2026-09-22): original perdido, archivo actual es recreación vacía
+
+- Estado: registrado; corrección del test aplicada en `feat/wpf-stocktake-receiving-recovery`; pendiente de revisión.
+- Fecha: 2026-09-22.
+- Fuente: auditoría de suite (test `Selector_falla_cerrado_si_no_puede_comprobar_identidad`, versión anterior).
+- Registro: el test sobrescribió la base provisional original con texto y luego la eliminó (`File.WriteAllText` + `File.Delete`); no fue migración ni copia. Después se creó manualmente un archivo vacío de 12.288 bytes con la fecha anterior: **NO fue una restauración**. No existe hash anterior ni copia auténtica identificada; no puede afirmarse que los datos originales estén preservados. El usuario confirmó que no había cargado datos propios (solo tabla técnica del prototipo F00).
+- Regla: la suite usa exclusivamente archivos ficticios temporales; ningún test escribe, elimina, migra, reemplaza ni restaura la ruta provisional real (ver `docs/ESQUEMA.md` §21). El test `Base_provisional_F00_permanece_intacta` solo compara existencia/tamaño/fecha y no demuestra igualdad de contenido.
+- Alcance: sin cambios en V1–V7; sin restauración adicional sin autorización.

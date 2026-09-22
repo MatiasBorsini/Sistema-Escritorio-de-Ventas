@@ -254,9 +254,6 @@ public sealed class WpfSuppliersReceivingTests
             }
         }
         finally { try { Directory.Delete(tmp, true); } catch { } }
-        // Verificar que provisional intacta no fue tocada
-        var prov = RutaBaseDatosProvisional.ObtenerPredeterminada();
-        Assert.True(File.Exists(prov) || !File.Exists(prov));
     }
 
     [Fact]

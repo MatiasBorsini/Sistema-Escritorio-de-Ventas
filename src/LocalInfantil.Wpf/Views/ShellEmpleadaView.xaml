@@ -22,8 +22,11 @@
             <TabItem Header="Recepciones/Reversión">
                 <views:RecepcionesConsultaView DataContext="{Binding Recepciones}"/>
             </TabItem>
+            <TabItem Header="Conteo físico">
+                <views:ConteoView DataContext="{Binding Conteo}"/>
+            </TabItem>
             <TabItem Header="Info">
-                <TextBlock Margin="24" TextWrapping="Wrap" Foreground="#6B7280" Text="Administración requiere Dueña. Consultas de proveedores/recepciones requieren sesión vigente."/>
+                <TextBlock Margin="24" TextWrapping="Wrap" Foreground="#6B7280" Text="Administración requiere Dueña. Consultas requieren sesión vigente."/>
             </TabItem>
         </TabControl>
     </DockPanel>

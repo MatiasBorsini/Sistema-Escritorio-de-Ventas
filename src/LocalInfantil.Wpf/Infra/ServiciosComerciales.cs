@@ -46,13 +46,18 @@ public sealed class ServiciosComerciales
     public CargarExistenciaInicial CasoCargarExistenciaInicial { get; }
     public IRepositorioProveedores RepoProveedores { get; }
     public IRepositorioRecepciones RepoRecepciones { get; }
+    public IRepositorioConteos RepoConteos { get; }
     public ConsultasProveedores ConsultasProveedores { get; }
     public ConsultasRecepciones ConsultasRecepciones { get; }
+    public ConsultasConteos ConsultasConteos { get; }
     public CrearProveedor CasoCrearProveedor { get; }
     public EditarProveedor CasoEditarProveedor { get; }
     public DesactivarProveedor CasoDesactivarProveedor { get; }
     public ConfirmarRecepcion CasoConfirmarRecepcion { get; }
     public RevertirRecepcion CasoRevertirRecepcion { get; }
+    public CrearConteo CasoCrearConteo { get; }
+    public CorregirConteo CasoCorregirConteo { get; }
+    public AprobarConteo CasoAprobarConteo { get; }
 
     public ServiciosComerciales(string rutaBaseDatos)
     {
@@ -72,6 +77,7 @@ public sealed class ServiciosComerciales
         RepoMovimientos = new RepositorioMovimientos(GeneradorIds);
         RepoProveedores = new RepositorioProveedores(GeneradorIds);
         RepoRecepciones = new RepositorioRecepciones(GeneradorIds);
+        RepoConteos = new RepositorioConteos(GeneradorIds);
         Autorizador = new Autorizador(Gestor, RepoUsuarios, RepoPermisos, Fabrica, Matriz);
         CasoIniciarSesion = new IniciarSesion(RepoUsuarios, Hasher, Gestor, Fabrica, RepoAuditoria, GeneradorIds, Reloj, new OpcionesAutenticacion());
         CasoCerrarSesion = new CerrarSesion(Gestor, Fabrica, RepoAuditoria, GeneradorIds);
@@ -90,11 +96,15 @@ public sealed class ServiciosComerciales
         CasoCargarExistenciaInicial = new CargarExistenciaInicial(RepoMovimientos, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, Reloj);
         ConsultasProveedores = new ConsultasProveedores(RepoProveedores, Gestor, Fabrica);
         ConsultasRecepciones = new ConsultasRecepciones(RepoRecepciones, Gestor, Fabrica);
+        ConsultasConteos = new ConsultasConteos(RepoConteos, Gestor, Fabrica);
         CasoCrearProveedor = new CrearProveedor(RepoProveedores, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoEditarProveedor = new EditarProveedor(RepoProveedores, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoDesactivarProveedor = new DesactivarProveedor(RepoProveedores, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoConfirmarRecepcion = new ConfirmarRecepcion(RepoRecepciones, RepoProveedores, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoRevertirRecepcion = new RevertirRecepcion(RepoRecepciones, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
+        CasoCrearConteo = new CrearConteo(RepoConteos, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoCorregirConteo = new CorregirConteo(RepoConteos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
+        CasoAprobarConteo = new AprobarConteo(RepoConteos, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =

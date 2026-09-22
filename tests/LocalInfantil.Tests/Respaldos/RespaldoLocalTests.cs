@@ -439,20 +439,29 @@ public sealed class RespaldoLocalTests
     }
 
     [Fact]
-    public void Base_provisional_F00_permanece_intacta()
+    public async Task Sonda_prototipo_funciona_sobre_archivo_ficticio()
     {
-        var ruta = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "LocalInfantil",
-            "Prototype",
-            "localinfantil-prototype.db");
-        var info = new FileInfo(ruta);
-        Assert.True(info.Exists);
-        Assert.Equal(12288, info.Length);
-        var esperado = new DateTime(2026, 9, 20, 23, 46, 44);
-        Assert.True(
-            Math.Abs((info.LastWriteTime - esperado).TotalSeconds) < 5,
-            $"La base provisional cambió: {info.LastWriteTime:o}.");
+        // Reemplaza a Base_provisional_F00_permanece_intacta, retirado el
+        // 2026-09-22: su nombre y sus comprobaciones de tamaño/fecha no
+        // acreditaban integridad (ver docs/ESQUEMA.md §21). Usa
+        // exclusivamente un archivo temporal ficticio; nunca la ruta
+        // provisional real.
+        var raiz = CrearRaizTemporal();
+        var ruta = Path.Combine(raiz, "prototipo-ficticio.db");
+        try
+        {
+            var comprobacion = new LocalInfantil.Application.Features.Persistencia.ComprobarPersistenciaLocal(
+                new SqlitePersistenciaTecnicaDePrueba(ruta));
+            var resultado = await comprobacion.EjecutarAsync();
+            Assert.True(resultado.EscrituraCorrecta);
+            Assert.True(resultado.LecturaCorrecta);
+            Assert.True(resultado.DatoCoincide);
+            Assert.Null(resultado.MensajeError);
+        }
+        finally
+        {
+            Limpiar(raiz);
+        }
     }
 
     private const string Fecha = "2026-09-21T12:00:00Z";

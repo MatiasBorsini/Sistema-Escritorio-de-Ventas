@@ -22,6 +22,9 @@
             <TabItem Header="Recepciones/Reversión">
                 <views:RecepcionesConsultaView DataContext="{Binding Recepciones}"/>
             </TabItem>
+            <TabItem Header="Conteo físico">
+                <views:ConteoView DataContext="{Binding Conteo}"/>
+            </TabItem>
             <TabItem Header="Administración">
                 <views:AdministracionUsuariosView DataContext="{Binding Administracion}"/>
             </TabItem>
