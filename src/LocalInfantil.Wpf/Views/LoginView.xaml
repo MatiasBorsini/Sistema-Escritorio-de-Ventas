@@ -1,0 +1,15 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="24" MaxWidth="360">
+        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Iniciar sesión"/>
+        <TextBlock Margin="0,6,0,16" Foreground="#6B7280" Text="Usá tu usuario y contraseña del sistema." TextWrapping="Wrap"/>
+        <TextBlock Text="Usuario"/>
+        <TextBox Margin="0,4,0,12" Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBlock Text="Contraseña"/>
+        <PasswordBox x:Name="Pwd" Margin="0,4,0,16" PasswordChanged="Pwd_PasswordChanged"/>
+        <Button Content="Ingresar" Padding="10,6" Command="{Binding IngresarCommand}" IsDefault="True"/>
+        <TextBlock Margin="0,12,0,0" Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
+        <TextBlock Margin="0,8,0,0" Foreground="#6B7280" FontSize="11" Text="Sin internet. Sesión local."/>
+    </StackPanel>
+</UserControl>

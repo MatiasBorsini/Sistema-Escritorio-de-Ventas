@@ -1,0 +1,15 @@
+<Window x:Class="LocalInfantil.Wpf.DevMainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LocalInfantil — Desarrollo"
+        Width="960" Height="640" MinWidth="800" MinHeight="500"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="0,0,0,1" Padding="8" Visibility="{Binding ModoDesarrollo, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock FontSize="11" Foreground="#92400E" TextWrapping="Wrap">
+                <Run Text="Modo desarrollo — Base: "/><Run Text="{Binding RutaDev}"/><Run Text=" (no es la base provisional)"/>
+            </TextBlock>
+        </Border>
+        <ContentControl Content="{Binding Contenido}"/>
+    </DockPanel>
+</Window>

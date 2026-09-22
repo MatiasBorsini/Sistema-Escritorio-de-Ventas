@@ -1,0 +1,16 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.BootstrapDuenaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="24" MaxWidth="360">
+        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Crear cuenta Dueña"/>
+        <TextBlock Margin="0,6,0,16" Foreground="#6B7280" Text="No hay usuarios. Creá la primera cuenta Dueña (mín. 12 caracteres)." TextWrapping="Wrap"/>
+        <TextBlock Text="Nombre de Dueña"/>
+        <TextBox Margin="0,4,0,12" Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"/>
+        <TextBlock Text="Contraseña"/>
+        <PasswordBox x:Name="Pwd1" Margin="0,4,0,12" PasswordChanged="Pwd1_PasswordChanged"/>
+        <TextBlock Text="Confirmar contraseña"/>
+        <PasswordBox x:Name="Pwd2" Margin="0,4,0,16" PasswordChanged="Pwd2_PasswordChanged"/>
+        <Button Content="Crear Dueña" Padding="10,6" Command="{Binding CrearCommand}" IsDefault="True"/>
+        <TextBlock Margin="0,12,0,0" Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
+    </StackPanel>
+</UserControl>

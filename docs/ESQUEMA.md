@@ -200,20 +200,22 @@ Implementacion en `feat/owner-users-individual-permissions`: tabla `permiso_usua
 - **Pruebas (solo temporales):** Ana/Lucia con permisos distintos, revocacion en sesion abierta, sin auto-otorgamiento, desactivacion con historial, rollback de permiso, conversion V6 (ok + 3 rechazos con datos intactos), suite previa adaptada al regimen.
 - **Pendiente para produccion:** recuperacion de Duena sin metodo aprobado; identidad de la titular; inactividad; resto de D-03; PC real.
 
-## 17. Conteo fisico y reversion de recepciones F03-T05 (en curso, pendiente de revision)
+## 17. Conteo fisico y reversion de recepciones F03-T05 — integrado en 8eae690
 
-Implementacion en `feat/f03-stocktake-receiving-reversals`: `CrearConteo`/`CorregirConteo`/`AprobarConteo`/`RevertirRecepcion`, `RepositorioConteos`, `IRepositorioConteos`/`IRepositorioRecepciones` ampliado, `PermisosInventario.ConteoRegistrar/ConteoAprobar` y `PermisosCompras.RecepcionRevertir` (no concedidos), migracion V7 `conteo`/`conteo_detalle`/`reversion_recepcion`. V1-V6 intactas. Sin WPF.
-
-- **Conteo:** borrador con foto esperada + `movimientos_contados` por variante (parcial no supone cero), correccion auditada, aprobacion con deteccion de foto vieja por conteo de movimientos (no solo saldo) dentro de la misma tx, ajuste por diferencia, todo/nada, anti-doble aprobacion.
-- **Reversion:** completa multilinea con motivo/operacion_id/responsable/auditoria, verifica stock suficiente por variante en la misma tx, movimientos `ajuste` negativos vinculados, sin borrar historial/costos, anti-doble.
-- **Pruebas (solo temporales):** 12 del bloque (parcial, diferencias, duplicado, correccion, doble aprobacion, foto vieja con mismo saldo, fallo intermedio, permisos, reversion multilinea/duplicada/stock insuficiente, migracion V6-V7 con respaldo y fallo atomico), suite 144/144.
-- **Pendiente:** pantalla WPF de conteo, stock danado/no vendible (F03-T04), D-07/D-09/PC real/recuperacion Duena.
-
-## 17. Conteo fisico y reversion de recepciones F03-T05 (en curso, pendiente de revision)
-
-Implementacion en `feat/f03-stocktake-receiving-reversals`: `CrearConteo`/`CorregirConteo`/`AprobarConteo`/`RevertirRecepcion`, `RepositorioConteos`, `IRepositorioConteos`/`IRepositorioRecepciones` ampliado, `PermisosInventario.ConteoRegistrar/ConteoAprobar` y `PermisosCompras.RecepcionRevertir` (no concedidos), migracion V7 `conteo`/`conteo_detalle`/`reversion_recepcion`. V1-V6 intactas. Sin WPF.
+Implementacion integrada en `main` en `8eae690` (antes `feat/f03-stocktake-receiving-reversals`): `CrearConteo`/`CorregirConteo`/`AprobarConteo`/`RevertirRecepcion`, `RepositorioConteos`, `IRepositorioConteos`/`IRepositorioRecepciones` ampliado, `PermisosInventario.ConteoRegistrar/ConteoAprobar` y `PermisosCompras.RecepcionRevertir` (no concedidos), migracion V7 `conteo`/`conteo_detalle`/`reversion_recepcion`. V1-V6 intactas. Sin WPF.
 
 - **Conteo:** borrador con foto esperada + `movimientos_contados` por variante (parcial no supone cero), correccion auditada, aprobacion con deteccion de foto vieja por conteo de movimientos (no solo saldo) dentro de la misma tx, ajuste por diferencia, todo/nada, anti-doble aprobacion.
 - **Reversion:** completa multilinea con motivo/operacion_id/responsable/auditoria, verifica stock suficiente por variante en la misma tx, movimientos `ajuste` negativos vinculados, sin borrar historial/costos, anti-doble.
 - **Pruebas (solo temporales):** 12 del bloque (parcial, diferencias, duplicado, correccion, doble aprobacion, foto vieja con mismo saldo, fallo intermedio, permisos, reversion multilinea/duplicada/stock insuficiente, migracion V6-V7 con respaldo y fallo atomico), suite 144/144.
 - **Pendiente:** pantalla WPF de conteo, stock danado/no vendible (F03-T04), D-07/D-09/PC real/recuperacion Duena.
+
+## 18. Primer flujo WPF real — login y administracion Dueña (en curso, exclusivo desarrollo)
+
+Implementacion en `feat/wpf-login-owner-users`: `SelectorBaseDesarrollo` (arg `--dev-db` o env `LOCALINFANTIL_DEV_DB`, rechaza la provisional), `ServiciosComerciales`, `AppRootViewModel`/`BootstrapDuenaViewModel`/`LoginViewModel`/`AdministracionUsuariosViewModel`/`ShellDuenaViewModel`/`ShellEmpleadaViewModel`, vistas `LoginView`/`BootstrapDuenaView`/`AdministracionUsuariosView` con `PasswordBox`, `DevMainWindow` con banner de modo desarrollo. Reutiliza `IniciarSesion`/`CrearUsuario`/`DesactivarUsuario`/`RestablecerContrasena`/`ConfigurarPermiso` y `Autorizador`; el backend sigue siendo autoridad. `IRepositorioUsuarios.ListarTodosAsync` agregado. Sin SQL ni reglas en XAML, operaciones async, anti-doble confirmacion, mensajes sin enumeracion, sin log de contraseñas, offline.
+
+- **Aislamiento obligatorio:** la base provisional `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db` es intocable; el modo desarrollo solo opera con ruta explicita, nunca la elige silenciosamente; la ruta definitiva productiva sigue pendiente (D-13). Sin esa ruta se conserva el prototipo F00.
+- **Comando exacto (solo desarrollo, no productivo):**
+  `dotnet run --project src/LocalInfantil.Wpf -- --dev-db "C:\Temp\localinfantil-dev.db"`
+  o `set LOCALINFANTIL_DEV_DB=C:\Temp\localinfantil-dev.db` + `dotnet run --project src/LocalInfantil.Wpf`
+  o ejecutable `LocalInfantil.Wpf.exe --dev-db "C:\Temp\localinfantil-dev.db"`. El directorio `respaldos-dev` se crea junto a la base para migraciones con datos.
+- **Pruebas (solo temporales):** 13 del bloque (bootstrap, sin segundo bootstrap, contraseña incorrecta, login empleado, logout, crea dos empleados, permisos distintos, otorgamiento/revocacion, empleado no administra, desactivacion/restablecimiento, proteccion ultima Dueña, selector rechaza provisional, provisional intacta), suite 157/157.

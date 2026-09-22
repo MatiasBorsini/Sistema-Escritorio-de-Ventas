@@ -178,18 +178,26 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Decisión: `VACUUM INTO` como mecanismo (instantánea atómica, válida en uso y en WAL, sin copiar en caliente ni arrastrar auxiliares); verificado = `integrity_check` ok + `foreign_key_check` vacío + esquema reconocido + versiones esperadas; restauración solo como ensayo en temporal aislado, nunca sobre el origen. El migrador reutiliza este servicio para su respaldo previo.
 - Alcance: rutas explícitas del llamador (producción pendiente, D-09); sin Drive, sin automatismos, sin cableado al arranque ni al cierre de caja; sin restauración destructiva; V1/V2/V3 intactas; base provisional intacta.
 
-## D-27 � Administracion local de la Duena y permisos individuales (reemplaza Administrador)
+## D-27 — Administracion local de la Duena y permisos individuales (reemplaza Administrador)
 
-- Estado: implementado y probado en `feat/owner-users-individual-permissions` (base 96b11b3) y conservado en `feat/f03-stocktake-receiving-reversals`; pendiente de revision final.
+- Estado: integrado en `main` en `3109eeb`; pendiente de revision final.
 - Fecha: 2026-09-21.
 - Fuente: regla confirmada (reemplaza D-21).
 - Regla: primera cuenta = Duena; rol Administrador retirado con conversion V6 solo si es inequivoca; `usuarios.administrar` de Duena y no configurable por usuario; permisos comerciales por empleado con denegacion explicita que prevalece sobre matriz; ultima duena activa protegida.
 - Alcance: sin recuperacion aprobada; V1-V5 intactas.
 
-## D-28 � Conteo fisico y reversion de recepciones F03-T05
+## D-28 — Conteo fisico y reversion de recepciones F03-T05
 
-- Estado: implementado y probado en `feat/f03-stocktake-receiving-reversals`; pendiente de revision.
+- Estado: integrado en `main` en `8eae690`; pendiente de revision.
 - Fecha: 2026-09-21.
 - Fuente: bloque F03-T05 + reversiones.
 - Regla: conteo parcial no supone cero, foto vieja por `movimientos_contados` (no solo saldo) dentro de tx, todo/nada, anti-doble; reversion completa multilinea con stock suficiente verificado en la misma tx, sin borrar historial/costos, anti-doble; permisos `conteo_registrar`/`conteo_aprobar`/`recepcion_revertir` no concedidos; V7 con respaldo previo y fallo atomico.
 - Alcance: sin pantalla WPF, sin danado/no vendible (F03-T04), sin Drive/costos/recuperacion; V1-V6 intactas.
+
+## D-29 — Primer flujo WPF real: login y administracion Dueña (aislamiento de bases)
+
+- Estado: implementado en `feat/wpf-login-owner-users`; pendiente de revision.
+- Fecha: 2026-09-22.
+- Fuente: bloque autorizado (App.xaml.cs, ViewModels, Views).
+- Regla: sin autenticacion paralela en WPF (reusa Application); bootstrap solo si base sin usuarios (primera = Dueña), sino login; sesion invalida tras logout y no permite pantallas protegidas; errores sin enumeracion; PasswordBox sin texto plano/logs; offline; aislamiento obligatorio de `localinfantil-prototype.db` (rechazo explicito, solo ruta dev explicita `--dev-db`/`LOCALINFANTIL_DEV_DB`); administracion solo Dueña con backend autoridad, sin crear otra Dueña ni configurar `usuarios.administrar`; permisos comerciales configurables individualmente con estado concedido/denegado/heredado; V1-V7 intactas.
+- Alcance: sin recuperacion de Dueña, Firebase, Drive, respaldos auto, ventas ni cambios de inventario; ruta productiva y PC real pendientes.

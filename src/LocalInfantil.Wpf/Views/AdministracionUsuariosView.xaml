@@ -1,0 +1,74 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.AdministracionUsuariosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,12">
+            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Administración de usuarios (Dueña)"/>
+            <TextBlock Foreground="#6B7280" Text="Creá empleados, desactivá y configurá permisos comerciales. Ocultar no autoriza: el backend valida cada operación." TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBox Width="160" Margin="0,0,8,0" Text="{Binding NuevoNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre de empleado"/>
+                <PasswordBox x:Name="NuevaPwd" Width="160" Margin="0,0,8,0" PasswordChanged="NuevaPwd_PasswordChanged" ToolTip="Contraseña inicial (mín. 12)"/>
+                <Button Content="Crear empleado" Padding="8,4" Command="{Binding CrearCommand}"/>
+                <Button Content="Refrescar" Margin="8,0,0,0" Padding="8,4" Command="{Binding RefrescarCommand}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="Desactivar seleccionado" Padding="8,4" Command="{Binding SolicitarDesactivacionCommand}"/>
+                <Button Content="Restablecer contraseña (usa campo nueva)" Margin="8,0,0,0" Padding="8,4" Command="{Binding RestablecerCommand}"/>
+            </StackPanel>
+            <Border Margin="0,8,0,0" Padding="8" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionDesactivacionVisible, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#991B1B">
+                        <Run Text="¿Confirmás desactivar a "/><Run Text="{Binding NombrePendienteDesactivacion, Mode=OneWay}" FontWeight="SemiBold"/><Run Text="? Esta acción no se puede deshacer desde esta pantalla."/>
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Confirmar" Padding="8,4" Command="{Binding ConfirmarDesactivacionCommand}"/>
+                        <Button Content="Cancelar" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarDesactivacionCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <TextBlock Margin="0,6,0,0" Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
+            <TextBlock Margin="0,2,0,0" Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap"/>
+        </StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <ListBox Grid.Column="0" ItemsSource="{Binding Usuarios}" SelectedItem="{Binding Seleccionado}" DisplayMemberPath="Nombre" Margin="0,0,8,0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Nombre}" FontWeight="SemiBold"/>
+                            <TextBlock Margin="6,0,0,0" Foreground="#6B7280" Text="{Binding Rol}"/>
+                            <TextBlock Margin="6,0,0,0" Foreground="#9CA3AF" Text="(inactivo)" Visibility="{Binding Activo, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Seleccionado.Permisos}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Permiso}" FontFamily="Consolas" FontSize="12"/>
+                                        <TextBlock Foreground="#6B7280" FontSize="11" Text="{Binding TextoEstado}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="Conceder" Padding="6,2" Margin="0,0,4,0" Click="Conceder_Click" Tag="{Binding}"/>
+                                        <Button Content="Denegar" Padding="6,2" Click="Denegar_Click" Tag="{Binding}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</UserControl>

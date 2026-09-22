@@ -173,6 +173,29 @@ public sealed class RepositorioUsuarios : IRepositorioUsuarios
         }
     }
 
+    public async Task<IReadOnlyList<UsuarioRegistrado>> ListarTodosAsync(ISesionPersistencia sesion, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, nombre, rol, activo FROM usuario ORDER BY nombre;";
+            var lista = new List<UsuarioRegistrado>();
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                lista.Add(Leer(lector));
+            }
+
+            return lista;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static UsuarioRegistrado Leer(SqliteDataReader lector)
     {
         return new UsuarioRegistrado(
