@@ -210,7 +210,7 @@ public sealed class AjustesHistorialTests
             DesactivarVariante = new DesactivarVariante(variantes, autorizador, _fabrica, auditoria, _ids);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
             Ajuste = new AjustarInventario(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
-            Consultas = new ConsultasInventario(movimientos, variantes, _sesiones, _fabrica);
+            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), _sesiones, _fabrica);
         }
 
         public static async Task<EntornoInventario> CrearAsync()

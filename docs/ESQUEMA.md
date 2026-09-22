@@ -199,3 +199,21 @@ Implementacion en `feat/owner-users-individual-permissions`: tabla `permiso_usua
 - **Gestion:** alta (nunca Duena/administrador por via general), desactivacion (nunca ultima duena activa), restablecimiento (propia con actual), configuracion individual solo comercial y auditada, todo en la misma transaccion con rollback.
 - **Pruebas (solo temporales):** Ana/Lucia con permisos distintos, revocacion en sesion abierta, sin auto-otorgamiento, desactivacion con historial, rollback de permiso, conversion V6 (ok + 3 rechazos con datos intactos), suite previa adaptada al regimen.
 - **Pendiente para produccion:** recuperacion de Duena sin metodo aprobado; identidad de la titular; inactividad; resto de D-03; PC real.
+
+## 17. Conteo fisico y reversion de recepciones F03-T05 (en curso, pendiente de revision)
+
+Implementacion en `feat/f03-stocktake-receiving-reversals`: `CrearConteo`/`CorregirConteo`/`AprobarConteo`/`RevertirRecepcion`, `RepositorioConteos`, `IRepositorioConteos`/`IRepositorioRecepciones` ampliado, `PermisosInventario.ConteoRegistrar/ConteoAprobar` y `PermisosCompras.RecepcionRevertir` (no concedidos), migracion V7 `conteo`/`conteo_detalle`/`reversion_recepcion`. V1-V6 intactas. Sin WPF.
+
+- **Conteo:** borrador con foto esperada + `movimientos_contados` por variante (parcial no supone cero), correccion auditada, aprobacion con deteccion de foto vieja por conteo de movimientos (no solo saldo) dentro de la misma tx, ajuste por diferencia, todo/nada, anti-doble aprobacion.
+- **Reversion:** completa multilinea con motivo/operacion_id/responsable/auditoria, verifica stock suficiente por variante en la misma tx, movimientos `ajuste` negativos vinculados, sin borrar historial/costos, anti-doble.
+- **Pruebas (solo temporales):** 12 del bloque (parcial, diferencias, duplicado, correccion, doble aprobacion, foto vieja con mismo saldo, fallo intermedio, permisos, reversion multilinea/duplicada/stock insuficiente, migracion V6-V7 con respaldo y fallo atomico), suite 144/144.
+- **Pendiente:** pantalla WPF de conteo, stock danado/no vendible (F03-T04), D-07/D-09/PC real/recuperacion Duena.
+
+## 17. Conteo fisico y reversion de recepciones F03-T05 (en curso, pendiente de revision)
+
+Implementacion en `feat/f03-stocktake-receiving-reversals`: `CrearConteo`/`CorregirConteo`/`AprobarConteo`/`RevertirRecepcion`, `RepositorioConteos`, `IRepositorioConteos`/`IRepositorioRecepciones` ampliado, `PermisosInventario.ConteoRegistrar/ConteoAprobar` y `PermisosCompras.RecepcionRevertir` (no concedidos), migracion V7 `conteo`/`conteo_detalle`/`reversion_recepcion`. V1-V6 intactas. Sin WPF.
+
+- **Conteo:** borrador con foto esperada + `movimientos_contados` por variante (parcial no supone cero), correccion auditada, aprobacion con deteccion de foto vieja por conteo de movimientos (no solo saldo) dentro de la misma tx, ajuste por diferencia, todo/nada, anti-doble aprobacion.
+- **Reversion:** completa multilinea con motivo/operacion_id/responsable/auditoria, verifica stock suficiente por variante en la misma tx, movimientos `ajuste` negativos vinculados, sin borrar historial/costos, anti-doble.
+- **Pruebas (solo temporales):** 12 del bloque (parcial, diferencias, duplicado, correccion, doble aprobacion, foto vieja con mismo saldo, fallo intermedio, permisos, reversion multilinea/duplicada/stock insuficiente, migracion V6-V7 con respaldo y fallo atomico), suite 144/144.
+- **Pendiente:** pantalla WPF de conteo, stock danado/no vendible (F03-T04), D-07/D-09/PC real/recuperacion Duena.

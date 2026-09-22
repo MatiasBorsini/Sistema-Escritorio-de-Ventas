@@ -9,4 +9,6 @@ public static class PermisosInventario
 {
     public const string CargaInicialEstablecer = "inventario.carga_inicial";
     public const string AjusteStock = "inventario.ajuste_stock";
+    public const string ConteoRegistrar = "inventario.conteo_registrar";
+    public const string ConteoAprobar = "inventario.conteo_aprobar";
 }

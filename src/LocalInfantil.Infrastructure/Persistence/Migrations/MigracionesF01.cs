@@ -4,7 +4,8 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// Catálogo de migraciones. V1: esquema inicial. V2: auditoría.
 /// V3: huella de contraseña. V4: precio vigente único. V5: proveedores y
 /// recepciones. V6: permisos individuales por usuario y conversión del único
-/// Administrador activo en Dueña (D-27). Ver docs/ESQUEMA.md.
+/// Administrador activo en Dueña (D-27). V7: conteo físico y reversión de
+/// recepciones (F03-T05). Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -16,6 +17,7 @@ public static class MigracionesF01
         new(4, "precio-vigente-unico-f02", SqlV4),
         new(5, "proveedores-recepcion-f03", SqlV5),
         new(6, "permisos-individuales-duena", SqlV6),
+        new(7, "conteo-reversion-f03", SqlV7),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -217,5 +219,39 @@ public static class MigracionesF01
                         THEN 0 ELSE 1 END;
         DROP TABLE "F01-V6_sin_administradores_residuales";
         DROP TABLE "F01-V6_con_duena_activa_identificable";
+        """;
+
+    private const string SqlV7 = """
+        CREATE TABLE IF NOT EXISTS conteo (
+            id TEXT PRIMARY KEY,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (operacion_id <> ''),
+            estado TEXT NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'aprobado')),
+            creado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL,
+            aprobado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            aprobado_en TEXT NULL,
+            CHECK (aprobado_en IS NULL OR aprobado_en >= creado_en)
+        );
+
+        CREATE TABLE IF NOT EXISTS conteo_detalle (
+            conteo_id TEXT NOT NULL REFERENCES conteo(id) ON DELETE RESTRICT,
+            variante_id TEXT NOT NULL REFERENCES variante(id) ON DELETE RESTRICT,
+            existencia_esperada INTEGER NOT NULL,
+            movimientos_contados INTEGER NOT NULL CHECK (movimientos_contados >= 0),
+            cantidad_contada INTEGER NOT NULL CHECK (cantidad_contada >= 0),
+            PRIMARY KEY (conteo_id, variante_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS reversion_recepcion (
+            id TEXT PRIMARY KEY,
+            recepcion_id TEXT NOT NULL UNIQUE REFERENCES recepcion(id) ON DELETE RESTRICT,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (operacion_id <> ''),
+            motivo TEXT NOT NULL CHECK (motivo <> ''),
+            creado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_conteo_detalle_variante ON conteo_detalle(variante_id);
+        CREATE INDEX IF NOT EXISTS ix_reversion_recepcion_recepcion ON reversion_recepcion(recepcion_id);
         """;
 }

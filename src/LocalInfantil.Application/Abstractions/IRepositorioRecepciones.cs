@@ -1,3 +1,5 @@
+using LocalInfantil.Application.Contracts;
+
 namespace LocalInfantil.Application.Abstractions;
 
 public interface IRepositorioRecepciones
@@ -21,4 +23,17 @@ public interface IRepositorioRecepciones
         CancellationToken cancellationToken = default);
 
     Task<bool> ExistePorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default);
+
+    Task<bool> ExisteReversionAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
+
+    Task InsertarReversionAsync(
+        ISesionPersistencia sesion,
+        string recepcionId,
+        string operacionId,
+        string motivo,
+        string? creadoPorUsuarioId,
+        string creadoEn,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<LineaRecepcion>> ListarLineasAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
 }

@@ -14,17 +14,20 @@ public sealed class ConsultasInventario
 {
     private readonly IRepositorioMovimientos _movimientos;
     private readonly IRepositorioVariantes _variantes;
+    private readonly IRepositorioConteos _conteos;
     private readonly GestorSesiones _sesiones;
     private readonly IFabricaSesionesPersistencia _fabrica;
 
     public ConsultasInventario(
         IRepositorioMovimientos movimientos,
         IRepositorioVariantes variantes,
+        IRepositorioConteos conteos,
         GestorSesiones sesiones,
         IFabricaSesionesPersistencia fabrica)
     {
         _movimientos = movimientos;
         _variantes = variantes;
+        _conteos = conteos;
         _sesiones = sesiones;
         _fabrica = fabrica;
     }
@@ -52,6 +55,12 @@ public sealed class ConsultasInventario
         }
 
         return await _movimientos.ListarPorVarianteAsync(sesion, variante.Id, limite, desplazamiento, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<InformeConteoLinea>> InformeConteoAsync(string conteoId, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        return await _conteos.InformeAsync(sesion, conteoId, cancellationToken);
     }
 
     private async Task<ISesionPersistencia> SesionValidadaAsync(string? idSesion, CancellationToken cancellationToken)

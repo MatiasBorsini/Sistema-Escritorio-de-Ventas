@@ -8,4 +8,5 @@ public static class PermisosCompras
 {
     public const string ProveedoresGestionar = "compras.proveedores.gestionar";
     public const string RecepcionConfirmar = "compras.recepcion.confirmar";
+    public const string RecepcionRevertir = "compras.recepcion.revertir";
 }
