@@ -259,7 +259,7 @@ public sealed class ComprasTests
             var proveedores = new RepositorioProveedores(_ids);
             var recepciones = new RepositorioRecepciones(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
-            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), _fabrica, matriz);
+            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             Autorizador = autorizador;
             CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
@@ -315,7 +315,7 @@ public sealed class ComprasTests
         public ConfirmarRecepcion RecepcionReabierta()
         {
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(Path.Combine(_directorio, "compras-f03.db")));
-            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), fabrica, MatrizDePrueba());
+            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), fabrica, MatrizDePrueba());
             return new ConfirmarRecepcion(
                 new RepositorioRecepciones(_ids),
                 new RepositorioProveedores(_ids),

@@ -1,6 +1,5 @@
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
-using LocalInfantil.Application.Features.Autenticacion;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
 using Microsoft.Data.Sqlite;
 
@@ -157,7 +156,7 @@ public sealed class RepositorioUsuarios : IRepositorioUsuarios
         }
     }
 
-    public async Task<long> ContarAdministradoresActivosAsync(ISesionPersistencia sesion, CancellationToken cancellationToken = default)
+    public async Task<long> ContarActivosPorRolAsync(ISesionPersistencia sesion, string rol, CancellationToken cancellationToken = default)
     {
         var s = Sesion(sesion);
         try
@@ -165,7 +164,7 @@ public sealed class RepositorioUsuarios : IRepositorioUsuarios
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
             comando.CommandText = "SELECT COUNT(*) FROM usuario WHERE rol = $rol AND activo = 1;";
-            comando.Parameters.AddWithValue("$rol", RolesLocal.Administrador);
+            comando.Parameters.AddWithValue("$rol", rol);
             return Convert.ToInt64(await comando.ExecuteScalarAsync(cancellationToken));
         }
         catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))

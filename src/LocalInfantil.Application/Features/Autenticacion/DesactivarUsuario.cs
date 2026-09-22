@@ -5,9 +5,10 @@ namespace LocalInfantil.Application.Features.Autenticacion;
 
 /// <summary>
 /// Desactiva una cuenta local. Exige sesión vigente con el permiso explícito
-/// `usuarios.administrar`. Nunca desactiva la última cuenta administradora
-/// activa: el local no debe quedarse sin gestión. Auditoría en la misma
-/// transacción.
+/// `usuarios.administrar`. Nunca desactiva la última dueña activa: como el
+/// permiso de administración no es configurable por usuario, las dueñas
+/// activas son exactamente las cuentas con capacidad de administrar.
+/// Auditoría en la misma transacción.
 /// </summary>
 public sealed class DesactivarUsuario
 {
@@ -48,10 +49,10 @@ public sealed class DesactivarUsuario
         }
 
         if (objetivo.Activo
-            && objetivo.Rol == RolesLocal.Administrador
-            && await _usuarios.ContarAdministradoresActivosAsync(sesion, cancellationToken) <= 1)
+            && objetivo.Rol == RolesLocal.Duena
+            && await _usuarios.ContarActivosPorRolAsync(sesion, RolesLocal.Duena, cancellationToken) <= 1)
         {
-            throw new InvalidOperationException("No se puede desactivar la última cuenta administradora activa.");
+            throw new InvalidOperationException("No se puede desactivar la última dueña activa.");
         }
 
         await _usuarios.DesactivarAsync(sesion, usuarioId, cancellationToken);

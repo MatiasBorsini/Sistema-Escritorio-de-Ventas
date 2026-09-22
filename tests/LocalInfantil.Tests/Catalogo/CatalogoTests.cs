@@ -254,7 +254,7 @@ public sealed class CatalogoTests
             _variantes = new RepositorioVariantes(_ids);
             _auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
             _sesiones = new GestorSesiones();
-            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), _fabrica, matriz);
+            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             Casos = new JuegoCasos
             {
                 CrearProducto = new CrearProducto(_productos, autorizador, _fabrica, _auditoria, _ids, reloj),

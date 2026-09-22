@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Autenticacion;
+using LocalInfantil.Application.Features.Catalogo;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Persistence.Migrations;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
@@ -23,16 +24,16 @@ public sealed class AutenticacionTests
     public async Task Login_correcto_e_incorrecto()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var adminId = await entorno.CrearUsuarioAsync("admin", RolesLocal.Duena, "clave-duena-1");
+        var duenaId = await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-01");
 
-        var sesion = await entorno.Login.EjecutarAsync("admin", "clave-duena-1");
-        Assert.Equal(adminId, sesion.UsuarioId);
-        Assert.Equal(RolesLocal.Administrador, sesion.Rol);
+        var sesion = await entorno.Login.EjecutarAsync("duena", "clave-duena-01");
+        Assert.Equal(duenaId, sesion.UsuarioId);
+        Assert.Equal(RolesLocal.Duena, sesion.Rol);
 
         var errorClave = await Assert.ThrowsAsync<CredencialesInvalidasException>(
-            () => entorno.Login.EjecutarAsync("admin", "otra-clave-00"));
+            () => entorno.Login.EjecutarAsync("duena", "otra-clave-00"));
         var errorNombre = await Assert.ThrowsAsync<CredencialesInvalidasException>(
-            () => entorno.Login.EjecutarAsync("nadie", "clave-duena-1"));
+            () => entorno.Login.EjecutarAsync("nadie", "clave-duena-01"));
         Assert.Equal(errorClave.Message, errorNombre.Message);
     }
 
@@ -266,104 +267,104 @@ public sealed class AutenticacionTests
     public async Task Crear_sesion_valida_no_concede_por_si_sola()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        await entorno.InsertarUsuarioDirectoAsync("duena", RolesLocal.Duena, "clave-duena-0100");
-        var sesion = await entorno.Login.EjecutarAsync("duena", "clave-duena-0100");
+        await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        await entorno.InsertarUsuarioDirectoAsync("ana", RolesLocal.Empleada, "clave-ana-000000");
+        var sesion = await entorno.Login.EjecutarAsync("ana", "clave-ana-000000");
 
         await Assert.ThrowsAsync<AccesoDenegadoException>(
             () => entorno.Alta.EjecutarAsync(new NuevoUsuario("empleada", RolesLocal.Empleada), "clave-empleada-00", sesion.IdSesion));
     }
 
     [Fact]
-    public async Task Bootstrap_crea_exclusivamente_administrador()
+    public async Task Bootstrap_crea_exclusivamente_duena()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var id = await entorno.CrearUsuarioAsync("primera", RolesLocal.Duena, "clave-primera-00");
+        var id = await entorno.CrearUsuarioAsync("primera", RolesLocal.Empleada, "clave-primera-00");
 
         var rol = await entorno.RolDeAsync("primera");
-        Assert.Equal(RolesLocal.Administrador, rol);
+        Assert.Equal(RolesLocal.Duena, rol);
         var sesion = await entorno.Login.EjecutarAsync("primera", "clave-primera-00");
         Assert.Equal(id, sesion.UsuarioId);
     }
 
     [Fact]
-    public async Task Administrador_gestiona_cuentas()
+    public async Task Duena_gestiona_cuentas()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        var sesionAdmin = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
+        await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
 
-        var empleadaId = await entorno.Alta.EjecutarAsync(new NuevoUsuario("empleada", RolesLocal.Empleada), "clave-empleada-00", sesionAdmin.IdSesion);
-        await entorno.Desactivar.EjecutarAsync(empleadaId, sesionAdmin.IdSesion);
+        var empleadaId = await entorno.Alta.EjecutarAsync(new NuevoUsuario("empleada", RolesLocal.Empleada), "clave-empleada-00", sesionDuena.IdSesion);
+        await entorno.Desactivar.EjecutarAsync(empleadaId, sesionDuena.IdSesion);
         await Assert.ThrowsAsync<CredencialesInvalidasException>(
             () => entorno.Login.EjecutarAsync("empleada", "clave-empleada-00"));
     }
 
     [Fact]
-    public async Task Administrador_restablece_ajenas_y_la_propia_con_actual()
+    public async Task Duena_restablece_ajenas_y_la_propia_con_actual()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var adminId = await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        await entorno.InsertarUsuarioDirectoAsync("duena", RolesLocal.Duena, "clave-duena-0100");
-        var sesionAdmin = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
+        var duenaId = await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        await entorno.InsertarUsuarioDirectoAsync("ana", RolesLocal.Empleada, "clave-ana-000000");
+        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
 
-        var duenaId = await entorno.IdDeAsync("duena");
-        await entorno.Restablecer.EjecutarAsync(duenaId, "clave-duena-nueva", sesionAdmin.IdSesion, null);
-        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-nueva");
-        Assert.Equal(duenaId, sesionDuena.UsuarioId);
+        var anaId = await entorno.IdDeAsync("ana");
+        await entorno.Restablecer.EjecutarAsync(anaId, "clave-ana-nueva00", sesionDuena.IdSesion, null);
+        var sesionAna = await entorno.Login.EjecutarAsync("ana", "clave-ana-nueva00");
+        Assert.Equal(anaId, sesionAna.UsuarioId);
 
-        await entorno.Restablecer.EjecutarAsync(adminId, "clave-admin-nueva", sesionAdmin.IdSesion, "clave-admin-000");
+        await entorno.Restablecer.EjecutarAsync(duenaId, "clave-duena-nueva", sesionDuena.IdSesion, "clave-duena-0000");
         await Assert.ThrowsAsync<CredencialesInvalidasException>(
-            () => entorno.Restablecer.EjecutarAsync(adminId, "clave-otra-0000", sesionAdmin.IdSesion, "clave-equivocada"));
+            () => entorno.Restablecer.EjecutarAsync(duenaId, "clave-otra-0000", sesionDuena.IdSesion, "clave-equivocada"));
         await Assert.ThrowsAsync<CredencialesInvalidasException>(
-            () => entorno.Restablecer.EjecutarAsync(adminId, "clave-otra-0000", sesionAdmin.IdSesion, null));
-        var renovada = await entorno.Login.EjecutarAsync("admin", "clave-admin-nueva");
-        Assert.Equal(adminId, renovada.UsuarioId);
+            () => entorno.Restablecer.EjecutarAsync(duenaId, "clave-otra-0000", sesionDuena.IdSesion, null));
+        var renovada = await entorno.Login.EjecutarAsync("duena", "clave-duena-nueva");
+        Assert.Equal(duenaId, renovada.UsuarioId);
     }
 
     [Fact]
-    public async Task Duena_y_empleada_no_gestionan_ni_cambian_claves()
+    public async Task Empleada_no_gestiona_ni_cambia_claves()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        await entorno.InsertarUsuarioDirectoAsync("duena", RolesLocal.Duena, "clave-duena-0100");
-        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0100");
-        var duenaId = sesionDuena.UsuarioId;
+        await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        await entorno.InsertarUsuarioDirectoAsync("ana", RolesLocal.Empleada, "clave-ana-000000");
+        var sesionAna = await entorno.Login.EjecutarAsync("ana", "clave-ana-000000");
+        var anaId = sesionAna.UsuarioId;
 
         await Assert.ThrowsAsync<AccesoDenegadoException>(
-            () => entorno.Alta.EjecutarAsync(new NuevoUsuario("otra", RolesLocal.Empleada), "clave-otra-0000", sesionDuena.IdSesion));
+            () => entorno.Alta.EjecutarAsync(new NuevoUsuario("otra", RolesLocal.Empleada), "clave-otra-0000", sesionAna.IdSesion));
         await Assert.ThrowsAsync<AccesoDenegadoException>(
-            () => entorno.Desactivar.EjecutarAsync(duenaId, sesionDuena.IdSesion));
+            () => entorno.Desactivar.EjecutarAsync(anaId, sesionAna.IdSesion));
         await Assert.ThrowsAsync<AccesoDenegadoException>(
-            () => entorno.Restablecer.EjecutarAsync(duenaId, "clave-propia-nueva", sesionDuena.IdSesion, "clave-duena-0100"));
+            () => entorno.Restablecer.EjecutarAsync(anaId, "clave-propia-nueva", sesionAna.IdSesion, "clave-ana-000000"));
     }
 
     [Fact]
     public async Task No_asignar_administrador_por_via_generica()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        var sesionAdmin = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
+        await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
 
         await Assert.ThrowsAsync<AccesoDenegadoException>(
-            () => entorno.Alta.EjecutarAsync(new NuevoUsuario("segundo", RolesLocal.Administrador), "clave-segunda-00", sesionAdmin.IdSesion));
+            () => entorno.Alta.EjecutarAsync(new NuevoUsuario("segundo", RolesLocal.Administrador), "clave-segunda-00", sesionDuena.IdSesion));
     }
 
     [Fact]
-    public async Task Ultimo_administrador_no_se_desactiva()
+    public async Task Ultima_duena_no_se_desactiva()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var adminId = await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        var sesionAdmin = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
+        var duenaId = await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => entorno.Desactivar.EjecutarAsync(adminId, sesionAdmin.IdSesion));
+            () => entorno.Desactivar.EjecutarAsync(duenaId, sesionDuena.IdSesion));
         Assert.Contains("última", error.Message);
-        var vigente = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
-        Assert.Equal(adminId, vigente.UsuarioId);
+        var vigente = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
+        Assert.Equal(duenaId, vigente.UsuarioId);
 
-        var segundoId = await entorno.Alta.EjecutarAsync(new NuevoUsuario("operadora", RolesLocal.Empleada), "clave-operadora-0", sesionAdmin.IdSesion);
-        await entorno.Desactivar.EjecutarAsync(segundoId, sesionAdmin.IdSesion);
+        var segundoId = await entorno.Alta.EjecutarAsync(new NuevoUsuario("operadora", RolesLocal.Empleada), "clave-operadora-0", sesionDuena.IdSesion);
+        await entorno.Desactivar.EjecutarAsync(segundoId, sesionDuena.IdSesion);
         await Assert.ThrowsAsync<CredencialesInvalidasException>(
             () => entorno.Login.EjecutarAsync("operadora", "clave-operadora-0"));
     }
@@ -372,26 +373,27 @@ public sealed class AutenticacionTests
     public async Task Desactivar_forjada_y_cerrada_se_rechaza()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var adminId = await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        var sesionAdmin = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
+        var duenaId = await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
 
         await Assert.ThrowsAsync<SesionInvalidaException>(
-            () => entorno.Desactivar.EjecutarAsync(adminId, "sesion-forjada"));
-        await entorno.Cierre.EjecutarAsync(sesionAdmin.IdSesion);
+            () => entorno.Desactivar.EjecutarAsync(duenaId, "sesion-forjada"));
+        await entorno.Cierre.EjecutarAsync(sesionDuena.IdSesion);
         await Assert.ThrowsAsync<SesionInvalidaException>(
-            () => entorno.Desactivar.EjecutarAsync(adminId, sesionAdmin.IdSesion));
+            () => entorno.Desactivar.EjecutarAsync(duenaId, sesionDuena.IdSesion));
     }
 
     [Fact]
-    public async Task Administrador_sin_comerciales_salvo_explicito()
+    public async Task Duena_gestiona_pero_sin_comerciales_extra()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        await entorno.CrearUsuarioAsync("admin", RolesLocal.Administrador, "clave-admin-000");
-        var sesionAdmin = await entorno.Login.EjecutarAsync("admin", "clave-admin-000");
+        await entorno.CrearUsuarioAsync("duena", RolesLocal.Empleada, "clave-duena-0000");
+        var sesionDuena = await entorno.Login.EjecutarAsync("duena", "clave-duena-0000");
 
+        Assert.NotNull(await entorno.Autorizador.AutorizarAsync(sesionDuena.IdSesion, PermisosAdministracion.UsuariosAdministrar));
+        Assert.NotNull(await entorno.Autorizador.AutorizarAsync(sesionDuena.IdSesion, PermisosComerciales.ReintegroAutorizar));
         await Assert.ThrowsAsync<AccesoDenegadoException>(
-            () => entorno.Autorizador.AutorizarAsync(sesionAdmin.IdSesion, PermisosComerciales.ReintegroAutorizar));
-        Assert.NotNull(await entorno.Autorizador.AutorizarAsync(sesionAdmin.IdSesion, PermisosAdministracion.UsuariosAdministrar));
+            () => entorno.Autorizador.AutorizarAsync(sesionDuena.IdSesion, PermisosCatalogo.ProductosGestionar));
     }
 
     [Fact]
@@ -403,9 +405,9 @@ public sealed class AutenticacionTests
 
         await Assert.ThrowsAsync<AccesoDenegadoException>(
             () => entorno.Autorizador.AutorizarAsync(sesion.IdSesion, PermisosComerciales.ReintegroAutorizar));
-        entorno.Matriz.Permitir(RolesLocal.Administrador, PermisosComerciales.ReintegroAutorizar);
+        entorno.Matriz.Permitir(RolesLocal.Duena, PermisosComerciales.ReintegroAutorizar);
         Assert.NotNull(await entorno.Autorizador.AutorizarAsync(sesion.IdSesion, PermisosComerciales.ReintegroAutorizar));
-        entorno.Matriz.Denegar(RolesLocal.Administrador, PermisosComerciales.ReintegroAutorizar);
+        entorno.Matriz.Denegar(RolesLocal.Duena, PermisosComerciales.ReintegroAutorizar);
         await Assert.ThrowsAsync<AccesoDenegadoException>(
             () => entorno.Autorizador.AutorizarAsync(sesion.IdSesion, PermisosComerciales.ReintegroAutorizar));
     }
@@ -425,7 +427,7 @@ public sealed class AutenticacionTests
     }
 
     [Fact]
-    public async Task Migracion_V2_V5_con_datos_respaldo_y_sin_duplicados()
+    public async Task Migracion_V2_V6_con_datos_respaldo_y_sin_duplicados()
     {
         var directorio = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
         var ruta = Path.Combine(directorio, "auth-f01.db");
@@ -440,7 +442,7 @@ public sealed class AutenticacionTests
             var ids = new GeneradorIds();
             var usuarios = new RepositorioUsuarios(ids);
 
-            // Fila de época V2, sin huella: la migración debe conservarla con NULL.
+            // Filas de época V2: el único administrador activo se convierte en dueña.
             await using (var cruda = new SqliteConnection(new SqliteConnectionStringBuilder
             {
                 DataSource = ruta,
@@ -451,15 +453,22 @@ public sealed class AutenticacionTests
                 using var insercion = cruda.CreateCommand();
                 insercion.CommandText = "INSERT INTO usuario (id, nombre, rol, creado_en) VALUES ('u-ficticio', 'ficticio', 'empleada', '2026-09-21T12:00:00Z');";
                 await insercion.ExecuteNonQueryAsync();
+                using var admin = cruda.CreateCommand();
+                admin.CommandText = "INSERT INTO usuario (id, nombre, rol, creado_en) VALUES ('u-admin', 'vieja-admin', 'administrador', '2026-09-21T12:00:00Z');";
+                await admin.ExecuteNonQueryAsync();
             }
 
-            Assert.Equal(new[] { 3, 4, 5 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 3, 4, 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             await using var lectura = await fabrica.IniciarLecturaAsync();
             var conservado = await usuarios.ObtenerPorNombreAsync(lectura, "ficticio");
             Assert.NotNull(conservado);
             Assert.Null(await usuarios.ObtenerHuellaAsync(lectura, conservado.Id));
+            var convertida = await usuarios.ObtenerPorIdAsync(lectura, "u-admin");
+            Assert.NotNull(convertida);
+            Assert.Equal(RolesLocal.Duena, convertida.Rol);
+            Assert.Equal("vieja-admin", convertida.Nombre);
 
             await using (var sesion = await fabrica.IniciarAsync())
             {
@@ -517,7 +526,7 @@ public sealed class AutenticacionTests
             var opciones = new OpcionesAutenticacion(0);
             Login = new IniciarSesion(_usuarios, Hash, _sesiones, _fabrica, _auditoria, _ids, reloj, opciones);
             Cierre = new CerrarSesion(_sesiones, _fabrica, _auditoria, _ids);
-            Autorizador = new Autorizador(_sesiones, _usuarios, _fabrica, Matriz);
+            Autorizador = new Autorizador(_sesiones, _usuarios, new RepositorioPermisos(), _fabrica, Matriz);
             Alta = new CrearUsuario(_usuarios, Hash, Autorizador, _fabrica, _auditoria, _ids, reloj);
             Restablecer = new RestablecerContrasena(_usuarios, Hash, Autorizador, _fabrica, _auditoria, _ids);
             Desactivar = new DesactivarUsuario(_usuarios, Autorizador, _fabrica, _auditoria, _ids);

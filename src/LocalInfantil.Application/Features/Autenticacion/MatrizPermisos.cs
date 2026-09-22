@@ -17,7 +17,7 @@ public sealed class MatrizPermisos
         matriz.Permitir(RolesLocal.Duena, PermisosComerciales.ReintegroAutorizar);
         matriz.Permitir(RolesLocal.Empleada, PermisosComerciales.ReintegroAutorizar);
         matriz.Permitir(RolesLocal.Duena, PermisosComerciales.ReintegroMedioExcepcional);
-        matriz.Permitir(RolesLocal.Administrador, PermisosAdministracion.UsuariosAdministrar);
+        matriz.Permitir(RolesLocal.Duena, PermisosAdministracion.UsuariosAdministrar);
         return matriz;
     }
 

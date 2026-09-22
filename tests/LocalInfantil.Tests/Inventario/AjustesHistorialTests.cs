@@ -204,7 +204,7 @@ public sealed class AjustesHistorialTests
             var variantes = new RepositorioVariantes(_ids);
             var movimientos = new RepositorioMovimientos(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
-            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), _fabrica, matriz);
+            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             DesactivarVariante = new DesactivarVariante(variantes, autorizador, _fabrica, auditoria, _ids);
@@ -234,7 +234,7 @@ public sealed class AjustesHistorialTests
             var movimientos = new RepositorioMovimientos(_ids);
             var variantes = new RepositorioVariantes(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), _reloj);
-            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), fabrica, _matriz);
+            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), fabrica, _matriz);
             return new AjustarInventario(movimientos, variantes, autorizador, fabrica, auditoria, _reloj);
         }
 

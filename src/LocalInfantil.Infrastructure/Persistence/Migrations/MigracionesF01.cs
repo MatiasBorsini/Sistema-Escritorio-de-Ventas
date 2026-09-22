@@ -1,9 +1,10 @@
 namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 
 /// <summary>
-/// Catálogo de migraciones F01/F02/F03. V1: esquema inicial. V2: auditoría.
+/// Catálogo de migraciones. V1: esquema inicial. V2: auditoría.
 /// V3: huella de contraseña. V4: precio vigente único. V5: proveedores y
-/// recepciones con costo histórico informado (F03-T01+T02). Ver docs/ESQUEMA.md.
+/// recepciones. V6: permisos individuales por usuario y conversión del único
+/// Administrador activo en Dueña (D-27). Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -14,6 +15,7 @@ public static class MigracionesF01
         new(3, "huella-contrasena-f01", SqlV3),
         new(4, "precio-vigente-unico-f02", SqlV4),
         new(5, "proveedores-recepcion-f03", SqlV5),
+        new(6, "permisos-individuales-duena", SqlV6),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -187,5 +189,33 @@ public static class MigracionesF01
         CREATE INDEX IF NOT EXISTS ix_recepcion_proveedor ON recepcion(proveedor_id);
         CREATE INDEX IF NOT EXISTS ix_recepcion_linea_recepcion ON recepcion_linea(recepcion_id);
         CREATE INDEX IF NOT EXISTS ix_recepcion_linea_variante ON recepcion_linea(variante_id);
+        """;
+
+    private const string SqlV6 = """
+        CREATE TABLE IF NOT EXISTS permiso_usuario (
+            usuario_id TEXT NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            permiso TEXT NOT NULL CHECK (permiso <> ''),
+            concedido INTEGER NOT NULL CHECK (concedido IN (0, 1)),
+            actualizado_en TEXT NOT NULL,
+            actualizado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            PRIMARY KEY (usuario_id, permiso)
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_permiso_usuario_permiso ON permiso_usuario(permiso);
+
+        UPDATE usuario SET rol = 'duena' WHERE rol = 'administrador'
+            AND (SELECT COUNT(*) FROM usuario WHERE rol = 'administrador') = 1
+            AND (SELECT COUNT(*) FROM usuario WHERE rol = 'administrador' AND activo = 1) = 1;
+
+        CREATE TEMP TABLE "F01-V6_sin_administradores_residuales" (ok INTEGER NOT NULL CHECK (ok = 1));
+        INSERT INTO "F01-V6_sin_administradores_residuales" (ok)
+            SELECT CASE WHEN (SELECT COUNT(*) FROM usuario WHERE rol = 'administrador') > 0 THEN 0 ELSE 1 END;
+        CREATE TEMP TABLE "F01-V6_con_duena_activa_identificable" (ok INTEGER NOT NULL CHECK (ok = 1));
+        INSERT INTO "F01-V6_con_duena_activa_identificable" (ok)
+            SELECT CASE WHEN (SELECT COUNT(*) FROM usuario) > 0
+                         AND (SELECT COUNT(*) FROM usuario WHERE rol = 'duena' AND activo = 1) = 0
+                        THEN 0 ELSE 1 END;
+        DROP TABLE "F01-V6_sin_administradores_residuales";
+        DROP TABLE "F01-V6_con_duena_activa_identificable";
         """;
 }

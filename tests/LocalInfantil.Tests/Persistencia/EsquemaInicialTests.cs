@@ -516,7 +516,7 @@ public sealed class EsquemaInicialTests
     }
 
     [Fact]
-    public async Task Migracion_V4_V5_con_datos_respaldo_y_sin_duplicados()
+    public async Task Migracion_V4_V6_con_datos_respaldo_y_sin_duplicados()
     {
         var (directorio, ruta) = CrearBaseTemporal();
         var respaldos = Path.Combine(directorio, "respaldos");
@@ -526,7 +526,7 @@ public sealed class EsquemaInicialTests
             Assert.Equal(new[] { 1, 2, 3, 4 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV4, null));
             await InsertarRegistrosFicticiosAsync(ruta);
 
-            Assert.Equal(new[] { 5 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ConsultarIntegridadAsync(archivo));
@@ -550,6 +550,7 @@ public sealed class EsquemaInicialTests
         foreach (var sql in new[]
         {
             "INSERT INTO usuario (id, nombre, rol, creado_en) VALUES ('u-ficticia', 'Empleada Ficticia', 'empleada', '2026-09-21T00:00:00Z');",
+            "INSERT INTO usuario (id, nombre, rol, creado_en) VALUES ('u-duena', 'Duena Ficticia', 'duena', '2026-09-21T00:00:00Z');",
             "INSERT INTO producto (id, nombre, marca, creado_en) VALUES ('p-ficticio', 'Remera Ficticia', 'Marca Ficticia', '2026-09-21T00:00:00Z');",
             "INSERT INTO variante (id, producto_id, sku, talle, creado_en) VALUES ('v-ficticia', 'p-ficticio', 'REM-FIC-001', '6', '2026-09-21T00:00:00Z');",
             "INSERT INTO precio (id, variante_id, importe_minor, vigente_desde, creado_en) VALUES ('pr-ficticio', 'v-ficticia', 15000, '2026-09-21T00:00:00Z', '2026-09-21T00:00:00Z');",

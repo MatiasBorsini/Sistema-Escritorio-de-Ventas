@@ -196,7 +196,7 @@ public sealed class AuditoriaTests
     }
 
     [Fact]
-    public async Task Migracion_V1_V5_con_datos_respaldo_y_sin_duplicados()
+    public async Task Migracion_V1_V6_con_datos_respaldo_y_sin_duplicados()
     {
         var (directorio, ruta) = CrearBaseTemporal();
         var respaldos = Path.Combine(directorio, "respaldos");
@@ -213,7 +213,7 @@ public sealed class AuditoriaTests
                 await sesion.ConfirmarAsync();
             }
 
-            Assert.Equal(new[] { 2, 3, 4, 5 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 2, 3, 4, 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivosRespaldo = Directory.GetFiles(respaldos, "*.db");
             Assert.Single(archivosRespaldo);

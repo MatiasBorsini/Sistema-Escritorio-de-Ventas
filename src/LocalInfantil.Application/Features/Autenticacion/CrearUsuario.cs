@@ -7,10 +7,10 @@ namespace LocalInfantil.Application.Features.Autenticacion;
 /// Alta de cuenta local con su huella.
 /// - Alta inicial: solo en base que nunca tuvo usuarios (ni desactivados),
 ///   sin sesión y en la misma transacción que la creación. La primera cuenta
-///   es obligatoriamente Administrador, sin selección libre de rol.
+///   es obligatoriamente Dueña, sin selección libre de rol.
 /// - Alta posterior: exige sesión vigente con el permiso explícito
-///   `usuarios.administrar` (hoy solo Administrador). El rol Administrador
-///   no se asigna por esta vía: sin política explícita se deniega.
+///   `usuarios.administrar` (hoy solo Dueña). Ni Dueña ni el rol retirado
+///   Administrador se asignan por esta vía.
 /// </summary>
 public sealed class CrearUsuario
 {
@@ -56,7 +56,7 @@ public sealed class CrearUsuario
                 throw new SesionInvalidaException();
             }
 
-            rol = RolesLocal.Administrador;
+            rol = RolesLocal.Duena;
         }
         else
         {
@@ -66,9 +66,9 @@ public sealed class CrearUsuario
             }
 
             var autorizado = await _autorizador.AutorizarAsync(idSesionActor, PermisosAdministracion.UsuariosAdministrar, cancellationToken);
-            if (datos.Rol == RolesLocal.Administrador)
+            if (datos.Rol == RolesLocal.Duena || datos.Rol == RolesLocal.Administrador)
             {
-                throw new AccesoDenegadoException("asignación del rol Administrador (sin política explícita)");
+                throw new AccesoDenegadoException("asignación de rol privilegiado sin vía explícita");
             }
 
             actorId = autorizado.Id;

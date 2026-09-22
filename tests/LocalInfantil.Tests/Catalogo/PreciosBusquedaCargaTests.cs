@@ -213,7 +213,7 @@ public sealed class PreciosBusquedaCargaTests
     }
 
     [Fact]
-    public async Task Migracion_V3_V5_con_datos_y_respaldo()
+    public async Task Migracion_V3_V6_con_datos_y_respaldo()
     {
         var directorio = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
         var ruta = Path.Combine(directorio, "precios-f01.db");
@@ -237,7 +237,7 @@ public sealed class PreciosBusquedaCargaTests
                 await sesion.ConfirmarAsync();
             }
 
-            Assert.Equal(new[] { 4, 5 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 4, 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             await using var lectura = await fabrica.IniciarLecturaAsync();
@@ -343,7 +343,7 @@ public sealed class PreciosBusquedaCargaTests
             var precios = new RepositorioPrecios(_ids);
             var movimientos = new RepositorioMovimientos(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
-            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), _fabrica, matriz);
+            var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             Autorizador = autorizador;
             CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);

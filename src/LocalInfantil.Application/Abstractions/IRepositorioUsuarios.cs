@@ -18,5 +18,5 @@ public interface IRepositorioUsuarios
 
     Task<long> ContarTodosAsync(ISesionPersistencia sesion, CancellationToken cancellationToken = default);
 
-    Task<long> ContarAdministradoresActivosAsync(ISesionPersistencia sesion, CancellationToken cancellationToken = default);
+    Task<long> ContarActivosPorRolAsync(ISesionPersistencia sesion, string rol, CancellationToken cancellationToken = default);
 }

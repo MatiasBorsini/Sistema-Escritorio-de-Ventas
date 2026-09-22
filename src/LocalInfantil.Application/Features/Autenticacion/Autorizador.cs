@@ -5,24 +5,28 @@ namespace LocalInfantil.Application.Features.Autenticacion;
 
 /// <summary>
 /// Autorización en Application: exige sesión vigente, re-lee al usuario para
-/// que desactivar revoque de inmediato (y expulsa la sesión), y solo concede
-/// permisos explícitos de la matriz. Nunca opera como identidad inexistente.
+/// que desactivar revoque de inmediato (y expulsa la sesión), y resuelve el
+/// permiso efectivo: la concesión individual del usuario prevalece; en su
+/// ausencia vale la matriz por rol. Nunca opera como identidad inexistente.
 /// </summary>
 public sealed class Autorizador : IAutorizador
 {
     private readonly GestorSesiones _sesiones;
     private readonly IRepositorioUsuarios _usuarios;
+    private readonly IRepositorioPermisos _permisos;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly MatrizPermisos _matriz;
 
     public Autorizador(
         GestorSesiones sesiones,
         IRepositorioUsuarios usuarios,
+        IRepositorioPermisos permisos,
         IFabricaSesionesPersistencia fabrica,
         MatrizPermisos matriz)
     {
         _sesiones = sesiones;
         _usuarios = usuarios;
+        _permisos = permisos;
         _fabrica = fabrica;
         _matriz = matriz;
     }
@@ -43,7 +47,9 @@ public sealed class Autorizador : IAutorizador
             throw new SesionInvalidaException();
         }
 
-        if (!_matriz.Permite(usuario.Rol, permiso))
+        var individual = await _permisos.ObtenerAsync(lectura, usuario.Id, permiso, cancellationToken);
+        var concedido = individual ?? _matriz.Permite(usuario.Rol, permiso);
+        if (!concedido)
         {
             throw new AccesoDenegadoException(permiso);
         }

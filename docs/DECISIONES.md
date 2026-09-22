@@ -130,6 +130,14 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Regla: solo el rol técnico Administrador crea y desactiva cuentas y cambia o restablece contraseñas (incluidas las de dueña y empleada, que no cambian ni la propia). El Administrador cambia la suya solo con su contraseña actual. Administrador no recibe permisos comerciales automáticamente. Permiso explícito `usuarios.administrar` (solo Administrador), verificado en Application.
 - Alcance: la primera cuenta por bootstrap es obligatoriamente Administrador, sin selección libre; no se asigna ese rol por vía genérica; nunca se desactiva la última cuenta administradora activa. Pendiente para antes de producción: recuperación de contraseñas (Administrador y dueña) sin solución aprobada (sin maestras, puertas traseras, Firebase, servidor externo, dominio ni códigos); permisos individuales por usuario y administración desde la cuenta de la dueña (requisitos acordados, aún no implementados; autenticación sin cambios en este bloque); identidad de la persona que tendrá la cuenta Administrador; resto de D-03.
 
+## D-27 — Administración local de la Dueña y permisos individuales
+
+- Estado: implementado y probado en `feat/owner-users-individual-permissions`; pendiente de revisión.
+- Fecha: 2026-09-21.
+- Fuente: regla confirmada por la persona usuaria (reemplaza D-21; avanza D-03 en permisos individuales).
+- Regla: sin superadministrador del desarrollador ni cuentas universales; primera cuenta = Dueña; rol Administrador retirado con conversión V6 solo si es inequívoca (falla segura en caso ambiguo); `usuarios.administrar` de Dueña y no configurable por usuario; permisos comerciales configurables por empleado con auditoría y denegación explícita que prevalece sobre la matriz; última dueña activa protegida.
+- Alcance: sin recuperación de Dueña aprobada (sin Firebase/servidor/email/dominio/códigos); sin inactividad; V1-V5 intactas; base provisional intacta.
+
 ## D-26 — Bloque F03-T01+T02 (proveedores y recepción)
 
 - Estado: implementado y probado en `feat/f03-suppliers-receiving`; pendiente de revisión.

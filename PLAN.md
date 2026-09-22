@@ -376,4 +376,6 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 
 | 2026-09-21 | F03-T01+T02 | Terminado en `feat/f03-suppliers-receiving`; F00-T02 bloqueada, F00-T06 en curso | Proveedores + recepción atómica con costo histórico (D-07 parcial) + V5; restore/build 0/0 y 123/123 pruebas (10 en temporales + V4→V5 y costo-cero); V1-V4 intactas; base provisional intacta | Resto F03 (T05); D-03, D-07, D-09, ruta definitiva; F03 no terminada |
 
+| 2026-09-21 | Administración Dueña | En curso en `feat/owner-users-individual-permissions`; F00-T02 bloqueada, F00-T06 en curso | V6 + permisos individuales con denegación explícita + régimen Dueña (D-27, reemplaza D-21); restore/build 0/0 y 132/132 pruebas en temporales; V1-V5 intactas; base provisional intacta; sin commit | Revisión; recuperación de Dueña, inactividad, resto D-03, PC real |
+
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

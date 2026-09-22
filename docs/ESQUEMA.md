@@ -190,3 +190,12 @@ Implementacion en `feat/f03-suppliers-receiving`: `Crear/Editar/DesactivarProvee
 - **Permisos definidos y no concedidos:** `compras.proveedores.gestionar` y `compras.recepcion.confirmar`; pruebas en matrices propias.
 - **Pruebas del bloque (solo temporales):** integral de 12 pasos + costo NULL, reapertura, rollback, filas invalidas, desactivacion con historial, denegaciones, matriz que deniega, regresion de carga/ajustes, V4-V5 con datos y respaldo.
 - **Limites:** la recepcion SUMA existencias (nunca ESTABLECE); costos sin D-07; ventas/caja (F04/F05); ruta definitiva (D-13).
+
+## 16. Administracion local de la Duena y permisos individuales (en curso, pendiente de revision)
+
+Implementacion en `feat/owner-users-individual-permissions`: tabla `permiso_usuario` + conversion V6, `IRepositorioPermisos`, `ConfigurarPermiso`, autorizacion efectiva en `Autorizador`, bootstrap y gestion por Duena, ultima duena protegida. Sin cambios en V1-V5. Sin superadministrador del desarrollador ni cuentas universales: todos los usuarios pertenecen a la SQLite del local.
+
+- **Regimen:** primera cuenta = Duena (sin seleccion); rol `administrador` retirado (V6 convierte el unico activo, resto ambiguo se rechaza sin perdida). `usuarios.administrar` es de Duena y no es configurable por usuario; el resto de permisos combina fila individual (prevalece, conceda o deniegue) con matriz por rol. Revocar escribe denegación explícita: ninguna concesión heredada de la matriz puede saltársela.
+- **Gestion:** alta (nunca Duena/administrador por via general), desactivacion (nunca ultima duena activa), restablecimiento (propia con actual), configuracion individual solo comercial y auditada, todo en la misma transaccion con rollback.
+- **Pruebas (solo temporales):** Ana/Lucia con permisos distintos, revocacion en sesion abierta, sin auto-otorgamiento, desactivacion con historial, rollback de permiso, conversion V6 (ok + 3 rechazos con datos intactos), suite previa adaptada al regimen.
+- **Pendiente para produccion:** recuperacion de Duena sin metodo aprobado; identidad de la titular; inactividad; resto de D-03; PC real.
