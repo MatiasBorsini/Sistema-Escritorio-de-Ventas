@@ -13,6 +13,15 @@
             <TabItem Header="Catálogo">
                 <views:CatalogoView DataContext="{Binding Catalogo}"/>
             </TabItem>
+            <TabItem Header="Proveedores">
+                <views:ProveedoresView DataContext="{Binding Proveedores}"/>
+            </TabItem>
+            <TabItem Header="Recepción (SUMAR)">
+                <views:RecepcionView DataContext="{Binding Recepcion}"/>
+            </TabItem>
+            <TabItem Header="Recepciones/Reversión">
+                <views:RecepcionesConsultaView DataContext="{Binding Recepciones}"/>
+            </TabItem>
             <TabItem Header="Administración">
                 <views:AdministracionUsuariosView DataContext="{Binding Administracion}"/>
             </TabItem>

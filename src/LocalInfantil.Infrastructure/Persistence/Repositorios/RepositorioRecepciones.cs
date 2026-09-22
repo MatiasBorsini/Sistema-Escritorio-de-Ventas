@@ -170,6 +170,78 @@ public sealed class RepositorioRecepciones : IRepositorioRecepciones
         }
     }
 
+    public async Task<RecepcionRegistrada?> ObtenerAsync(ISesionPersistencia sesion, string id, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, proveedor_id, operacion_id, comprobante_ref, creado_por_usuario_id, creado_en FROM recepcion WHERE id = $id;";
+            comando.Parameters.AddWithValue("$id", id);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            if (!await lector.ReadAsync(cancellationToken)) return null;
+            return new RecepcionRegistrada(
+                lector.GetString(0),
+                lector.GetString(1),
+                lector.GetString(2),
+                lector.IsDBNull(3) ? null : lector.GetString(3),
+                lector.IsDBNull(4) ? null : lector.GetString(4),
+                lector.GetString(5));
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<IReadOnlyList<RecepcionRegistrada>> ListarAsync(ISesionPersistencia sesion, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, proveedor_id, operacion_id, comprobante_ref, creado_por_usuario_id, creado_en FROM recepcion ORDER BY creado_en DESC, id DESC LIMIT $limite OFFSET $desplazamiento;";
+            comando.Parameters.AddWithValue("$limite", limite);
+            comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var lista = new List<RecepcionRegistrada>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                lista.Add(new RecepcionRegistrada(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.IsDBNull(4) ? null : lector.GetString(4),
+                    lector.GetString(5)));
+            }
+            return lista;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<bool> ExisteReversionPorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT 1 FROM reversion_recepcion WHERE operacion_id = $op LIMIT 1;";
+            comando.Parameters.AddWithValue("$op", operacionId);
+            return await comando.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)
     {
         if (sesion is not ISesionSqlite s)

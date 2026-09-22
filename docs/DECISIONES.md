@@ -204,8 +204,16 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 
 ## D-30 — WPF catálogo, precios y carga inicial ESTABLECER (sin costos)
 
-- Estado: implementado en `feat/wpf-catalog-prices-initial-stock`; pendiente de revision.
+- Estado: integrado en `70ec664`; pendiente de revision.
 - Fecha: 2026-09-22.
 - Fuente: bloque autorizado (CatalogoViewModel/CatalogoView).
-- Regla: reutiliza `Crear/Editar/DesactivarProducto/Variante`, `FijarPrecio`, `ConsultasCatalogo` (paginada + SKU) y `CargarExistenciaInicial`; Dueña no recibe permisos automáticamente, se otorgan explícitamente; lecturas con sesión vigente sin permiso de escritura; SKU inmutable, talle/color opcionales, sin listas cerradas, desactivación conserva historial; precio ARS exacto a centavos sin float/double, historial nunca editado; grilla ESTABLECER multi-fila con operacion_id estable (reintento sin duplicar, anti-doble, rollback total, rechazo si historial), etiquetada inequívocamente no recepción/suma; V1-V7 intactas.
+- Regla: reutiliza `Crear/Editar/DesactivarProducto/Variante`, `FijarPrecio`, `ConsultasCatalogo` (paginada + SKU) y `CargarExistenciaInicial`; Dueña no recibe permisos automáticamente, se otorgan explícitamente; lecturas con sesión vigente sin permiso de escritura; SKU inmutable, talle/color opcionales, sin listas cerradas, desactivación conserva historial; precio ARS exacto a centavos sin float/double, historial nunca editado; grilla ESTABLECER multi-fila con operacion_id estable (contenido cambiado → nuevo id, reintento idéntico conserva id, rollback total), etiquetada inequívocamente no recepción/suma; V1-V7 intactas.
 - Alcance: sin costos/FIFO/promedio/impuestos/márgenes (D-07), sin recepción/POS/caja/Drive, sin ruta productiva, validación visual interactiva pendiente.
+
+## D-31 — WPF proveedores, recepción SUMAR y reversión completa (aislamiento fail-closed)
+
+- Estado: implementado en `feat/wpf-suppliers-receiving`; pendiente de revision.
+- Fecha: 2026-09-22.
+- Fuente: bloque autorizado (Proveedores/Recepcion/RecepcionesConsulta ViewModels).
+- Regla: `IRepositorioRecepciones.Listar/Obtener` + `ConsultasRecepciones` (sesión vigente, sin SQL en WPF); `ServiciosComerciales` reutiliza `Crear/Editar/DesactivarProveedor`, `ConfirmarRecepcion` (SUMAR ingreso, costo NULL vs 0, ARS exacto, variantes repetidas/cantidades inválidas sin parciales) y `RevertirRecepcion` (COMPLETA con motivo, stock insuficiente rechaza toda, no doble, conserva recepción/costos/movimientos/auditoría); operacion_id estable con instantánea inmutable y rotación solo tras éxito; selector fail-closed con hard-link (FileIndex) y reparse de todos los antecesores, ouvre handle de solo metadatos (CreateFile acceso cero) sin leer SQLite, `--dev-db` inválido produce error; V1-V7 intactas, sin V8.
+- Alcance: sin reversión parcial/devolución/nota crédito/contabilidad, sin POS/caja/Drive, sin valoración costos, validación visual pendiente.

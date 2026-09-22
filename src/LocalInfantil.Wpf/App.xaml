@@ -33,6 +33,15 @@
         <DataTemplate DataType="{x:Type viewModels:CatalogoViewModel}">
             <views:CatalogoView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ProveedoresViewModel}">
+            <views:ProveedoresView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:RecepcionViewModel}">
+            <views:RecepcionView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:RecepcionesConsultaViewModel}">
+            <views:RecepcionesConsultaView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:AppRootViewModel}">
             <views:AppRootView />
         </DataTemplate>

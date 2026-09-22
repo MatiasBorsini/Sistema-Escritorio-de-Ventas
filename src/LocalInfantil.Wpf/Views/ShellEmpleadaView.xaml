@@ -13,8 +13,17 @@
             <TabItem Header="Catálogo">
                 <views:CatalogoView DataContext="{Binding Catalogo}"/>
             </TabItem>
+            <TabItem Header="Proveedores">
+                <views:ProveedoresView DataContext="{Binding Proveedores}"/>
+            </TabItem>
+            <TabItem Header="Recepción (SUMAR)">
+                <views:RecepcionView DataContext="{Binding Recepcion}"/>
+            </TabItem>
+            <TabItem Header="Recepciones/Reversión">
+                <views:RecepcionesConsultaView DataContext="{Binding Recepciones}"/>
+            </TabItem>
             <TabItem Header="Info">
-                <TextBlock Margin="24" TextWrapping="Wrap" Foreground="#6B7280" Text="Sesión empleada: usá Catálogo según tus permisos. La administración requiere Dueña."/>
+                <TextBlock Margin="24" TextWrapping="Wrap" Foreground="#6B7280" Text="Administración requiere Dueña. Consultas de proveedores/recepciones requieren sesión vigente."/>
             </TabItem>
         </TabControl>
     </DockPanel>

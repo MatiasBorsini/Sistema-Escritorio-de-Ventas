@@ -86,15 +86,21 @@ public sealed class AppRootViewModel : ViewModelBase
     {
         if (_servicios is null || Sesion is null) return;
         var catalogo = new CatalogoViewModel(_servicios, () => Sesion.IdSesion);
+        var proveedores = new ProveedoresViewModel(_servicios, () => Sesion.IdSesion);
+        await proveedores.CargarAsync();
+        var recepcion = new RecepcionViewModel(_servicios, () => Sesion.IdSesion);
+        await recepcion.CargarProveedoresAsync();
+        var recepciones = new RecepcionesConsultaViewModel(_servicios, () => Sesion.IdSesion);
+        await recepciones.CargarAsync();
         if (Sesion.Rol == "duena")
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, admin, catalogo, CerrarSesionAsync);
+            Contenido = new ShellDuenaViewModel(Sesion, admin, catalogo, proveedores, recepcion, recepciones, CerrarSesionAsync);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, catalogo, CerrarSesionAsync);
+            Contenido = new ShellEmpleadaViewModel(Sesion, catalogo, proveedores, recepcion, recepciones, CerrarSesionAsync);
         }
     }
 }
@@ -104,14 +110,20 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public SesionUsuario Sesion { get; }
     public AdministracionUsuariosViewModel Administracion { get; }
     public CatalogoViewModel Catalogo { get; }
+    public ProveedoresViewModel Proveedores { get; }
+    public RecepcionViewModel Recepcion { get; }
+    public RecepcionesConsultaViewModel Recepciones { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
 
-    public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, Func<Task> cerrar)
+    public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, Func<Task> cerrar)
     {
         Sesion = sesion;
         Administracion = admin;
         Catalogo = catalogo;
+        Proveedores = prov;
+        Recepcion = rec;
+        Recepciones = cons;
         CerrarSesion = cerrar;
     }
 }
@@ -120,13 +132,19 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
 {
     public SesionUsuario Sesion { get; }
     public CatalogoViewModel Catalogo { get; }
+    public ProveedoresViewModel Proveedores { get; }
+    public RecepcionViewModel Recepcion { get; }
+    public RecepcionesConsultaViewModel Recepciones { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, Func<Task> cerrar)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, Func<Task> cerrar)
     {
         Sesion = sesion;
         Catalogo = catalogo;
+        Proveedores = prov;
+        Recepcion = rec;
+        Recepciones = cons;
         CerrarSesion = cerrar;
     }
 }

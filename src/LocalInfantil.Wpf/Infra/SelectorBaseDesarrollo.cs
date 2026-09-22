@@ -11,10 +11,12 @@ namespace LocalInfantil.Wpf.Infra;
 /// Precedencia inequívoca: argumento --dev-db prevalece sobre variable de entorno
 /// LOCALINFANTIL_DEV_DB. No fija ni supone ruta productiva definitiva (D-13 pendiente).
 /// Rechaza rutas equivalentes a la provisional (mayúsculas/minúsculas, separadores,
-/// ruta relativa vs absoluta) y, si ambos archivos existen, resuelve symlinks/
-/// junctions del archivo y de sus directorios padre sin escribir para evitar alias
-/// del sistema de archivos. Si el alias es de directorio y el archivo aún no existe,
-/// la protección es solo sintáctica: limitación documentada, modo restringido a desarrollo.
+/// ruta relativa vs absoluta) y, si ambos archivos existen, verifica identidad física
+/// (hard links) y resuelve symlinks/junctions del archivo y de todos sus directorios
+/// antecesores sin escribir el contenido: abre handles de solo metadatos (CreateFile
+/// con acceso cero) para consultar FileIndex, sin leer/modificar SQLite. Si no puede
+/// establecerse con seguridad que no es alias, falla cerrado. Directorios con reparse
+/// en antecesores se rechazan conservadoramente. Modo restringido a desarrollo.
 /// </summary>
 public static class SelectorBaseDesarrollo
 {
@@ -100,39 +102,49 @@ public static class SelectorBaseDesarrollo
         if (string.Equals(ruta, provisional, StringComparison.OrdinalIgnoreCase))
             return true;
 
+        var rutaExiste = File.Exists(ruta);
+        var provExiste = File.Exists(provisional);
         try
         {
-            if (File.Exists(ruta) && File.Exists(provisional))
+            if (rutaExiste && provExiste)
             {
-                // Hard links: mismo VolumeSerial + FileIndex
-                if (SonMismoArchivoFisico(ruta, provisional))
-                    return true;
-                var r1 = ResolverFinal(ruta);
-                var r2 = ResolverFinal(provisional);
-                if (string.Equals(r1, r2, StringComparison.OrdinalIgnoreCase))
-                    return true;
-                // También comparar todos los antecesores resueltos
-                var a1 = ResolverTodosAntecesores(ruta);
-                var a2 = ResolverTodosAntecesores(provisional);
-                if (string.Equals(a1, a2, StringComparison.OrdinalIgnoreCase))
-                    return true;
+                // Falla cerrado si no puede comprobar hard link
+                bool mismoFisico;
+                try { mismoFisico = SonMismoArchivoFisico(ruta, provisional); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo verificar identidad física de la base provisional.", ex); }
+                if (mismoFisico) return true;
+
+                string r1, r2;
+                try { r1 = ResolverFinal(ruta); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo resolver alias de la ruta de desarrollo.", ex); }
+                try { r2 = ResolverFinal(provisional); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo resolver alias de la base provisional.", ex); }
+                if (string.Equals(r1, r2, StringComparison.OrdinalIgnoreCase)) return true;
+
+                string a1, a2;
+                try { a1 = ResolverTodosAntecesores(ruta); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo resolver antecesores de la ruta de desarrollo.", ex); }
+                try { a2 = ResolverTodosAntecesores(provisional); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo resolver antecesores de la base provisional.", ex); }
+                if (string.Equals(a1, a2, StringComparison.OrdinalIgnoreCase)) return true;
             }
             else
             {
-                // Archivo dev aún no existe: verificar si comparten directorio final resuelto y mismo nombre
-                var dirDev = Path.GetDirectoryName(ruta);
-                var dirProv = Path.GetDirectoryName(provisional);
-                if (dirDev is not null && dirProv is not null)
-                {
-                    var d1 = ResolverTodosAntecesores(ruta);
-                    var d2 = ResolverTodosAntecesores(provisional);
-                    if (string.Equals(d1, d2, StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
+                string d1, d2;
+                try { d1 = ResolverTodosAntecesores(ruta); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo resolver antecesores de la ruta de desarrollo.", ex); }
+                try { d2 = ResolverTodosAntecesores(provisional); }
+                catch (Exception ex) { throw new InvalidOperationException("No se pudo resolver antecesores de la base provisional.", ex); }
+                if (string.Equals(d1, d2, StringComparison.OrdinalIgnoreCase)) return true;
             }
         }
-        catch
+        catch (InvalidOperationException)
         {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("No se pudo verificar si la ruta es alias de la provisional.", ex);
         }
 
         return false;
@@ -208,18 +220,27 @@ public static class SelectorBaseDesarrollo
 
     private static bool SonMismoArchivoFisico(string ruta1, string ruta2)
     {
+        SafeFileHandle h1 = null!;
+        SafeFileHandle h2 = null!;
         try
         {
-            using var h1 = CreateFile(ruta1, 0, FileShare.ReadWrite | FileShare.Delete, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
-            using var h2 = CreateFile(ruta2, 0, FileShare.ReadWrite | FileShare.Delete, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
-            if (h1.IsInvalid || h2.IsInvalid) return false;
-            if (!GetFileInformationByHandle(h1, out var info1)) return false;
-            if (!GetFileInformationByHandle(h2, out var info2)) return false;
+            h1 = CreateFile(ruta1, 0, FileShare.ReadWrite | FileShare.Delete, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
+            h2 = CreateFile(ruta2, 0, FileShare.ReadWrite | FileShare.Delete, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero);
+            if (h1.IsInvalid || h2.IsInvalid)
+                throw new InvalidOperationException($"No se pudo abrir handle para comparar identidad física (provisional o dev).");
+            if (!GetFileInformationByHandle(h1, out var info1))
+                throw new InvalidOperationException("No se pudo consultar metadatos de la ruta de desarrollo.");
+            if (!GetFileInformationByHandle(h2, out var info2))
+                throw new InvalidOperationException("No se pudo consultar metadatos de la base provisional.");
             return info1.VolumeSerialNumber == info2.VolumeSerialNumber
                 && info1.FileIndexHigh == info2.FileIndexHigh
                 && info1.FileIndexLow == info2.FileIndexLow;
         }
-        catch { return false; }
+        finally
+        {
+            h1?.Dispose();
+            h2?.Dispose();
+        }
     }
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
