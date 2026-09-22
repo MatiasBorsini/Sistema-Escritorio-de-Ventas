@@ -24,3 +24,13 @@ public sealed class NullToVisibilityConverter : IValueConverter
         => value is null || (value is string s && string.IsNullOrWhiteSpace(s)) ? Visibility.Collapsed : Visibility.Visible;
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+public sealed class MinorToArsConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is long l) return $"ARS {((decimal)l / 100m).ToString("N2", new CultureInfo("es-AR"))}";
+        return "—";
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}

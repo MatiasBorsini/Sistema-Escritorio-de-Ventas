@@ -1,0 +1,109 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.CatalogoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
+        <StackPanel>
+            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Catálogo — Productos, variantes, precios y carga inicial"/>
+            <TextBlock Foreground="#6B7280" Text="Consultas paginadas. ESTABLECER EXISTENCIA INICIAL no es recepción ni suma." TextWrapping="Wrap" Margin="0,4,0,12"/>
+            <TextBlock Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
+            <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+            <GroupBox Header="Buscar" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox Width="240" Margin="0,0,8,0" Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}" ToolTip="Texto (nombre/marca/categoría)"/>
+                        <Button Content="Buscar" Padding="8,4" Command="{Binding BuscarCommand}" IsDefault="False"/>
+                        <Button Content="◀" Margin="8,0,0,0" Padding="8,4" Command="{Binding AnteriorCommand}" ToolTip="Anterior"/>
+                        <Button Content="▶" Margin="4,0,0,0" Padding="8,4" Command="{Binding SiguienteCommand}" ToolTip="Siguiente"/>
+                        <TextBlock Margin="8,6,0,0" Text="{Binding Pagina, StringFormat=Pág. {0}}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBox Width="160" Text="{Binding SkuBusqueda, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU exacto"/>
+                        <Button Content="Buscar SKU" Margin="8,0,0,0" Padding="8,4" Command="{Binding BuscarSkuCommand}"/>
+                    </StackPanel>
+                    <ListBox Margin="0,8,0,0" MaxHeight="140" ItemsSource="{Binding Productos}" SelectedItem="{Binding ProductoSeleccionado}" DisplayMemberPath="Nombre"/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Ficha (precio vigente y existencias)" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="{Binding Ficha.Producto.Nombre, FallbackValue=Sin selección}" FontWeight="SemiBold"/>
+                    <TextBlock Foreground="#6B7280" Text="{Binding Ficha.Producto.Marca, FallbackValue=—}"/>
+                    <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Ficha.Variantes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="Consolas" FontSize="11" Text="{Binding Sku}" Width="120"/>
+                                        <TextBlock Text="{Binding Talle, FallbackValue=—}" Width="80"/>
+                                        <TextBlock Text="{Binding Color, FallbackValue=—}" Width="80"/>
+                                        <TextBlock Text="{Binding Existencias}" Width="60"/>
+                                        <TextBlock Text="{Binding PrecioMinor, Converter={StaticResource MinorToArs}}" Width="120"/>
+                                        <TextBlock Foreground="#9CA3AF" Text="(inactiva)" Visibility="{Binding Activa, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Producto — crear/editar/desactivar" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBox Margin="0,0,0,4" Text="{Binding NuevoProductoNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre"/>
+                    <TextBox Margin="0,0,0,4" Text="{Binding NuevoProductoMarca, UpdateSourceTrigger=PropertyChanged}" ToolTip="Marca (opcional)"/>
+                    <TextBox Margin="0,0,0,8" Text="{Binding NuevoProductoCategoria, UpdateSourceTrigger=PropertyChanged}" ToolTip="Categoría (opcional)"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Crear producto" Padding="8,4" Command="{Binding CrearProductoCommand}"/>
+                        <Button Content="Editar seleccionado" Margin="8,0,0,0" Padding="8,4" Command="{Binding EditarProductoCommand}"/>
+                        <Button Content="Desactivar" Margin="8,0,0,0" Padding="8,4" Command="{Binding DesactivarProductoCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Variante — SKU inmutable, talle/color opcionales" Padding="8" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBox Margin="0,0,0,4" Text="{Binding NuevoVarianteSku, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU único"/>
+                    <TextBox Margin="0,0,0,4" Text="{Binding NuevoVarianteTalle, UpdateSourceTrigger=PropertyChanged}" ToolTip="Talle (vacío = sin talle)"/>
+                    <TextBox Margin="0,0,0,8" Text="{Binding NuevoVarianteColor, UpdateSourceTrigger=PropertyChanged}" ToolTip="Color (vacío = sin color)"/>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Crear variante" Padding="8,4" Command="{Binding CrearVarianteCommand}"/>
+                        <Button Content="Editar talle/color" Margin="8,0,0,0" Padding="8,4" Command="{Binding EditarVarianteCommand}"/>
+                        <Button Content="Desactivar variante" Margin="8,0,0,0" Padding="8,4" Command="{Binding DesactivarVarianteCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Precio vigente (ARS — historial conservado, D-07 sin costos)" Padding="8" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal">
+                    <TextBox Width="140" Text="{Binding PrecioTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Ej: 1234,50"/>
+                    <Button Content="Fijar precio" Margin="8,0,0,0" Padding="8,4" Command="{Binding FijarPrecioCommand}"/>
+                    <TextBlock Margin="8,6,0,0" Foreground="#6B7280" Text="No editar precio viejo; se crea nuevo vigente."/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="ESTABLECER EXISTENCIA INICIAL — NO es recepción ni suma" Padding="8" BorderBrush="#F59E0B" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Foreground="#92400E" TextWrapping="Wrap" Text="Cada variante sin movimientos previos. Múltiples filas en una sola transacción; si una falla, ninguna persiste. Operación reintentable con mismo ID si el resultado es incierto."/>
+                    <TextBlock Margin="0,4,0,0" FontFamily="Consolas" FontSize="11" Text="{Binding OperacionIdCarga, StringFormat=operacion_id: {0}}"/>
+                    <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding FilasCarga}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <TextBox Width="160" Margin="0,0,8,0" Text="{Binding Sku, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU"/>
+                                    <TextBox Width="100" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera >0"/>
+                                    <TextBlock Margin="8,4,0,0" Foreground="#6B7280" FontSize="11" Text="{Binding Detalle}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="+ Fila" Padding="8,4" Command="{Binding AgregarFilaCargaCommand}"/>
+                        <Button Content="− Fila" Margin="8,0,0,0" Padding="8,4" Command="{Binding QuitarFilaCargaCommand}"/>
+                        <Button Content="ESTABLECER EXISTENCIA INICIAL" Margin="8,0,0,0" Padding="12,4" Background="#FEF3C7" BorderBrush="#F59E0B" Command="{Binding EjecutarCargaCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

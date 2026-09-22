@@ -8,6 +8,7 @@
         <infra:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <infra:BoolToVisibilityInvertedConverter x:Key="BoolToVisibilityInverted"/>
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
+        <infra:MinorToArsConverter x:Key="MinorToArs"/>
         <DataTemplate DataType="{x:Type viewModels:InicioViewModel}">
             <views:InicioView />
         </DataTemplate>
@@ -28,6 +29,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:AdministracionUsuariosViewModel}">
             <views:AdministracionUsuariosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:CatalogoViewModel}">
+            <views:CatalogoView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:AppRootViewModel}">
             <views:AppRootView />

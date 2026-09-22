@@ -9,6 +9,13 @@
                 <Button DockPanel.Dock="Right" Content="Cerrar sesión" Padding="8,3" Click="Cerrar_Click"/>
             </DockPanel>
         </Border>
-        <views:AdministracionUsuariosView DataContext="{Binding Administracion}"/>
+        <TabControl>
+            <TabItem Header="Catálogo">
+                <views:CatalogoView DataContext="{Binding Catalogo}"/>
+            </TabItem>
+            <TabItem Header="Administración">
+                <views:AdministracionUsuariosView DataContext="{Binding Administracion}"/>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </UserControl>

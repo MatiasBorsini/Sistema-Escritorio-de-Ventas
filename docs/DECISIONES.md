@@ -196,8 +196,16 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 
 ## D-29 — Primer flujo WPF real: login y administracion Dueña (aislamiento de bases)
 
-- Estado: implementado en `feat/wpf-login-owner-users`; pendiente de revision.
+- Estado: integrado en `61b267d`; pendiente de revision.
 - Fecha: 2026-09-22.
 - Fuente: bloque autorizado (App.xaml.cs, ViewModels, Views).
-- Regla: sin autenticacion paralela en WPF (reusa Application); bootstrap solo si base sin usuarios (primera = Dueña), sino login; sesion invalida tras logout y no permite pantallas protegidas; errores sin enumeracion; PasswordBox sin texto plano/logs; offline; aislamiento obligatorio de `localinfantil-prototype.db` (rechazo explicito, solo ruta dev explicita `--dev-db`/`LOCALINFANTIL_DEV_DB`); administracion solo Dueña con backend autoridad, sin crear otra Dueña ni configurar `usuarios.administrar`; permisos comerciales configurables individualmente con estado concedido/denegado/heredado; V1-V7 intactas.
+- Regla: sin autenticacion paralela en WPF (reusa Application); bootstrap solo si base sin usuarios (primera = Dueña), sino login; sesion invalida tras logout y no permite pantallas protegidas; errores sin enumeracion; PasswordBox sin texto plano/logs; offline; aislamiento con precedencia arg > env y ResolveLinkTarget para symlinks/junctions (limitación: alias de directorio sin archivo solo sintáctico, modo dev restringido); administracion solo Dueña con confirmación Confirmar/Cancelar y backend autoridad, sin crear otra Dueña ni configurar `usuarios.administrar`; V1-V7 intactas.
 - Alcance: sin recuperacion de Dueña, Firebase, Drive, respaldos auto, ventas ni cambios de inventario; ruta productiva y PC real pendientes.
+
+## D-30 — WPF catálogo, precios y carga inicial ESTABLECER (sin costos)
+
+- Estado: implementado en `feat/wpf-catalog-prices-initial-stock`; pendiente de revision.
+- Fecha: 2026-09-22.
+- Fuente: bloque autorizado (CatalogoViewModel/CatalogoView).
+- Regla: reutiliza `Crear/Editar/DesactivarProducto/Variante`, `FijarPrecio`, `ConsultasCatalogo` (paginada + SKU) y `CargarExistenciaInicial`; Dueña no recibe permisos automáticamente, se otorgan explícitamente; lecturas con sesión vigente sin permiso de escritura; SKU inmutable, talle/color opcionales, sin listas cerradas, desactivación conserva historial; precio ARS exacto a centavos sin float/double, historial nunca editado; grilla ESTABLECER multi-fila con operacion_id estable (reintento sin duplicar, anti-doble, rollback total, rechazo si historial), etiquetada inequívocamente no recepción/suma; V1-V7 intactas.
+- Alcance: sin costos/FIFO/promedio/impuestos/márgenes (D-07), sin recepción/POS/caja/Drive, sin ruta productiva, validación visual interactiva pendiente.

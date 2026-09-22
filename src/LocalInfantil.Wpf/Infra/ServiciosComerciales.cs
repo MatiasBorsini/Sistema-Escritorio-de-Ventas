@@ -1,6 +1,8 @@
 using System.IO;
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Features.Autenticacion;
+using LocalInfantil.Application.Features.Catalogo;
+using LocalInfantil.Application.Features.Inventario;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
@@ -28,6 +30,19 @@ public sealed class ServiciosComerciales
     public DesactivarUsuario CasoDesactivarUsuario { get; }
     public RestablecerContrasena CasoRestablecerContrasena { get; }
     public ConfigurarPermiso CasoConfigurarPermiso { get; }
+    public IRepositorioProductos RepoProductos { get; }
+    public IRepositorioVariantes RepoVariantes { get; }
+    public IRepositorioPrecios RepoPrecios { get; }
+    public IRepositorioMovimientos RepoMovimientos { get; }
+    public CrearProducto CasoCrearProducto { get; }
+    public EditarProducto CasoEditarProducto { get; }
+    public DesactivarProducto CasoDesactivarProducto { get; }
+    public CrearVariante CasoCrearVariante { get; }
+    public EditarVariante CasoEditarVariante { get; }
+    public DesactivarVariante CasoDesactivarVariante { get; }
+    public FijarPrecio CasoFijarPrecio { get; }
+    public ConsultasCatalogo ConsultasCatalogo { get; }
+    public CargarExistenciaInicial CasoCargarExistenciaInicial { get; }
 
     public ServiciosComerciales(string rutaBaseDatos)
     {
@@ -41,6 +56,10 @@ public sealed class ServiciosComerciales
         RepoUsuarios = new RepositorioUsuarios(GeneradorIds);
         RepoPermisos = new RepositorioPermisos();
         RepoAuditoria = new RepositorioAuditoria(GeneradorIds, Reloj);
+        RepoProductos = new RepositorioProductos(GeneradorIds);
+        RepoVariantes = new RepositorioVariantes(GeneradorIds);
+        RepoPrecios = new RepositorioPrecios(GeneradorIds);
+        RepoMovimientos = new RepositorioMovimientos(GeneradorIds);
         Autorizador = new Autorizador(Gestor, RepoUsuarios, RepoPermisos, Fabrica, Matriz);
         CasoIniciarSesion = new IniciarSesion(RepoUsuarios, Hasher, Gestor, Fabrica, RepoAuditoria, GeneradorIds, Reloj, new OpcionesAutenticacion());
         CasoCerrarSesion = new CerrarSesion(Gestor, Fabrica, RepoAuditoria, GeneradorIds);
@@ -48,6 +67,15 @@ public sealed class ServiciosComerciales
         CasoDesactivarUsuario = new DesactivarUsuario(RepoUsuarios, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoRestablecerContrasena = new RestablecerContrasena(RepoUsuarios, Hasher, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoConfigurarPermiso = new ConfigurarPermiso(RepoPermisos, RepoUsuarios, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoCrearProducto = new CrearProducto(RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoEditarProducto = new EditarProducto(RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
+        CasoDesactivarProducto = new DesactivarProducto(RepoProductos, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
+        CasoCrearVariante = new CrearVariante(RepoVariantes, RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoEditarVariante = new EditarVariante(RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
+        CasoDesactivarVariante = new DesactivarVariante(RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
+        CasoFijarPrecio = new FijarPrecio(RepoPrecios, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        ConsultasCatalogo = new ConsultasCatalogo(RepoProductos, RepoVariantes, Gestor, Fabrica);
+        CasoCargarExistenciaInicial = new CargarExistenciaInicial(RepoMovimientos, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, Reloj);
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =

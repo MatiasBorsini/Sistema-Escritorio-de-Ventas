@@ -85,17 +85,16 @@ public sealed class AppRootViewModel : ViewModelBase
     private async Task MostrarShellAsync()
     {
         if (_servicios is null || Sesion is null) return;
+        var catalogo = new CatalogoViewModel(_servicios, () => Sesion.IdSesion);
         if (Sesion.Rol == "duena")
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            // Shell simple: mostrar identidad + admin; el logout lo maneja AppRoot
-            Contenido = new ShellDuenaViewModel(Sesion, admin, CerrarSesionAsync);
+            Contenido = new ShellDuenaViewModel(Sesion, admin, catalogo, CerrarSesionAsync);
         }
         else
         {
-            // Empleada: sin administración, solo identidad + mensaje
-            Contenido = new ShellEmpleadaViewModel(Sesion, CerrarSesionAsync);
+            Contenido = new ShellEmpleadaViewModel(Sesion, catalogo, CerrarSesionAsync);
         }
     }
 }
@@ -104,13 +103,15 @@ public sealed class ShellDuenaViewModel : ViewModelBase
 {
     public SesionUsuario Sesion { get; }
     public AdministracionUsuariosViewModel Administracion { get; }
+    public CatalogoViewModel Catalogo { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
 
-    public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, Func<Task> cerrar)
+    public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, Func<Task> cerrar)
     {
         Sesion = sesion;
         Administracion = admin;
+        Catalogo = catalogo;
         CerrarSesion = cerrar;
     }
 }
@@ -118,12 +119,14 @@ public sealed class ShellDuenaViewModel : ViewModelBase
 public sealed class ShellEmpleadaViewModel : ViewModelBase
 {
     public SesionUsuario Sesion { get; }
+    public CatalogoViewModel Catalogo { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, Func<Task> cerrar)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, Func<Task> cerrar)
     {
         Sesion = sesion;
+        Catalogo = catalogo;
         CerrarSesion = cerrar;
     }
 }
