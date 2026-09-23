@@ -203,14 +203,15 @@ public sealed class AjustesHistorialTests
             var productos = new RepositorioProductos(_ids);
             var variantes = new RepositorioVariantes(_ids);
             var movimientos = new RepositorioMovimientos(_ids);
+            var apartados = new RepositorioApartados(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
             var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             DesactivarVariante = new DesactivarVariante(variantes, autorizador, _fabrica, auditoria, _ids);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
-            Ajuste = new AjustarInventario(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
-            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), _sesiones, _fabrica);
+            Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
+            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, _sesiones, _fabrica);
         }
 
         public static async Task<EntornoInventario> CrearAsync()
@@ -233,9 +234,10 @@ public sealed class AjustesHistorialTests
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(Path.Combine(_directorio, "inventario-f01.db")));
             var movimientos = new RepositorioMovimientos(_ids);
             var variantes = new RepositorioVariantes(_ids);
+            var apartados = new RepositorioApartados(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), _reloj);
             var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), fabrica, _matriz);
-            return new AjustarInventario(movimientos, variantes, autorizador, fabrica, auditoria, _reloj);
+            return new AjustarInventario(movimientos, variantes, apartados, autorizador, fabrica, auditoria, _reloj);
         }
 
         public async Task<string> SesionValidaAsync()

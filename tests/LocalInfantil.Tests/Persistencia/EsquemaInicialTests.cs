@@ -526,7 +526,7 @@ public sealed class EsquemaInicialTests
             Assert.Equal(new[] { 1, 2, 3, 4 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV4, null));
             await InsertarRegistrosFicticiosAsync(ruta);
 
-            Assert.Equal(new[] { 5, 6, 7 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 5, 6, 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ConsultarIntegridadAsync(archivo));

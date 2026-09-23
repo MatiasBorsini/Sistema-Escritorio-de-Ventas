@@ -226,3 +226,11 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Registro: el test sobrescribió la base provisional original con texto y luego la eliminó (`File.WriteAllText` + `File.Delete`); no fue migración ni copia. Después se creó manualmente un archivo vacío de 12.288 bytes con la fecha anterior: **NO fue una restauración**. No existe hash anterior ni copia auténtica identificada; no puede afirmarse que los datos originales estén preservados. El usuario confirmó que no había cargado datos propios (solo tabla técnica del prototipo F00).
 - Regla: la suite usa exclusivamente archivos ficticios temporales; ningún test escribe, elimina, migra, reemplaza ni restaura la ruta provisional real (ver `docs/ESQUEMA.md` §21). El test `Base_provisional_F00_permanece_intacta` fue retirado (no demostraba igualdad de contenido) y reemplazado por `Sonda_prototipo_funciona_sobre_archivo_ficticio`.
 - Alcance: sin cambios en V1–V7; sin restauración adicional sin autorización.
+
+## D-33 — Stock apartado / dañado / no vendible (F03-T04)
+
+- Estado: implementado en `feat/f03-damaged-setaside-stock`; pendiente de revisión.
+- Fecha: 2026-09-23.
+- Fuente: decisión del usuario (prenda dañada/en revisión permanece en el local pero no puede venderse; baja definitiva deja de existir físicamente).
+- Regla: estados Disponible, Apartada/no vendible y Baja definitiva; apartar/reincorporar con motivo (no alteran el físico), baja de apartadas con confirmación y motivo (reduce apartado y físico atómicamente); invariantes físico = disponible + apartado y ninguna cantidad negativa; recepción/carga suman disponible; ajustes negativos, reversión y aprobación de conteos nunca consumen apartadas inadvertidamente; conteos cuentan apartadas y detectan cambios de clasificación con mismo saldo; permisos `inventario.no_vendible.gestionar` y `inventario.baja_definitiva.autorizar` separados y denegados por defecto; V8 aditiva (`apartado_movimiento` + `conteo_clasificacion`), V1–V7 intactas, histórico existente = disponible.
+- Alcance: sin POS/caja/Drive, sin valoración de costos; F03 no cerrada (falta validación visual).

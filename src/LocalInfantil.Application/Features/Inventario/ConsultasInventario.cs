@@ -7,14 +7,16 @@ namespace LocalInfantil.Application.Features.Inventario;
 /// <summary>
 /// Consultas de existencias e historial. Requieren sesión vigente pero ningún
 /// permiso específico (interino hasta D-03). Las existencias se derivan de
-/// movimientos confirmados; el historial conserva variantes inactivas. Sin
-/// clasificación de dañado/no vendible: definición pendiente, no inventada.
+/// movimientos confirmados; el historial conserva variantes inactivas.
+/// Físico = disponible + apartado; el disponible es vendible (puerta de venta
+/// futura F04) y el apartado es no vendible (dañado/en revisión).
 /// </summary>
 public sealed class ConsultasInventario
 {
     private readonly IRepositorioMovimientos _movimientos;
     private readonly IRepositorioVariantes _variantes;
     private readonly IRepositorioConteos _conteos;
+    private readonly IRepositorioApartados _apartados;
     private readonly GestorSesiones _sesiones;
     private readonly IFabricaSesionesPersistencia _fabrica;
 
@@ -22,12 +24,14 @@ public sealed class ConsultasInventario
         IRepositorioMovimientos movimientos,
         IRepositorioVariantes variantes,
         IRepositorioConteos conteos,
+        IRepositorioApartados apartados,
         GestorSesiones sesiones,
         IFabricaSesionesPersistencia fabrica)
     {
         _movimientos = movimientos;
         _variantes = variantes;
         _conteos = conteos;
+        _apartados = apartados;
         _sesiones = sesiones;
         _fabrica = fabrica;
     }
@@ -61,6 +65,50 @@ public sealed class ConsultasInventario
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
         return await _conteos.InformeAsync(sesion, conteoId, cancellationToken);
+    }
+
+    public async Task<ExistenciaClasificada?> ObtenerClasificadaAsync(string sku, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        var variante = await _variantes.ObtenerPorSkuAsync(sesion, sku, cancellationToken);
+        if (variante is null)
+        {
+            return null;
+        }
+
+        var fisico = await _movimientos.SumarPorVarianteAsync(sesion, variante.Id, cancellationToken);
+        var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, variante.Id, cancellationToken);
+        return new ExistenciaClasificada(variante.Id, variante.Sku, fisico, fisico - apartado, apartado);
+    }
+
+    public async Task<IReadOnlyList<ApartadoHistorial>> HistorialApartadosPorSkuAsync(string sku, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        var variante = await _variantes.ObtenerPorSkuAsync(sesion, sku, cancellationToken);
+        if (variante is null)
+        {
+            return Array.Empty<ApartadoHistorial>();
+        }
+
+        return await _apartados.ListarPorVarianteAsync(sesion, variante.Id, limite, desplazamiento, cancellationToken);
+    }
+
+    /// <summary>
+    /// Puerta de venta futura (F04): el POS debe validar contra Disponible,
+    /// nunca contra el físico total. Sin implementar ventas en este bloque.
+    /// </summary>
+    public async Task<StockVendible?> ObtenerStockVendibleAsync(string varianteId, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        var variante = await _variantes.ObtenerPorIdAsync(sesion, varianteId, cancellationToken);
+        if (variante is null)
+        {
+            return null;
+        }
+
+        var fisico = await _movimientos.SumarPorVarianteAsync(sesion, varianteId, cancellationToken);
+        var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, varianteId, cancellationToken);
+        return new StockVendible(varianteId, variante.Sku, fisico - apartado);
     }
 
     private async Task<ISesionPersistencia> SesionValidadaAsync(string? idSesion, CancellationToken cancellationToken)

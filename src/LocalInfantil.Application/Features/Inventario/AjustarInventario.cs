@@ -8,7 +8,9 @@ namespace LocalInfantil.Application.Features.Inventario;
 /// (positivo o negativo, nunca cero) y motivo obligatorio. Todas las
 /// validaciones usan datos confirmados dentro de la misma transacción de
 /// escritura: existencia resultante no negativa, operacion_id no repetido y
-/// variante existente. Movimiento y auditoría se confirman o revierten juntos.
+/// variante existente. Un ajuste negativo nunca consume unidades apartadas:
+/// se valida contra el disponible (físico − apartado), no contra el físico.
+/// Movimiento y auditoría se confirman o revierten juntos.
 /// Un ajuste erróneo se corrige con otro ajuste de signo opuesto cuyo motivo
 /// cite la operación original; jamás se edita ni borra historial.
 /// </summary>
@@ -16,6 +18,7 @@ public sealed class AjustarInventario
 {
     private readonly IRepositorioMovimientos _movimientos;
     private readonly IRepositorioVariantes _variantes;
+    private readonly IRepositorioApartados _apartados;
     private readonly IAutorizador _autorizador;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly IRepositorioAuditoria _auditoria;
@@ -24,6 +27,7 @@ public sealed class AjustarInventario
     public AjustarInventario(
         IRepositorioMovimientos movimientos,
         IRepositorioVariantes variantes,
+        IRepositorioApartados apartados,
         IAutorizador autorizador,
         IFabricaSesionesPersistencia fabrica,
         IRepositorioAuditoria auditoria,
@@ -31,6 +35,7 @@ public sealed class AjustarInventario
     {
         _movimientos = movimientos;
         _variantes = variantes;
+        _apartados = apartados;
         _autorizador = autorizador;
         _fabrica = fabrica;
         _auditoria = auditoria;
@@ -77,6 +82,15 @@ public sealed class AjustarInventario
         if (existencias + cantidad < 0)
         {
             throw new InvalidOperationException("El ajuste dejaría existencias negativas.");
+        }
+
+        if (cantidad < 0)
+        {
+            var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, varianteId, cancellationToken);
+            if (existencias + cantidad < apartado)
+            {
+                throw new InvalidOperationException("El ajuste consumiría unidades apartadas (no vendibles).");
+            }
         }
 
         var fecha = _reloj.UtcNow().ToString("o");

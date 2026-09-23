@@ -6,13 +6,16 @@ namespace LocalInfantil.Application.Features.Inventario;
 /// <summary>
 /// Crea un conteo en borrador con las variantes elegidas y la existencia
 /// esperada de cada una (foto al iniciar). Un conteo parcial no supone cero
-/// para variantes no incluidas: simplemente no las contiene.
+/// para variantes no incluidas: simplemente no las contiene. La foto incluye
+/// la clasificación (apartado esperado y movimientos de clasificación
+/// contados) para detectar cambios posteriores, incluso con saldo igual.
 /// </summary>
 public sealed class CrearConteo
 {
     private readonly IRepositorioConteos _conteos;
     private readonly IRepositorioVariantes _variantes;
     private readonly IRepositorioMovimientos _movimientos;
+    private readonly IRepositorioApartados _apartados;
     private readonly IAutorizador _autorizador;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly IRepositorioAuditoria _auditoria;
@@ -23,6 +26,7 @@ public sealed class CrearConteo
         IRepositorioConteos conteos,
         IRepositorioVariantes variantes,
         IRepositorioMovimientos movimientos,
+        IRepositorioApartados apartados,
         IAutorizador autorizador,
         IFabricaSesionesPersistencia fabrica,
         IRepositorioAuditoria auditoria,
@@ -32,6 +36,7 @@ public sealed class CrearConteo
         _conteos = conteos;
         _variantes = variantes;
         _movimientos = movimientos;
+        _apartados = apartados;
         _autorizador = autorizador;
         _fabrica = fabrica;
         _auditoria = auditoria;
@@ -92,6 +97,9 @@ public sealed class CrearConteo
             var esperada = await _movimientos.SumarPorVarianteAsync(sesion, fila.VarianteId, cancellationToken);
             var contados = await _movimientos.ContarPorVarianteAsync(sesion, fila.VarianteId, cancellationToken);
             await _conteos.AgregarDetalleAsync(sesion, id, fila.VarianteId, esperada, contados, fila.CantidadContada, cancellationToken);
+            var apartadoEsperado = await _apartados.SumarApartadoPorVarianteAsync(sesion, fila.VarianteId, cancellationToken);
+            var clasificados = await _apartados.ContarPorVarianteAsync(sesion, fila.VarianteId, cancellationToken);
+            await _apartados.GuardarFotoConteoAsync(sesion, id, fila.VarianteId, apartadoEsperado, clasificados, cancellationToken);
         }
 
         await _auditoria.RegistrarAsync(

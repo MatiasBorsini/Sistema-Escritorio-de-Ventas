@@ -16,6 +16,7 @@ public sealed class RevertirRecepcion
 {
     private readonly IRepositorioRecepciones _recepciones;
     private readonly IRepositorioMovimientos _movimientos;
+    private readonly IRepositorioApartados _apartados;
     private readonly IAutorizador _autorizador;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly IRepositorioAuditoria _auditoria;
@@ -24,6 +25,7 @@ public sealed class RevertirRecepcion
     public RevertirRecepcion(
         IRepositorioRecepciones recepciones,
         IRepositorioMovimientos movimientos,
+        IRepositorioApartados apartados,
         IAutorizador autorizador,
         IFabricaSesionesPersistencia fabrica,
         IRepositorioAuditoria auditoria,
@@ -31,6 +33,7 @@ public sealed class RevertirRecepcion
     {
         _recepciones = recepciones;
         _movimientos = movimientos;
+        _apartados = apartados;
         _autorizador = autorizador;
         _fabrica = fabrica;
         _auditoria = auditoria;
@@ -76,9 +79,10 @@ public sealed class RevertirRecepcion
         foreach (var linea in lineas)
         {
             var existencias = await _movimientos.SumarPorVarianteAsync(sesion, linea.VarianteId, cancellationToken);
-            if (existencias < linea.Cantidad)
+            var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, linea.VarianteId, cancellationToken);
+            if (existencias - apartado < linea.Cantidad)
             {
-                throw new InvalidOperationException($"Stock insuficiente en la variante '{linea.VarianteId}' para revertir.");
+                throw new InvalidOperationException($"Stock disponible insuficiente en la variante '{linea.VarianteId}' para revertir (sin consumir unidades apartadas).");
             }
         }
 

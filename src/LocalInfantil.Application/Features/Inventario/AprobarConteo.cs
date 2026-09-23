@@ -5,15 +5,20 @@ namespace LocalInfantil.Application.Features.Inventario;
 
 /// <summary>
 /// Aprueba un borrador: verifica que ningún movimiento alteró las variantes
-/// desde la foto inicial (ni siquiera con saldo neto igual), genera un ajuste
-/// compensatorio por cada diferencia no nula y marca el conteo como aprobado,
-/// todo en una sola transacción con auditoría. Diferencia cero no genera
-/// movimiento. La doble aprobación se rechaza, incluso tras reapertura.
+/// desde la foto inicial (ni siquiera con saldo neto igual) y que ninguna
+/// clasificación cambió desde la foto (ni siquiera con el mismo apartado
+/// final), genera un ajuste compensatorio por cada diferencia no nula y marca
+/// el conteo como aprobado, todo en una sola transacción con auditoría.
+/// Diferencia cero no genera movimiento. La aprobación nunca deja el
+/// disponible en negativo. Los conteos anteriores a V8, sin foto de
+/// clasificación, se rechazan de forma controlada (nunca aprobación
+/// silenciosa). La doble aprobación se rechaza, incluso tras reapertura.
 /// </summary>
 public sealed class AprobarConteo
 {
     private readonly IRepositorioConteos _conteos;
     private readonly IRepositorioMovimientos _movimientos;
+    private readonly IRepositorioApartados _apartados;
     private readonly IAutorizador _autorizador;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly IRepositorioAuditoria _auditoria;
@@ -23,6 +28,7 @@ public sealed class AprobarConteo
     public AprobarConteo(
         IRepositorioConteos conteos,
         IRepositorioMovimientos movimientos,
+        IRepositorioApartados apartados,
         IAutorizador autorizador,
         IFabricaSesionesPersistencia fabrica,
         IRepositorioAuditoria auditoria,
@@ -31,6 +37,7 @@ public sealed class AprobarConteo
     {
         _conteos = conteos;
         _movimientos = movimientos;
+        _apartados = apartados;
         _autorizador = autorizador;
         _fabrica = fabrica;
         _auditoria = auditoria;
@@ -80,9 +87,38 @@ public sealed class AprobarConteo
                     $"La variante '{detalle.VarianteId}' cambió desde el conteo: revise y registre uno nuevo en lugar de aprobar esta foto vieja.");
             }
 
+            var foto = await _apartados.ObtenerFotoConteoAsync(sesion, conteoId, detalle.VarianteId, cancellationToken);
+            if (foto is null)
+            {
+                throw new InvalidOperationException(
+                    $"La variante '{detalle.VarianteId}' no tiene foto de clasificación (conteo anterior a V8): registre un conteo nuevo en lugar de aprobar esta foto incompleta.");
+            }
+
+            var apartadoEsperado = foto.ApartadoEsperado;
+            var clasificadosFoto = foto.ClasificacionesContadas;
+            var clasificadosAhora = await _apartados.ContarPorVarianteAsync(sesion, detalle.VarianteId, cancellationToken);
+            if (clasificadosAhora != clasificadosFoto)
+            {
+                throw new InvalidOperationException(
+                    $"La clasificación de la variante '{detalle.VarianteId}' cambió desde el conteo: revise y registre uno nuevo en lugar de aprobar esta foto vieja.");
+            }
+
+            var apartadoAhora = await _apartados.SumarApartadoPorVarianteAsync(sesion, detalle.VarianteId, cancellationToken);
+            if (apartadoAhora != apartadoEsperado)
+            {
+                throw new InvalidOperationException(
+                    $"La clasificación de la variante '{detalle.VarianteId}' cambió desde el conteo: revise y registre uno nuevo en lugar de aprobar esta foto vieja.");
+            }
+
             var diferencia = detalle.CantidadContada - detalle.ExistenciaEsperada;
             if (diferencia != 0)
             {
+                if (detalle.CantidadContada < apartadoAhora)
+                {
+                    throw new InvalidOperationException(
+                        $"Aprobar el conteo dejaría disponible negativo en la variante '{detalle.VarianteId}' (hay unidades apartadas).");
+                }
+
                 await _movimientos.RegistrarAsync(
                     sesion,
                     new NuevoMovimiento(detalle.VarianteId, "ajuste", diferencia, $"Conteo {conteo.OperacionId}", operacionAjustesId, actor.Id),

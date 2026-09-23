@@ -332,13 +332,14 @@ public sealed class WpfStocktakeRecoveryTests
             var conteoRepo = new RepositorioConteos(ids);
             var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
-            var crearConteo = new CrearConteo(conteoRepo, varRepo, movRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var apartRepo = new RepositorioApartados(ids);
+            var crearConteo = new CrearConteo(conteoRepo, varRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);
             var corregir = new CorregirConteo(conteoRepo, autorizador, fabrica, auditoria, ids);
-            var aprobar = new AprobarConteo(conteoRepo, movRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var aprobar = new AprobarConteo(conteoRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);
             var consultasConteos = new ConsultasConteos(conteoRepo, sesiones, fabrica);
             var consultasCat = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var cargar = new CargarExistenciaInicial(movRepo, varRepo, autorizador, fabrica, auditoria, reloj);
-            var ajustar = new AjustarInventario(movRepo, varRepo, autorizador, fabrica, auditoria, reloj);
+            var ajustar = new AjustarInventario(movRepo, varRepo, apartRepo, autorizador, fabrica, auditoria, reloj);
             string sesId;
             try
             {

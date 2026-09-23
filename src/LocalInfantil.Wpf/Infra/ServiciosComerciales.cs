@@ -47,9 +47,11 @@ public sealed class ServiciosComerciales
     public IRepositorioProveedores RepoProveedores { get; }
     public IRepositorioRecepciones RepoRecepciones { get; }
     public IRepositorioConteos RepoConteos { get; }
+    public IRepositorioApartados RepoApartados { get; }
     public ConsultasProveedores ConsultasProveedores { get; }
     public ConsultasRecepciones ConsultasRecepciones { get; }
     public ConsultasConteos ConsultasConteos { get; }
+    public ConsultasInventario ConsultasInventario { get; }
     public CrearProveedor CasoCrearProveedor { get; }
     public EditarProveedor CasoEditarProveedor { get; }
     public DesactivarProveedor CasoDesactivarProveedor { get; }
@@ -58,6 +60,9 @@ public sealed class ServiciosComerciales
     public CrearConteo CasoCrearConteo { get; }
     public CorregirConteo CasoCorregirConteo { get; }
     public AprobarConteo CasoAprobarConteo { get; }
+    public ApartarStock CasoApartarStock { get; }
+    public ReincorporarStock CasoReincorporarStock { get; }
+    public BajaDefinitivaApartado CasoBajaDefinitiva { get; }
 
     public ServiciosComerciales(string rutaBaseDatos)
     {
@@ -78,6 +83,7 @@ public sealed class ServiciosComerciales
         RepoProveedores = new RepositorioProveedores(GeneradorIds);
         RepoRecepciones = new RepositorioRecepciones(GeneradorIds);
         RepoConteos = new RepositorioConteos(GeneradorIds);
+        RepoApartados = new RepositorioApartados(GeneradorIds);
         Autorizador = new Autorizador(Gestor, RepoUsuarios, RepoPermisos, Fabrica, Matriz);
         CasoIniciarSesion = new IniciarSesion(RepoUsuarios, Hasher, Gestor, Fabrica, RepoAuditoria, GeneradorIds, Reloj, new OpcionesAutenticacion());
         CasoCerrarSesion = new CerrarSesion(Gestor, Fabrica, RepoAuditoria, GeneradorIds);
@@ -101,10 +107,14 @@ public sealed class ServiciosComerciales
         CasoEditarProveedor = new EditarProveedor(RepoProveedores, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoDesactivarProveedor = new DesactivarProveedor(RepoProveedores, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoConfirmarRecepcion = new ConfirmarRecepcion(RepoRecepciones, RepoProveedores, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
-        CasoRevertirRecepcion = new RevertirRecepcion(RepoRecepciones, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
-        CasoCrearConteo = new CrearConteo(RepoConteos, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoRevertirRecepcion = new RevertirRecepcion(RepoRecepciones, RepoMovimientos, RepoApartados, Autorizador, Fabrica, RepoAuditoria, Reloj);
+        CasoCrearConteo = new CrearConteo(RepoConteos, RepoVariantes, RepoMovimientos, RepoApartados, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoCorregirConteo = new CorregirConteo(RepoConteos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
-        CasoAprobarConteo = new AprobarConteo(RepoConteos, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoAprobarConteo = new AprobarConteo(RepoConteos, RepoMovimientos, RepoApartados, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        ConsultasInventario = new ConsultasInventario(RepoMovimientos, RepoVariantes, RepoConteos, RepoApartados, Gestor, Fabrica);
+        CasoApartarStock = new ApartarStock(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
+        CasoReincorporarStock = new ReincorporarStock(RepoApartados, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, Reloj);
+        CasoBajaDefinitiva = new BajaDefinitivaApartado(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =
@@ -121,5 +131,7 @@ public sealed class ServiciosComerciales
         "inventario.ajuste_stock",
         "inventario.conteo_registrar",
         "inventario.conteo_aprobar",
+        "inventario.no_vendible.gestionar",
+        "inventario.baja_definitiva.autorizar",
     ];
 }

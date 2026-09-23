@@ -25,6 +25,9 @@
             <TabItem Header="Conteo físico">
                 <views:ConteoView DataContext="{Binding Conteo}"/>
             </TabItem>
+            <TabItem Header="No vendible">
+                <views:ApartadoView DataContext="{Binding Apartado}"/>
+            </TabItem>
             <TabItem Header="Administración">
                 <views:AdministracionUsuariosView DataContext="{Binding Administracion}"/>
             </TabItem>

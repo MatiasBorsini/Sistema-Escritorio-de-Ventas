@@ -217,7 +217,7 @@ public sealed class ConteoReversionTests
             var catalogoV6 = MigracionesF01.Todas.Where(m => m.Version <= 6).ToList();
             Assert.Equal(new[] { 1, 2, 3, 4, 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV6, null));
             await SembrarRecepcionSoloAsync(ruta);
-            Assert.Equal(new[] { 7 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             var respaldo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(respaldo, "PRAGMA integrity_check;"));
             Assert.True(await TablaExisteAsync(ruta, "conteo"));
@@ -322,18 +322,18 @@ public sealed class ConteoReversionTests
         {
             _directorio = directorio; _fabrica = fabrica; _ids = new GeneradorIds(); var reloj = new RelojFijo(MomentoFijo); _reloj = reloj; _sesiones = new GestorSesiones();
             var productos = new RepositorioProductos(_ids); var variantes = new RepositorioVariantes(_ids); var movimientos = new RepositorioMovimientos(_ids);
-            var proveedores = new RepositorioProveedores(_ids); var recepciones = new RepositorioRecepciones(_ids); var conteos = new RepositorioConteos(_ids);
+            var proveedores = new RepositorioProveedores(_ids); var recepciones = new RepositorioRecepciones(_ids); var conteos = new RepositorioConteos(_ids); var apartados = new RepositorioApartados(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj); var usuarios = new RepositorioUsuarios(_ids); var permisos = new RepositorioPermisos();
             var autorizador = new Autorizador(_sesiones, usuarios, permisos, _fabrica, matriz); Autorizador = autorizador;
             CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
-            Ajuste = new AjustarInventario(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
-            CrearConteo = new CrearConteo(conteos, variantes, movimientos, autorizador, _fabrica, auditoria, _ids, reloj);
+            Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
+            CrearConteo = new CrearConteo(conteos, variantes, movimientos, apartados, autorizador, _fabrica, auditoria, _ids, reloj);
             CorregirConteo = new CorregirConteo(conteos, autorizador, _fabrica, auditoria, _ids);
-            AprobarConteo = new AprobarConteo(conteos, movimientos, autorizador, _fabrica, auditoria, _ids, reloj);
-            Revertir = new RevertirRecepcion(recepciones, movimientos, autorizador, _fabrica, auditoria, reloj);
-            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(_ids), _sesiones, _fabrica);
+            AprobarConteo = new AprobarConteo(conteos, movimientos, apartados, autorizador, _fabrica, auditoria, _ids, reloj);
+            Revertir = new RevertirRecepcion(recepciones, movimientos, apartados, autorizador, _fabrica, auditoria, reloj);
+            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(_ids), apartados, _sesiones, _fabrica);
             Proveedores = new JuegoProveedores(proveedores, autorizador, _fabrica, auditoria, _ids, reloj);
             Permisos = new ConfigurarPermiso(permisos, usuarios, autorizador, _fabrica, auditoria, _ids, reloj);
             Recepcion = new ConfirmarRecepcion(recepciones, proveedores, variantes, movimientos, autorizador, _fabrica, auditoria, reloj);
@@ -380,8 +380,8 @@ public sealed class ConteoReversionTests
         public async Task<string> EstadoConteoAsync(string conteoId) { var c = new RepositorioConteos(_ids); await using var s = await _fabrica.IniciarLecturaAsync(); return (await c.ObtenerAsync(s, conteoId))!.Estado; }
         public async Task<IReadOnlyList<InformeConteoLinea>> InformeAsync(string conteoId) { var c = new RepositorioConteos(_ids); await using var s = await _fabrica.IniciarLecturaAsync(); return await c.InformeAsync(s, conteoId); }
         public async Task<int> ConteosPorOperacionAsync(string operacionId) { await using var c = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(_directorio, "stocktake-f03.db"), Pooling = false, Mode = SqliteOpenMode.ReadOnly }.ToString()); await c.OpenAsync(); using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT COUNT(*) FROM conteo WHERE operacion_id = $op;"; cmd.Parameters.AddWithValue("$op", operacionId); return Convert.ToInt32(await cmd.ExecuteScalarAsync()); }
-        public RevertirRecepcion RevertirReabierta() { var f = new FabricaConexionesSqlite(new OpcionesConexionSqlite(Path.Combine(_directorio, "stocktake-f03.db"))); var a = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), f, MatrizDuena()); return new RevertirRecepcion(new RepositorioRecepciones(_ids), new RepositorioMovimientos(_ids), a, f, new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), _reloj), _reloj); }
-        public AprobarConteo AprobarReabierto() { var f = new FabricaConexionesSqlite(new OpcionesConexionSqlite(Path.Combine(_directorio, "stocktake-f03.db"))); var a = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), f, MatrizDuena()); return new AprobarConteo(new RepositorioConteos(_ids), new RepositorioMovimientos(_ids), a, f, new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), _reloj), _ids, _reloj); }
+        public RevertirRecepcion RevertirReabierta() { var f = new FabricaConexionesSqlite(new OpcionesConexionSqlite(Path.Combine(_directorio, "stocktake-f03.db"))); var a = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), f, MatrizDuena()); return new RevertirRecepcion(new RepositorioRecepciones(_ids), new RepositorioMovimientos(_ids), new RepositorioApartados(_ids), a, f, new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), _reloj), _reloj); }
+        public AprobarConteo AprobarReabierto() { var f = new FabricaConexionesSqlite(new OpcionesConexionSqlite(Path.Combine(_directorio, "stocktake-f03.db"))); var a = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), f, MatrizDuena()); return new AprobarConteo(new RepositorioConteos(_ids), new RepositorioMovimientos(_ids), new RepositorioApartados(_ids), a, f, new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), _reloj), _ids, _reloj); }
         private static MatrizPermisos MatrizDuena() { var m = MatrizPermisos.ConValoresConfirmados(); m.Permitir(RolesLocal.Duena, PermisosInventario.ConteoAprobar); m.Permitir(RolesLocal.Duena, PermisosCompras.RecepcionRevertir); return m; }
         public async Task<string?> MotivoReversionAsync(string recepcionId) { await using var c = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(_directorio, "stocktake-f03.db"), Pooling = false, Mode = SqliteOpenMode.ReadOnly }.ToString()); await c.OpenAsync(); using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT motivo FROM reversion_recepcion WHERE recepcion_id = $id;"; cmd.Parameters.AddWithValue("$id", recepcionId); return await cmd.ExecuteScalarAsync() as string; }
         public async Task<long?> CostoDeAsync(string recepcionId, string varianteId) { await using var c = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(_directorio, "stocktake-f03.db"), Pooling = false, Mode = SqliteOpenMode.ReadOnly }.ToString()); await c.OpenAsync(); using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT costo_unitario_minor FROM recepcion_linea WHERE recepcion_id = $r AND variante_id = $v;"; cmd.Parameters.AddWithValue("$r", recepcionId); cmd.Parameters.AddWithValue("$v", varianteId); var v = await cmd.ExecuteScalarAsync(); return v is null || v is DBNull ? null : Convert.ToInt64(v); }

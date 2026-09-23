@@ -256,6 +256,7 @@ public sealed class ComprasTests
             var productos = new RepositorioProductos(_ids);
             var variantes = new RepositorioVariantes(_ids);
             var movimientos = new RepositorioMovimientos(_ids);
+            var apartados = new RepositorioApartados(_ids);
             var proveedores = new RepositorioProveedores(_ids);
             var recepciones = new RepositorioRecepciones(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
@@ -264,9 +265,9 @@ public sealed class ComprasTests
             CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
-            Ajuste = new AjustarInventario(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
+            Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
             Recepcion = new ConfirmarRecepcion(recepciones, proveedores, variantes, movimientos, autorizador, _fabrica, auditoria, reloj);
-            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), _sesiones, _fabrica);
+            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, _sesiones, _fabrica);
             Proveedores = new JuegoProveedores
             {
                 CrearProveedor = new CrearProveedor(proveedores, autorizador, _fabrica, auditoria, _ids, reloj),

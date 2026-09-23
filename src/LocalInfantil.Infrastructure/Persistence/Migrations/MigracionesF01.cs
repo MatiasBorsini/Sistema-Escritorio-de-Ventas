@@ -5,7 +5,8 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// V3: huella de contraseña. V4: precio vigente único. V5: proveedores y
 /// recepciones. V6: permisos individuales por usuario y conversión del único
 /// Administrador activo en Dueña (D-27). V7: conteo físico y reversión de
-/// recepciones (F03-T05). Ver docs/ESQUEMA.md.
+/// recepciones (F03-T05). V8: stock apartado/no vendible y foto de
+/// clasificación para conteos (F03-T04, D-33). Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -18,6 +19,7 @@ public static class MigracionesF01
         new(5, "proveedores-recepcion-f03", SqlV5),
         new(6, "permisos-individuales-duena", SqlV6),
         new(7, "conteo-reversion-f03", SqlV7),
+        new(8, "stock-no-vendible-f03", SqlV8),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -253,5 +255,28 @@ public static class MigracionesF01
 
         CREATE INDEX IF NOT EXISTS ix_conteo_detalle_variante ON conteo_detalle(variante_id);
         CREATE INDEX IF NOT EXISTS ix_reversion_recepcion_recepcion ON reversion_recepcion(recepcion_id);
+        """;
+
+    private const string SqlV8 = """
+        CREATE TABLE IF NOT EXISTS apartado_movimiento (
+            id TEXT PRIMARY KEY,
+            variante_id TEXT NOT NULL REFERENCES variante(id) ON DELETE RESTRICT,
+            tipo TEXT NOT NULL CHECK (tipo IN ('apartar', 'reincorporar', 'baja_definitiva')),
+            cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+            motivo TEXT NOT NULL CHECK (motivo <> ''),
+            operacion_id TEXT NOT NULL UNIQUE CHECK (operacion_id <> ''),
+            creado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_apartado_variante ON apartado_movimiento(variante_id);
+
+        CREATE TABLE IF NOT EXISTS conteo_clasificacion (
+            conteo_id TEXT NOT NULL REFERENCES conteo(id) ON DELETE RESTRICT,
+            variante_id TEXT NOT NULL REFERENCES variante(id) ON DELETE RESTRICT,
+            apartado_esperado INTEGER NOT NULL CHECK (apartado_esperado >= 0),
+            clasificaciones_contadas INTEGER NOT NULL CHECK (clasificaciones_contadas >= 0),
+            PRIMARY KEY (conteo_id, variante_id)
+        );
         """;
 }

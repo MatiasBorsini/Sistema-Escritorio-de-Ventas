@@ -514,8 +514,8 @@ public sealed class WpfSuppliersReceivingTests
             var consultasCat = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var confirmarRec = new ConfirmarRecepcion(recepRepo, provRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);
             var consultasRec = new ConsultasRecepciones(recepRepo, sesiones, fabrica);
-            var revertirRec = new RevertirRecepcion(recepRepo, movRepo, autorizador, fabrica, auditoria, reloj);
-            var ajustarInv = new AjustarInventario(movRepo, varRepo, autorizador, fabrica, auditoria, reloj);
+            var revertirRec = new RevertirRecepcion(recepRepo, movRepo, new RepositorioApartados(ids), autorizador, fabrica, auditoria, reloj);
+            var ajustarInv = new AjustarInventario(movRepo, varRepo, new RepositorioApartados(ids), autorizador, fabrica, auditoria, reloj);
             var duenaId = await alta.EjecutarAsync(new NuevoUsuario("duena", RolesLocal.Duena), "clave-duena-000000", null);
             var sesion = await login.EjecutarAsync("duena", "clave-duena-000000");
             return new Entorno(dir, ruta, fabrica, crearProv, editarProv, desactivarProv, cprov, crearProd, crearVar, consultasCat, confirmarRec, consultasRec, revertirRec, ajustarInv, perm, alta, login, cerrar, sesion.IdSesion, duenaId);

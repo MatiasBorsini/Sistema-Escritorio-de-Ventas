@@ -11,4 +11,6 @@ public static class PermisosInventario
     public const string AjusteStock = "inventario.ajuste_stock";
     public const string ConteoRegistrar = "inventario.conteo_registrar";
     public const string ConteoAprobar = "inventario.conteo_aprobar";
+    public const string NoVendibleGestionar = "inventario.no_vendible.gestionar";
+    public const string BajaDefinitivaAutorizar = "inventario.baja_definitiva.autorizar";
 }

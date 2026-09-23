@@ -95,15 +95,16 @@ public sealed class AppRootViewModel : ViewModelBase
         await recepciones.CargarAsync();
         var conteo = new ConteoViewModel(_servicios, () => Sesion.IdSesion);
         await conteo.CargarConteosAsync();
+        var apartado = new ApartadoViewModel(_servicios, () => Sesion.IdSesion);
         if (Sesion.Rol == "duena")
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, admin, catalogo, proveedores, recepcion, recepciones, conteo, CerrarSesionAsync);
+            Contenido = new ShellDuenaViewModel(Sesion, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, catalogo, proveedores, recepcion, recepciones, conteo, CerrarSesionAsync);
+            Contenido = new ShellEmpleadaViewModel(Sesion, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync);
         }
     }
 }
@@ -117,10 +118,11 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public RecepcionViewModel Recepcion { get; }
     public RecepcionesConsultaViewModel Recepciones { get; }
     public ConteoViewModel Conteo { get; }
+    public ApartadoViewModel Apartado { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
 
-    public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, Func<Task> cerrar)
+    public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
     {
         Sesion = sesion;
         Administracion = admin;
@@ -129,6 +131,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Recepcion = rec;
         Recepciones = cons;
         Conteo = conteo;
+        Apartado = apartado;
         CerrarSesion = cerrar;
     }
 }
@@ -141,10 +144,11 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public RecepcionViewModel Recepcion { get; }
     public RecepcionesConsultaViewModel Recepciones { get; }
     public ConteoViewModel Conteo { get; }
+    public ApartadoViewModel Apartado { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, Func<Task> cerrar)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
     {
         Sesion = sesion;
         Catalogo = catalogo;
@@ -152,6 +156,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         Recepcion = rec;
         Recepciones = cons;
         Conteo = conteo;
+        Apartado = apartado;
         CerrarSesion = cerrar;
     }
 }
