@@ -111,7 +111,10 @@ public sealed class AppRootViewModel : ViewModelBase
 
 public sealed class ShellDuenaViewModel : ViewModelBase
 {
+    private ViewModelBase _vistaActual;
+
     public SesionUsuario Sesion { get; }
+    public PortadaViewModel Portada { get; }
     public AdministracionUsuariosViewModel Administracion { get; }
     public CatalogoViewModel Catalogo { get; }
     public ProveedoresViewModel Proveedores { get; }
@@ -125,6 +128,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
     {
         Sesion = sesion;
+        Portada = new PortadaViewModel(sesion.Nombre, sesion.Rol);
         Administracion = admin;
         Catalogo = catalogo;
         Proveedores = prov;
@@ -133,12 +137,33 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Conteo = conteo;
         Apartado = apartado;
         CerrarSesion = cerrar;
+        _vistaActual = Portada;
+        MostrarVistaCommand = new RelayCommand(MostrarVista);
+    }
+
+    public ViewModelBase VistaActual
+    {
+        get => _vistaActual;
+        private set => SetProperty(ref _vistaActual, value);
+    }
+
+    public System.Windows.Input.ICommand MostrarVistaCommand { get; }
+
+    private void MostrarVista(object? vista)
+    {
+        if (vista is ViewModelBase viewModel)
+        {
+            VistaActual = viewModel;
+        }
     }
 }
 
 public sealed class ShellEmpleadaViewModel : ViewModelBase
 {
+    private ViewModelBase _vistaActual;
+
     public SesionUsuario Sesion { get; }
+    public PortadaViewModel Portada { get; }
     public CatalogoViewModel Catalogo { get; }
     public ProveedoresViewModel Proveedores { get; }
     public RecepcionViewModel Recepcion { get; }
@@ -151,6 +176,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
     {
         Sesion = sesion;
+        Portada = new PortadaViewModel(sesion.Nombre, sesion.Rol);
         Catalogo = catalogo;
         Proveedores = prov;
         Recepcion = rec;
@@ -158,5 +184,23 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         Conteo = conteo;
         Apartado = apartado;
         CerrarSesion = cerrar;
+        _vistaActual = Portada;
+        MostrarVistaCommand = new RelayCommand(MostrarVista);
+    }
+
+    public ViewModelBase VistaActual
+    {
+        get => _vistaActual;
+        private set => SetProperty(ref _vistaActual, value);
+    }
+
+    public System.Windows.Input.ICommand MostrarVistaCommand { get; }
+
+    private void MostrarVista(object? vista)
+    {
+        if (vista is ViewModelBase viewModel)
+        {
+            VistaActual = viewModel;
+        }
     }
 }

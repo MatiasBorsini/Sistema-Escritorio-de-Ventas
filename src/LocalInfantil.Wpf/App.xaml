@@ -5,7 +5,11 @@
              xmlns:views="clr-namespace:LocalInfantil.Wpf.Views"
              xmlns:infra="clr-namespace:LocalInfantil.Wpf.Infra">
     <Application.Resources>
-        <infra:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Recursos/DisenoRecursos.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <infra:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <infra:BoolToVisibilityInvertedConverter x:Key="BoolToVisibilityInverted"/>
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
         <infra:MinorToArsConverter x:Key="MinorToArs"/>
@@ -51,5 +55,9 @@
         <DataTemplate DataType="{x:Type viewModels:AppRootViewModel}">
             <views:AppRootView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:PortadaViewModel}">
+            <views:PortadaView />
+        </DataTemplate>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>
