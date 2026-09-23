@@ -27,6 +27,8 @@ public sealed class ConteoViewModel : ViewModelBase
     private ConteoRegistrado? _seleccionado;
     private IReadOnlyList<InformeConteoLinea> _informe = Array.Empty<InformeConteoLinea>();
     private bool _confirmacionAprobarVisible;
+    private int _desplazamiento;
+    private const int LimiteValor = 20;
 
     public ConteoViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
     {
@@ -41,6 +43,8 @@ public sealed class ConteoViewModel : ViewModelBase
         SolicitarAprobarCommand = new AsyncRelayCommand(SolicitarAprobarAsync);
         CancelarAprobarCommand = new AsyncRelayCommand(CancelarAprobarAsync);
         RefrescarCommand = new AsyncRelayCommand(CargarConteosAsync);
+        SiguienteCommand = new AsyncRelayCommand(SiguienteAsync);
+        AnteriorCommand = new AsyncRelayCommand(AnteriorAsync);
         AgregarFilaCommand = new AsyncRelayCommand(() => { FilasSeleccion.Add(new FilaConteoSeleccionViewModel()); return Task.CompletedTask; });
         QuitarFilaCommand = new AsyncRelayCommand(() => { if (FilasSeleccion.Count > 1) FilasSeleccion.RemoveAt(FilasSeleccion.Count - 1); return Task.CompletedTask; });
     }
@@ -65,6 +69,10 @@ public sealed class ConteoViewModel : ViewModelBase
     public AsyncRelayCommand SolicitarAprobarCommand { get; }
     public AsyncRelayCommand CancelarAprobarCommand { get; }
     public AsyncRelayCommand RefrescarCommand { get; }
+    public AsyncRelayCommand SiguienteCommand { get; }
+    public AsyncRelayCommand AnteriorCommand { get; }
+    public int Desplazamiento => _desplazamiento;
+    public int LimitePagina => LimiteValor;
     public AsyncRelayCommand AgregarFilaCommand { get; }
     public AsyncRelayCommand QuitarFilaCommand { get; }
 
@@ -73,12 +81,26 @@ public sealed class ConteoViewModel : ViewModelBase
         Error = null;
         try
         {
-            var lista = await _servicios.ConsultasConteos.ListarAsync(20, 0, _idSesion());
+            var lista = await _servicios.ConsultasConteos.ListarAsync(LimiteValor, _desplazamiento, _idSesion());
             Conteos.Clear();
             foreach (var c in lista) Conteos.Add(c);
-            Mensaje = $"{lista.Count} conteo(s).";
+            Mensaje = $"{lista.Count} conteo(s) (página {_desplazamiento / LimiteValor + 1}, desplazamiento {_desplazamiento}).";
+            OnPropertyChanged(nameof(Desplazamiento));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
+    }
+
+    public async Task SiguienteAsync()
+    {
+        _desplazamiento += LimiteValor;
+        await CargarConteosAsync();
+    }
+
+    public async Task AnteriorAsync()
+    {
+        if (_desplazamiento >= LimiteValor) _desplazamiento -= LimiteValor;
+        else _desplazamiento = 0;
+        await CargarConteosAsync();
     }
 
     private async Task CargarInformeAsync()
@@ -197,6 +219,8 @@ public sealed class ConteoViewModel : ViewModelBase
     }
 
     // Wrappers para pruebas
+    public Task SiguienteAsyncPublic() => SiguienteAsync();
+    public Task AnteriorAsyncPublic() => AnteriorAsync();
     public Task CrearAsyncPublic() => CrearAsync();
     public Task CorregirAsyncPublic() => CorregirAsync();
     public Task AprobarAsyncPublic() => AprobarAsync();

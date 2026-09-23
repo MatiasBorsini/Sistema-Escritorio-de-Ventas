@@ -184,6 +184,33 @@ public sealed class WpfStocktakeRecoveryTests
         Assert.Contains("Sesión inválida", vm.Error ?? "");
     }
 
+    [Fact]
+    public async Task Conteo_paginacion_25_recorre_y_recupera_borrador()
+    {
+        using var e = await EntornoConteo.CrearAsync();
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdPag", null, null), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-PAG", null, null), e.SesionDuena);
+        await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 50) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
+        for (var i = 0; i < 25; i++)
+            await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, i + 1) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
+        var svc = new ServiciosComerciales(e.Ruta);
+        var ses = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.ConteoViewModel(svc, () => ses.IdSesion);
+        await vm.CargarConteosAsync();
+        Assert.Equal(20, vm.Conteos.Count);
+        await vm.SiguienteAsyncPublic();
+        Assert.Equal(5, vm.Conteos.Count);
+        await vm.AnteriorAsyncPublic();
+        Assert.Equal(20, vm.Conteos.Count);
+        // Recuperar un borrador de la segunda página (orden estable del repositorio).
+        await vm.SiguienteAsyncPublic();
+        var borrador = vm.Conteos.First();
+        vm.Seleccionado = borrador;
+        for (var t = 0; t < 50 && vm.Informe.Count == 0; t++) await Task.Delay(100);
+        Assert.Single(vm.Informe);
+        Assert.Equal("SKU-PAG", vm.Informe[0].Sku);
+    }
+
     private async Task<(string prod, string v1, string v2)> CrearCatalogoAsync(Entorno e)
     {
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);

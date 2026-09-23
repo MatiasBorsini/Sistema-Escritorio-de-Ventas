@@ -199,6 +199,142 @@ public sealed class WpfRecepcionDurableTests
         Directory.Delete(dir, true);
     }
 
+    [Fact]
+    public async Task Reinicio_recupera_formulario_exacto_y_no_duplica()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
+        var ruta = Path.Combine(dir, "reinicio.db");
+        await new MigradorBaseDatos(ruta).MigrarAsync();
+        using var e = await Entorno.CrearAsync(ruta);
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.ProveedoresGestionar, true, e.SesionDuena);
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.RecepcionConfirmar, true, e.SesionDuena);
+        var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Prov"), e.SesionDuena);
+        var (prod, v1, v2) = await CrearCatalogoAsync(e);
+        var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
+        var sku1 = ficha!.Variantes.First(x => x.Id == v1).Sku;
+        var sku2 = ficha.Variantes.First(x => x.Id == v2).Sku;
+        var op = Guid.NewGuid().ToString("N");
+        var lineas = new[] { new LineaRecepcion(v1, 3, 15050, "ARS"), new LineaRecepcion(v2, 2, null, null) };
+        // Guardar pendiente y simular que la recepción NO llegó a confirmarse.
+        AlmacenRecepcionPendiente.Guardar(ruta, op, prov, "COMP-7", lineas);
+        // Destruir el ViewModel (nunca se creó: reinicio) y crear otro.
+        var svc = new ServiciosComerciales(ruta);
+        var ses = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.RecepcionViewModel(svc, () => ses.IdSesion);
+        await vm.CargarProveedoresAsync();
+        // Formulario recuperado exacto, con SKU auténticos (nunca ids internos).
+        Assert.Equal(op, vm.OperacionId);
+        Assert.Equal("COMP-7", vm.ComprobanteRef);
+        Assert.Equal(prov, vm.ProveedorSeleccionado?.Id);
+        Assert.Equal(2, vm.Filas.Count);
+        Assert.Equal(sku1, vm.Filas[0].Sku);
+        Assert.Equal("3", vm.Filas[0].CantidadTexto);
+        Assert.Equal("150.50", vm.Filas[0].CostoTexto);
+        Assert.Equal("ARS", vm.Filas[0].Moneda);
+        Assert.Equal(sku2, vm.Filas[1].Sku);
+        Assert.Equal("2", vm.Filas[1].CantidadTexto);
+        Assert.Equal(string.Empty, vm.Filas[1].CostoTexto);
+        Assert.DoesNotContain(vm.Filas, f => f.Sku == v1 || f.Sku == v2);
+        // Reintentar con el mismo operacion_id: UNA recepción, stock UNA vez.
+        await vm.ConfirmarAsyncPublic();
+        Assert.Null(vm.Error);
+        Assert.False(AlmacenRecepcionPendiente.Existe(ruta));
+        var recepciones = await svc.ConsultasRecepciones.ListarAsync(10, 0, ses.IdSesion);
+        Assert.Single(recepciones);
+        var ficha2 = await svc.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), ses.IdSesion);
+        Assert.Equal(3, ficha2!.Variantes.First(x => x.Id == v1).Existencias);
+        Assert.Equal(2, ficha2.Variantes.First(x => x.Id == v2).Existencias);
+        Directory.Delete(dir, true);
+    }
+
+    [Fact]
+    public async Task Reconciliacion_fallo_al_eliminar_mantiene_bloqueo()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
+        var ruta = Path.Combine(dir, "elimfail.db");
+        await new MigradorBaseDatos(ruta).MigrarAsync();
+        using var e = await Entorno.CrearAsync(ruta);
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.ProveedoresGestionar, true, e.SesionDuena);
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.RecepcionConfirmar, true, e.SesionDuena);
+        var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Prov"), e.SesionDuena);
+        var (prod, v1, _) = await CrearCatalogoAsync(e);
+        var op = Guid.NewGuid().ToString("N");
+        await e.ConfirmarRecepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 2, null, null) }, op, null, e.SesionDuena);
+        var svc = new ServiciosComerciales(ruta);
+        var ses = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.RecepcionViewModel(svc, () => ses.IdSesion);
+        await vm.CargarProveedoresAsync();
+        // Pendiente con op ya registrado y mismo contenido; bloquear su eliminación
+        // con un handle Win32 sin sharing (FileStream de .NET siempre comparte el
+        // borrado y no sirve para simular el fallo).
+        AlmacenRecepcionPendiente.Guardar(ruta, op, prov, null, new[] { new LineaRecepcion(v1, 2, null, null) });
+        var rutaPend = AlmacenRecepcionPendiente.RutaPendiente(ruta);
+        var bloqueo = AbrirSinSharing(rutaPend);
+        Assert.NotEqual(nint.Zero, bloqueo);
+        var fOp = typeof(LocalInfantil.Wpf.ViewModels.RecepcionViewModel).GetField("_operacionId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var fUlt = typeof(LocalInfantil.Wpf.ViewModels.RecepcionViewModel).GetField("_ultimasLineas", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var fProv = typeof(LocalInfantil.Wpf.ViewModels.RecepcionViewModel).GetField("_ultimoProveedorId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        fOp.SetValue(vm, op);
+        fUlt.SetValue(vm, new List<LineaRecepcion> { new LineaRecepcion(v1, 2, null, null) });
+        fProv.SetValue(vm, prov);
+        var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
+        vm.ProveedorSeleccionado = vm.Proveedores.First(p => p.Id == prov);
+        vm.Filas.Clear();
+        vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).Sku, CantidadTexto = "2" });
+        await vm.ConfirmarAsyncPublic();
+        // Eliminación fallida: bloqueo conservado, sin otra recepción.
+        Assert.Contains("No se pudo eliminar", vm.Error ?? "");
+        Assert.Equal(op, vm.OperacionId);
+        Assert.True(AlmacenRecepcionPendiente.Existe(ruta));
+        var recepciones = await svc.ConsultasRecepciones.ListarAsync(10, 0, ses.IdSesion);
+        Assert.Single(recepciones);
+        CerrarHandle(bloqueo);
+        AlmacenRecepcionPendiente.Eliminar(ruta);
+        Directory.Delete(dir, true);
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern nint CreateFileW(string nombre, uint acceso, uint sharing, nint seguridad, uint creacion, uint flags, nint plantilla);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool CloseHandle(nint handle);
+
+    private static nint AbrirSinSharing(string ruta)
+    {
+        const uint GENERIC_READ = 0x80000000u;
+        const uint OPEN_EXISTING = 3u;
+        return CreateFileW(ruta, GENERIC_READ, 0u, nint.Zero, OPEN_EXISTING, 0u, nint.Zero);
+    }
+
+    private static void CerrarHandle(nint handle)
+    {
+        if (handle != nint.Zero && handle != new nint(-1)) CloseHandle(handle);
+    }
+
+    [Fact]
+    public void Guardar_mismo_id_distinto_contenido_rechaza()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var ruta = Path.Combine(dir, "mismoid.db");
+        try
+        {
+            var op = Guid.NewGuid().ToString("N");
+            AlmacenRecepcionPendiente.Guardar(ruta, op, "prov1", null, new[] { new LineaRecepcion("v1", 1, null, null) });
+            // Mismo id, distinto comprobante.
+            var ex1 = Assert.Throws<InvalidOperationException>(() => AlmacenRecepcionPendiente.Guardar(ruta, op, "prov1", "COMP-X", new[] { new LineaRecepcion("v1", 1, null, null) }));
+            Assert.Contains("otro contenido", ex1.Message.ToLowerInvariant());
+            // Mismo id, distinta línea.
+            var ex2 = Assert.Throws<InvalidOperationException>(() => AlmacenRecepcionPendiente.Guardar(ruta, op, "prov1", null, new[] { new LineaRecepcion("v1", 9, null, null) }));
+            Assert.Contains("otro contenido", ex2.Message.ToLowerInvariant());
+            // Mismo id, mismo contenido: reescritura idempotente permitida.
+            AlmacenRecepcionPendiente.Guardar(ruta, op, "prov1", null, new[] { new LineaRecepcion("v1", 1, null, null) });
+            Assert.Equal(op, AlmacenRecepcionPendiente.Cargar(ruta)!.OperacionId);
+        }
+        finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
     private async Task<(string prod, string v1, string v2)> CrearCatalogoAsync(Entorno e)
     {
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);

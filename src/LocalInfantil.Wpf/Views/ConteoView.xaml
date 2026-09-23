@@ -9,6 +9,8 @@
             <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap" Margin="0,0,0,8"/>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <Button Content="Refrescar borradores" Padding="8,4" Command="{Binding RefrescarCommand}"/>
+                <Button Content="Anterior" Margin="8,0,0,0" Padding="8,4" Command="{Binding AnteriorCommand}"/>
+                <Button Content="Siguiente" Margin="4,0,0,0" Padding="8,4" Command="{Binding SiguienteCommand}"/>
                 <TextBlock Margin="8,6,0,0" FontFamily="Consolas" FontSize="11" Text="{Binding OperacionId, StringFormat=operacion_id: {0}}"/>
             </StackPanel>
             <ListBox MaxHeight="120" ItemsSource="{Binding Conteos}" SelectedItem="{Binding Seleccionado}" DisplayMemberPath="Id"/>

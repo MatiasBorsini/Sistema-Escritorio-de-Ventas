@@ -130,8 +130,27 @@ public sealed class RecepcionViewModel : ViewModelBase
                 Filas.Clear();
                 foreach (var l in pendiente.Lineas)
                 {
-                    string sku = l.VarianteId;
-                    Filas.Add(new FilaRecepcionViewModel { Sku = sku, CantidadTexto = l.Cantidad.ToString(), CostoTexto = l.CostoUnitarioMinor.HasValue ? (l.CostoUnitarioMinor.Value / 100m).ToString("F2", CultureInfo.InvariantCulture) : string.Empty, Moneda = l.Moneda ?? "ARS" });
+                    // El id interno nunca se presenta como SKU: se recupera el SKU
+                    // auténtico por variante con sesión vigente.
+                    LocalInfantil.Application.Contracts.VarianteRegistrada? variante;
+                    try
+                    {
+                        variante = await _servicios.ConsultasCatalogo.ObtenerVarianteAsync(l.VarianteId, _idSesion());
+                    }
+                    catch (Exception ex)
+                    {
+                        Error = $"No se pudo recuperar la variante '{l.VarianteId}' del pendiente: {MensajeError(ex)}. Pendiente conservado, reintentá la recuperación.";
+                        return;
+                    }
+                    if (variante is null)
+                    {
+                        Error = $"La variante '{l.VarianteId}' del pendiente ya no existe. Pendiente conservado para revisión manual; no se reconstruye el formulario.";
+                        return;
+                    }
+                    var fila = new FilaRecepcionViewModel { Sku = variante.Sku, CantidadTexto = l.Cantidad.ToString(), CostoTexto = l.CostoUnitarioMinor.HasValue ? (l.CostoUnitarioMinor.Value / 100m).ToString("F2", CultureInfo.InvariantCulture) : string.Empty, Moneda = l.Moneda ?? "ARS" };
+                    fila.VarianteId = variante.Id;
+                    fila.Detalle = $"{variante.Sku} — {variante.Talle ?? "sin talle"}/{variante.Color ?? "sin color"}";
+                    Filas.Add(fila);
                 }
                 if (Filas.Count == 0) Filas.Add(new FilaRecepcionViewModel());
                 var prov = Proveedores.FirstOrDefault(p => p.Id == pendiente.ProveedorId);
@@ -202,27 +221,33 @@ public sealed class RecepcionViewModel : ViewModelBase
             }
             if (existePrevia)
             {
+                // El JSON del pendiente se elimina de forma controlada ANTES de
+                // limpiar el estado: si la eliminación falla, se conserva el
+                // bloqueo y nunca se habilita otra recepción como si estuviera resuelto.
+                try
+                {
+                    AlmacenRecepcionPendiente.Eliminar(_servicios.RutaBaseDatos);
+                }
+                catch (Exception exElim)
+                {
+                    Error = $"La recepción con operacion_id {_operacionId} ya quedó registrada. No se pudo eliminar el pendiente: {MensajeError(exElim)}. Bloqueado hasta reconciliación manual; no se crea duplicado ni se habilita otra recepción.";
+                    return;
+                }
                 var mismoContenido = LineasIguales(_ultimasLineas, lineas) && _ultimoProveedorId == ProveedorSeleccionado.Id && _ultimoComprobante == comprobante;
                 if (mismoContenido)
                 {
                     Mensaje = $"Reconciliación: la recepción con operacion_id {_operacionId} ya quedó registrada. No se crea duplicado.";
-                    _ultimasLineas = null;
-                    _ultimoProveedorId = null;
-                    _ultimoComprobante = null;
-                    _operacionId = _servicios.GeneradorIds.NuevoId();
-                    OnPropertyChanged(nameof(OperacionId));
-                    return;
                 }
                 else
                 {
                     Mensaje = $"Reconciliación: la recepción previa con operacion_id {_operacionId} ya existe con otro contenido. Mostrando resultado anterior; nueva recepción requiere nueva confirmación explícita.";
-                    _ultimasLineas = null;
-                    _ultimoProveedorId = null;
-                    _ultimoComprobante = null;
-                    _operacionId = _servicios.GeneradorIds.NuevoId();
-                    OnPropertyChanged(nameof(OperacionId));
-                    return;
                 }
+                _ultimasLineas = null;
+                _ultimoProveedorId = null;
+                _ultimoComprobante = null;
+                _operacionId = _servicios.GeneradorIds.NuevoId();
+                OnPropertyChanged(nameof(OperacionId));
+                return;
             }
             // Si no existe previa, se conserva idempotencia normal abajo (mismo contenido mantiene id, distinto genera nuevo)
         }
