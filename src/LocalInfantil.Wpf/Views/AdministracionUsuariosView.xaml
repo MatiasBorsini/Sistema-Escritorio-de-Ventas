@@ -34,7 +34,7 @@
                 <ColumnDefinition Width="260"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <ListBox Grid.Column="0" ItemsSource="{Binding Usuarios}" SelectedItem="{Binding Seleccionado}" DisplayMemberPath="Nombre" Margin="0,0,8,0">
+            <ListBox Grid.Column="0" ItemsSource="{Binding Usuarios}" SelectedItem="{Binding Seleccionado}" Margin="0,0,8,0">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">

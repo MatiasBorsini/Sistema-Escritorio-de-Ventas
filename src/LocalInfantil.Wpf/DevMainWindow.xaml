@@ -7,7 +7,7 @@
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="0,0,0,1" Padding="8" Visibility="{Binding ModoDesarrollo, Converter={StaticResource BoolToVisibility}}">
             <TextBlock FontSize="11" Foreground="#92400E" TextWrapping="Wrap">
-                <Run Text="Modo desarrollo — Base: "/><Run Text="{Binding RutaDev}"/><Run Text=" (no es la base provisional)"/>
+                <Run Text="Modo desarrollo — Base: "/><Run Text="{Binding RutaDev, Mode=OneWay}"/><Run Text=" (no es la base provisional)"/>
             </TextBlock>
         </Border>
         <ContentControl Content="{Binding Contenido}"/>
