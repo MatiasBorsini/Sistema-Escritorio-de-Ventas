@@ -46,6 +46,14 @@ public sealed class AppRootViewModel : ViewModelBase
 
     public void Mostrar(ViewModelBase vm) => Contenido = vm;
 
+    /// <summary>
+    /// Hook de App: al cerrar sesión, Login vive siempre en LoginWindow.
+    /// App oculta la principal, abre una LoginWindow nueva y la vuelve a
+    /// mostrar (o cierra la app si no hay autenticación). Sin hook asignado
+    /// se conserva el fallback histórico (login embebido).
+    /// </summary>
+    public Func<Task>? AlCerrarSesion { get; set; }
+
     public async Task CerrarSesionAsync()
     {
         if (_servicios is not null && Sesion is not null)
@@ -54,9 +62,16 @@ public sealed class AppRootViewModel : ViewModelBase
         }
 
         Sesion = null;
+        Contenido = new InicioViewModel();
+        if (AlCerrarSesion is not null)
+        {
+            await AlCerrarSesion.Invoke();
+            return;
+        }
+
         if (_servicios is not null)
         {
-            // volver a login/bootstrap según estado
+            // fallback sin App (tests): volver a login/bootstrap según estado
             await VerificarEstadoAsync();
         }
     }
@@ -85,26 +100,29 @@ public sealed class AppRootViewModel : ViewModelBase
     private async Task MostrarShellAsync()
     {
         if (_servicios is null || Sesion is null) return;
-        var catalogo = new CatalogoViewModel(_servicios, () => Sesion.IdSesion);
+        var dialogosCatalogo = new DialogosCatalogoWpf(_servicios, () => Sesion.IdSesion);
+        var catalogo = new CatalogoViewModel(_servicios, () => Sesion.IdSesion, dialogosCatalogo);
         var proveedores = new ProveedoresViewModel(_servicios, () => Sesion.IdSesion);
         await proveedores.CargarAsync();
         var recepcion = new RecepcionViewModel(_servicios, () => Sesion.IdSesion);
         await recepcion.CargarProveedoresAsync();
         await recepcion.VerificarPendienteAsync();
-        var recepciones = new RecepcionesConsultaViewModel(_servicios, () => Sesion.IdSesion);
+        var dialogosRecepciones = new DialogosRecepcionesWpf(_servicios, () => Sesion.IdSesion);
+        var recepciones = new RecepcionesConsultaViewModel(_servicios, () => Sesion.IdSesion, dialogosRecepciones);
         await recepciones.CargarAsync();
         var conteo = new ConteoViewModel(_servicios, () => Sesion.IdSesion);
         await conteo.CargarConteosAsync();
         var apartado = new ApartadoViewModel(_servicios, () => Sesion.IdSesion);
+        var resumenInicio = await _servicios.ConsultasInicio.ObtenerAsync(Sesion.IdSesion);
         if (Sesion.Rol == "duena")
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync);
+            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync);
+            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync);
         }
     }
 }
@@ -126,9 +144,13 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
 
     public ShellDuenaViewModel(SesionUsuario sesion, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
+        : this(sesion, ResumenVacio(), admin, catalogo, prov, rec, cons, conteo, apartado, cerrar)
+    {
+    }
+
+    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
     {
         Sesion = sesion;
-        Portada = new PortadaViewModel(sesion.Nombre, sesion.Rol);
         Administracion = admin;
         Catalogo = catalogo;
         Proveedores = prov;
@@ -136,9 +158,11 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Recepciones = cons;
         Conteo = conteo;
         Apartado = apartado;
+        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.NuevaFichaAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
+        IrAApartadoCommand = new RelayCommand(IrAApartado);
     }
 
     public ViewModelBase VistaActual
@@ -149,6 +173,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase
 
     public System.Windows.Input.ICommand MostrarVistaCommand { get; }
 
+    public System.Windows.Input.ICommand IrAApartadoCommand { get; }
+
     private void MostrarVista(object? vista)
     {
         if (vista is ViewModelBase viewModel)
@@ -156,6 +182,21 @@ public sealed class ShellDuenaViewModel : ViewModelBase
             VistaActual = viewModel;
         }
     }
+
+    /// <summary>
+    /// Entradas de menú "Consulta de inventario" (sin parámetro, conserva el
+    /// estado actual) y "No vendible" (parámetro "Apartar"/"Reincorporar"/"Baja"
+    /// preselecciona la acción). La vista es la misma; cambia el punto de entrada.
+    /// </summary>
+    private void IrAApartado(object? accion)
+    {
+        if (accion is string nombre)
+            Apartado.SeleccionarAccionCommand.Execute(nombre);
+        VistaActual = Apartado;
+    }
+
+    private static LocalInfantil.Application.Contracts.ResumenInicio ResumenVacio()
+        => new(new HashSet<string>(), 0, new(0, 0, 0), Array.Empty<LocalInfantil.Application.Contracts.ActividadInicio>());
 }
 
 public sealed class ShellEmpleadaViewModel : ViewModelBase
@@ -174,18 +215,24 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
 
     public ShellEmpleadaViewModel(SesionUsuario sesion, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
+        : this(sesion, ResumenVacio(), catalogo, prov, rec, cons, conteo, apartado, cerrar)
+    {
+    }
+
+    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar)
     {
         Sesion = sesion;
-        Portada = new PortadaViewModel(sesion.Nombre, sesion.Rol);
         Catalogo = catalogo;
         Proveedores = prov;
         Recepcion = rec;
         Recepciones = cons;
         Conteo = conteo;
         Apartado = apartado;
+        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.NuevaFichaAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
+        IrAApartadoCommand = new RelayCommand(IrAApartado);
     }
 
     public ViewModelBase VistaActual
@@ -196,6 +243,8 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
 
     public System.Windows.Input.ICommand MostrarVistaCommand { get; }
 
+    public System.Windows.Input.ICommand IrAApartadoCommand { get; }
+
     private void MostrarVista(object? vista)
     {
         if (vista is ViewModelBase viewModel)
@@ -203,4 +252,19 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
             VistaActual = viewModel;
         }
     }
+
+    /// <summary>
+    /// Entradas de menú "Consulta de inventario" (sin parámetro, conserva el
+    /// estado actual) y "No vendible" (parámetro "Apartar"/"Reincorporar"/"Baja"
+    /// preselecciona la acción). La vista es la misma; cambia el punto de entrada.
+    /// </summary>
+    private void IrAApartado(object? accion)
+    {
+        if (accion is string nombre)
+            Apartado.SeleccionarAccionCommand.Execute(nombre);
+        VistaActual = Apartado;
+    }
+
+    private static LocalInfantil.Application.Contracts.ResumenInicio ResumenVacio()
+        => new(new HashSet<string>(), 0, new(0, 0, 0), Array.Empty<LocalInfantil.Application.Contracts.ActividadInicio>());
 }

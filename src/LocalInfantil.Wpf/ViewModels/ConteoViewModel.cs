@@ -29,6 +29,7 @@ public sealed class ConteoViewModel : ViewModelBase
     private bool _confirmacionAprobarVisible;
     private int _desplazamiento;
     private const int LimiteValor = 20;
+    private int _pasoActual = 1;
 
     public ConteoViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
     {
@@ -47,6 +48,117 @@ public sealed class ConteoViewModel : ViewModelBase
         AnteriorCommand = new AsyncRelayCommand(AnteriorAsync);
         AgregarFilaCommand = new AsyncRelayCommand(() => { FilasSeleccion.Add(new FilaConteoSeleccionViewModel()); return Task.CompletedTask; });
         QuitarFilaCommand = new AsyncRelayCommand(() => { if (FilasSeleccion.Count > 1) FilasSeleccion.RemoveAt(FilasSeleccion.Count - 1); return Task.CompletedTask; });
+        SiguientePasoCommand = new AsyncRelayCommand(SiguientePasoAsync);
+        AnteriorPasoCommand = new AsyncRelayCommand(() => { if (PasoActual > 1) PasoActual--; return Task.CompletedTask; });
+        IrAPasoCommand = new RelayCommand(IrAPaso);
+    }
+
+    /// <summary>
+    /// Flujo progresivo 1-4 (seleccionar → contar → revisar → aprobar).
+    /// Solo se muestra la etapa principal. Atrás libre; adelante con
+    /// validación; clic en stepper solo permite retroceder (no salta
+    /// validaciones).
+    /// </summary>
+    public int PasoActual
+    {
+        get => _pasoActual;
+        private set
+        {
+            if (value < 1 || value > 4 || value == _pasoActual) return;
+            _pasoActual = value;
+            OnPropertyChanged(nameof(PasoActual));
+            OnPropertyChanged(nameof(Paso1Activo));
+            OnPropertyChanged(nameof(Paso2Activo));
+            OnPropertyChanged(nameof(Paso3Activo));
+            OnPropertyChanged(nameof(Paso4Activo));
+            OnPropertyChanged(nameof(Paso1Listo));
+            OnPropertyChanged(nameof(Paso2Listo));
+            OnPropertyChanged(nameof(Paso3Listo));
+            OnPropertyChanged(nameof(Paso1Texto));
+            OnPropertyChanged(nameof(Paso2Texto));
+            OnPropertyChanged(nameof(Paso3Texto));
+            OnPropertyChanged(nameof(Paso4Texto));
+            OnPropertyChanged(nameof(Paso1Visible));
+            OnPropertyChanged(nameof(Paso2Visible));
+            OnPropertyChanged(nameof(Paso3Visible));
+            OnPropertyChanged(nameof(Paso4Visible));
+        }
+    }
+
+    public bool Paso1Activo => PasoActual == 1;
+    public bool Paso2Activo => PasoActual == 2;
+    public bool Paso3Activo => PasoActual == 3;
+    public bool Paso4Activo => PasoActual == 4;
+    public bool Paso1Listo => PasoActual > 1;
+    public bool Paso2Listo => PasoActual > 2;
+    public bool Paso3Listo => PasoActual > 3;
+
+    /// <summary>Etiquetas del stepper con ✓ (binding directo, sin triggers).</summary>
+    public string Paso1Texto => (Paso1Listo ? "✓" : "1") + " · Seleccionar";
+    public string Paso2Texto => (Paso2Listo ? "✓" : "2") + " · Contar";
+    public string Paso3Texto => (Paso3Listo ? "✓" : "3") + " · Revisar";
+    public string Paso4Texto => "4 · Aprobar";
+    public bool Paso1Visible => PasoActual == 1;
+    public bool Paso2Visible => PasoActual == 2;
+    public bool Paso3Visible => PasoActual == 3;
+    public bool Paso4Visible => PasoActual == 4;
+
+    /// <summary>Resumen del paso 4, derivado del informe ya cargado.</summary>
+    public int VariantesContadas => Informe.Count;
+    public int SinDiferencia => Informe.Count(i => i.Diferencia == 0);
+    public int ConAjuste => Informe.Count(i => i.Diferencia != 0);
+
+    public AsyncRelayCommand SiguientePasoCommand { get; }
+    public AsyncRelayCommand AnteriorPasoCommand { get; }
+    public RelayCommand IrAPasoCommand { get; }
+
+    public Task SiguientePasoAsyncPublic() => SiguientePasoAsync();
+
+    private void IrAPaso(object? paso)
+    {
+        int numero = paso is string s && int.TryParse(s, out var n) ? n : paso is int i ? i : 0;
+        if (numero < 1 || numero > 4) return;
+        if (numero < PasoActual)
+        {
+            Error = null;
+            PasoActual = numero;
+        }
+        else if (numero > PasoActual)
+        {
+            Error = "Completá el paso actual para continuar (Atrás/Continuar).";
+        }
+    }
+
+    private async Task SiguientePasoAsync()
+    {
+        if (Ocupado) return;
+        Error = null;
+        switch (PasoActual)
+        {
+            case 1:
+                if (!FilasSeleccion.Any(f => !string.IsNullOrWhiteSpace(f.Sku)))
+                {
+                    Error = "Agregá al menos una variante (SKU). Lo no seleccionado queda fuera del conteo.";
+                    return;
+                }
+
+                PasoActual = 2;
+                break;
+            case 2:
+                await CrearAsync();
+                if (Error is null && Seleccionado is not null)
+                    PasoActual = 3;
+                break;
+            case 3:
+                if (Seleccionado is null)
+                {
+                    Error = "Seleccioná un borrador para revisar.";
+                    return;
+                }
+
+                PasoActual = 4;
+                break;
+        }
     }
 
     public ObservableCollection<ConteoRegistrado> Conteos { get; }
@@ -56,7 +168,19 @@ public sealed class ConteoViewModel : ViewModelBase
         get => _seleccionado;
         set { if (SetProperty(ref _seleccionado, value) && value is not null) _ = CargarInformeAsync(); }
     }
-    public IReadOnlyList<InformeConteoLinea> Informe { get => _informe; set => SetProperty(ref _informe, value); }
+    public IReadOnlyList<InformeConteoLinea> Informe
+    {
+        get => _informe;
+        set
+        {
+            if (SetProperty(ref _informe, value))
+            {
+                OnPropertyChanged(nameof(VariantesContadas));
+                OnPropertyChanged(nameof(SinDiferencia));
+                OnPropertyChanged(nameof(ConAjuste));
+            }
+        }
+    }
     public string OperacionId { get => _operacionId; set => SetProperty(ref _operacionId, value); }
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
     public string? Mensaje { get => _mensaje; set => SetProperty(ref _mensaje, value); }
@@ -139,7 +263,7 @@ public sealed class ConteoViewModel : ViewModelBase
         try
         {
             var id = await _servicios.CasoCrearConteo.EjecutarAsync(filas, _operacionId, _idSesion());
-            Mensaje = $"Borrador creado {id} con {filas.Count} variante(s). Parcial: no elegidas quedan fuera.";
+            Mensaje = $"Borrador creado con {filas.Count} variante(s). Parcial: no elegidas quedan fuera.";
             _operacionId = _servicios.GeneradorIds.NuevoId();
             OnPropertyChanged(nameof(OperacionId));
             await CargarConteosAsync();

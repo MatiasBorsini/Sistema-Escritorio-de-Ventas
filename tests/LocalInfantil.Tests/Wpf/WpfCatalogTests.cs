@@ -294,7 +294,7 @@ public sealed class WpfCatalogTests
         vm.PrecioTexto = "12,34";
         await vm.FijarPrecioAsyncPublic();
         Assert.NotNull(vm.Error);
-        Assert.Contains("denegado", vm.Error!.ToLowerInvariant());
+        Assert.Contains("no tenés permiso para fijar precios", vm.Error!.ToLowerInvariant());
         Assert.Equal("12,34", vm.PrecioTexto);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.PreciosGestionar, true, e.SesionDuena);
         // nueva sesión para ver permiso revocado

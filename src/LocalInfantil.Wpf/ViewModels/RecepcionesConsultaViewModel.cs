@@ -4,12 +4,66 @@ using LocalInfantil.Wpf.Infra;
 
 namespace LocalInfantil.Wpf.ViewModels;
 
+/// <summary>
+/// Fila densa del historial: resumen oficial por página (una sola lectura).
+/// Revertida es mutable solo para reflejar una reversión recién confirmada;
+/// el dato canónico sigue en la consulta.
+/// </summary>
+public sealed class FilaHistorialRecepcion : ViewModelBase
+{
+    private bool _revertida;
+
+    public FilaHistorialRecepcion(ResumenRecepcion resumen)
+    {
+        Resumen = resumen;
+        _revertida = resumen.Revertida;
+    }
+
+    public ResumenRecepcion Resumen { get; }
+
+    public bool Revertida
+    {
+        get => _revertida;
+        set
+        {
+            if (SetProperty(ref _revertida, value))
+                OnPropertyChanged(nameof(EstadoTexto));
+        }
+    }
+
+    public string Referencia => ReferenciaDe(Resumen);
+    public string EstadoTexto => Revertida ? "Revertida" : "Confirmada";
+    public string FechaTexto => FechaCorta(Resumen.CreadoEn);
+    public string UnidadesTexto => $"{Resumen.Unidades} u.";
+
+    /// <summary>
+    /// Referencia humana: comprobante del proveedor si existe; si no,
+    /// "Sin referencia" (proveedor + fecha dan contexto). Nunca se disfraza
+    /// un ID técnico como referencia: el id interno solo se usa para
+    /// navegación/consulta/diagnóstico. El dominio no tiene numeración.
+    /// </summary>
+    public static string ReferenciaDe(ResumenRecepcion r)
+        => string.IsNullOrWhiteSpace(r.ComprobanteRef)
+            ? "Sin referencia"
+            : r.ComprobanteRef.Trim();
+
+    public static string FechaCorta(string creadoEn)
+    {
+        if (DateTimeOffset.TryParse(creadoEn, out var f))
+            return f.ToLocalTime().ToString("dd/MM · HH:mm");
+        return creadoEn;
+    }
+}
+
 public sealed class RecepcionesConsultaViewModel : ViewModelBase
 {
     private readonly ServiciosComerciales _servicios;
     private readonly Func<string?> _idSesion;
+    private readonly IDialogosRecepciones? _dialogos;
     private RecepcionRegistrada? _seleccionada;
+    private FilaHistorialRecepcion? _filaSeleccionada;
     private IReadOnlyList<LineaRecepcion> _lineas = Array.Empty<LineaRecepcion>();
+    private IReadOnlyList<LineaRecepcionDetalle> _lineasDetalle = Array.Empty<LineaRecepcionDetalle>();
     private bool _estaRevertida;
     private string _motivo = string.Empty;
     private string _operacionIdReversion = string.Empty;
@@ -18,33 +72,113 @@ public sealed class RecepcionesConsultaViewModel : ViewModelBase
     private string? _mensaje;
     private bool _ocupado;
     private int _desplazamiento;
-    private const int LimiteValor = 20;
+    private int _tamanoPagina = 20;
+    private bool _haySiguiente;
+    private string _textoBusqueda = string.Empty;
+    private string _filtroEstado = FiltroRecepciones.Todas;
     private string? _ultimaReversionRecepcionId;
     private string? _ultimoMotivoReversion;
     private string? _ultimoOperacionIdReversion;
 
-    public RecepcionesConsultaViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
+    public RecepcionesConsultaViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosRecepciones? dialogos = null)
     {
         _servicios = servicios;
         _idSesion = idSesion;
+        _dialogos = dialogos;
         Recepciones = new ObservableCollection<RecepcionRegistrada>();
+        Historial = new ObservableCollection<FilaHistorialRecepcion>();
         _operacionIdReversion = servicios.GeneradorIds.NuevoId();
         CargarCommand = new AsyncRelayCommand(CargarAsync);
         SiguienteCommand = new AsyncRelayCommand(SiguienteAsync);
         AnteriorCommand = new AsyncRelayCommand(AnteriorAsync);
         VerDetalleCommand = new AsyncRelayCommand(VerDetalleAsync);
+        AbrirDetalleCommand = new AsyncRelayCommand(AbrirDetalleAsync);
         SolicitarReversionCommand = new AsyncRelayCommand(SolicitarReversionAsync);
         ConfirmarReversionCommand = new AsyncRelayCommand(ConfirmarReversionAsync);
         CancelarReversionCommand = new AsyncRelayCommand(CancelarReversionAsync);
     }
 
     public ObservableCollection<RecepcionRegistrada> Recepciones { get; }
+    public ObservableCollection<FilaHistorialRecepcion> Historial { get; }
+    public string[] FiltrosEstado { get; } = [FiltroRecepciones.Todas, FiltroRecepciones.Confirmadas, FiltroRecepciones.Revertidas];
+    public int[] TamanosPagina { get; } = [20, 50, 100];
+
     public RecepcionRegistrada? Seleccionada
     {
         get => _seleccionada;
         set { if (SetProperty(ref _seleccionada, value) && value is not null) _ = VerDetalleAsync(); }
     }
+
+    public FilaHistorialRecepcion? FilaSeleccionada
+    {
+        get => _filaSeleccionada;
+        set
+        {
+            if (SetProperty(ref _filaSeleccionada, value) && value is not null)
+                Seleccionada = Recepciones.FirstOrDefault(r => r.Id == value.Resumen.Id);
+        }
+    }
+
+    public string TextoBusqueda { get => _textoBusqueda; set => SetProperty(ref _textoBusqueda, value); }
+
+    public string FiltroEstado
+    {
+        get => _filtroEstado;
+        set
+        {
+            if (value != FiltroRecepciones.Todas && value != FiltroRecepciones.Confirmadas && value != FiltroRecepciones.Revertidas)
+                return;
+            if (SetProperty(ref _filtroEstado, value))
+            {
+                _desplazamiento = 0;
+                OnPropertyChanged(nameof(Desplazamiento));
+                _ = CargarAsync();
+            }
+        }
+    }
+
+    public int TamanoPagina
+    {
+        get => _tamanoPagina;
+        set
+        {
+            if (value < 1 || value > 100 || value == _tamanoPagina) return;
+            _tamanoPagina = value;
+            _desplazamiento = 0;
+            OnPropertyChanged(nameof(TamanoPagina));
+            OnPropertyChanged(nameof(LimitePage));
+            OnPropertyChanged(nameof(Desplazamiento));
+            _ = CargarAsync();
+        }
+    }
+
+    public bool HaySiguiente
+    {
+        get => _haySiguiente;
+        private set => SetProperty(ref _haySiguiente, value);
+    }
+
+    public bool EsUltimaPagina => !HaySiguiente;
+    public bool HayAnterior => _desplazamiento > 0;
+
+    public string Resumen => Historial.Count == 0
+        ? "Sin resultados."
+        : $"{Historial.Count} recepción(es) · Página {_desplazamiento / _tamanoPagina + 1}" + (EsUltimaPagina ? " · Fin del listado" : string.Empty);
+
     public IReadOnlyList<LineaRecepcion> Lineas { get => _lineas; set => SetProperty(ref _lineas, value); }
+    public IReadOnlyList<LineaRecepcionDetalle> LineasDetalle { get => _lineasDetalle; set => SetProperty(ref _lineasDetalle, value); }
+
+    /// <summary>Detalle rápido: totales derivados de las líneas ya cargadas.</summary>
+    public long UnidadesDetalle => LineasDetalle.Sum(l => l.Cantidad);
+
+    public long? TotalDetalleExacto => LineasDetalle.Count == 0 || LineasDetalle.Any(l => !l.CostoUnitarioMinor.HasValue)
+        ? null
+        : LineasDetalle.Sum(l => l.Cantidad * l.CostoUnitarioMinor!.Value);
+
+    public IReadOnlyList<LineaRecepcionDetalle> PrimerasLineas => LineasDetalle.Take(4).ToList();
+
+    public string ResponsableDetalle => FilaSeleccionada?.Resumen.CreadoPorNombre ?? "—";
+
     public bool EstaRevertida { get => _estaRevertida; set => SetProperty(ref _estaRevertida, value); }
     public string Motivo { get => _motivo; set => SetProperty(ref _motivo, value); }
     public string OperacionIdReversion { get => _operacionIdReversion; set => SetProperty(ref _operacionIdReversion, value); }
@@ -57,11 +191,23 @@ public sealed class RecepcionesConsultaViewModel : ViewModelBase
     public AsyncRelayCommand SiguienteCommand { get; }
     public AsyncRelayCommand AnteriorCommand { get; }
     public AsyncRelayCommand VerDetalleCommand { get; }
+    public AsyncRelayCommand AbrirDetalleCommand { get; }
     public AsyncRelayCommand SolicitarReversionCommand { get; }
     public AsyncRelayCommand ConfirmarReversionCommand { get; }
     public AsyncRelayCommand CancelarReversionCommand { get; }
     public int Desplazamiento => _desplazamiento;
-    public int LimitePage => LimiteValor;
+    public int LimitePage => _tamanoPagina;
+
+    public Task AbrirDetalleAsyncPublic() => AbrirDetalleAsync();
+
+    private Task AbrirDetalleAsync()
+    {
+        Error = null;
+        if (FilaSeleccionada is null) { Error = "Seleccioná una recepción."; return Task.CompletedTask; }
+        if (_dialogos is null) { Error = "Detalle completo no disponible."; return Task.CompletedTask; }
+        _dialogos.MostrarDetalleRecepcion(FilaSeleccionada.Resumen);
+        return Task.CompletedTask;
+    }
 
     public async Task CargarAsync()
     {
@@ -88,11 +234,21 @@ public sealed class RecepcionesConsultaViewModel : ViewModelBase
                 }
                 catch { }
             }
-            var lista = await _servicios.ConsultasRecepciones.ListarAsync(LimiteValor, _desplazamiento, _idSesion());
+            var lista = await _servicios.ConsultasRecepciones.BuscarResumenAsync(TextoBusqueda ?? string.Empty, _filtroEstado, _tamanoPagina, _desplazamiento, _idSesion());
+            HaySiguiente = lista.Count > _tamanoPagina;
             Recepciones.Clear();
-            foreach (var r in lista) Recepciones.Add(r);
-            Mensaje = $"{lista.Count} recepción(es) (página {_desplazamiento / LimiteValor + 1}, desplazamiento {_desplazamiento}).";
-            OnPropertyChanged(nameof(Desplazamiento));
+            Historial.Clear();
+            SetProperty(ref _filaSeleccionada, null, nameof(FilaSeleccionada));
+            foreach (var r in lista.Take(_tamanoPagina))
+            {
+                Recepciones.Add(new RecepcionRegistrada(r.Id, r.ProveedorId, r.OperacionId, r.ComprobanteRef, r.CreadoPorUsuarioId, r.CreadoEn));
+                Historial.Add(new FilaHistorialRecepcion(r));
+            }
+
+            Mensaje = null;
+            OnPropertyChanged(nameof(Resumen));
+            OnPropertyChanged(nameof(EsUltimaPagina));
+            OnPropertyChanged(nameof(HayAnterior));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
@@ -100,14 +256,19 @@ public sealed class RecepcionesConsultaViewModel : ViewModelBase
 
     public async Task SiguienteAsync()
     {
-        _desplazamiento += LimiteValor;
+        if (!HaySiguiente) return;
+        _desplazamiento += _tamanoPagina;
+        OnPropertyChanged(nameof(Desplazamiento));
+        OnPropertyChanged(nameof(HayAnterior));
         await CargarAsync();
     }
 
     public async Task AnteriorAsync()
     {
-        if (_desplazamiento >= LimiteValor) _desplazamiento -= LimiteValor;
+        if (_desplazamiento >= _tamanoPagina) _desplazamiento -= _tamanoPagina;
         else _desplazamiento = 0;
+        OnPropertyChanged(nameof(Desplazamiento));
+        OnPropertyChanged(nameof(HayAnterior));
         await CargarAsync();
     }
 
@@ -120,8 +281,17 @@ public sealed class RecepcionesConsultaViewModel : ViewModelBase
         Error = null; Ocupado = true;
         try
         {
-            Lineas = await _servicios.ConsultasRecepciones.ListarLineasAsync(Seleccionada.Id, _idSesion());
+            // 2 queries: detalle con variante resuelta + flag de reversión
+            // fresca. LineasDetalle ya incluye cantidad/costo/moneda, por lo
+            // que la lectura cruda por variante_id no se repite acá.
+            LineasDetalle = await _servicios.ConsultasRecepciones.ListarLineasDetalleAsync(Seleccionada.Id, _idSesion());
             EstaRevertida = await _servicios.ConsultasRecepciones.EstaRevertidaAsync(Seleccionada.Id, _idSesion());
+            if (FilaSeleccionada is not null && FilaSeleccionada.Resumen.Id == Seleccionada.Id)
+                FilaSeleccionada.Revertida = EstaRevertida;
+            OnPropertyChanged(nameof(UnidadesDetalle));
+            OnPropertyChanged(nameof(TotalDetalleExacto));
+            OnPropertyChanged(nameof(PrimerasLineas));
+            OnPropertyChanged(nameof(ResponsableDetalle));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using LocalInfantil.Wpf.ViewModels;
 
 namespace LocalInfantil.Wpf.Views;
@@ -10,6 +11,15 @@ public partial class AdministracionUsuariosView : UserControl
     {
         InitializeComponent();
     }
+
+    private void AbrirAlta_Click(object sender, RoutedEventArgs e)
+    {
+        AltaPanel.Visibility = Visibility.Visible;
+        Dispatcher.BeginInvoke(NuevoNombreInput.Focus, DispatcherPriority.Input);
+    }
+
+    private void CerrarAlta_Click(object sender, RoutedEventArgs e)
+        => AltaPanel.Visibility = Visibility.Collapsed;
 
     private void NuevaPwd_PasswordChanged(object sender, RoutedEventArgs e)
     {

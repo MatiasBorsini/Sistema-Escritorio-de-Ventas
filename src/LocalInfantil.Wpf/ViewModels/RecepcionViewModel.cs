@@ -14,12 +14,28 @@ public sealed class FilaRecepcionViewModel : ViewModelBase
     private string _moneda = "ARS";
     private string? _varianteId;
     private string? _detalle;
+    private long? _stockActual;
+    private long? _quedara;
+    private long? _subtotalMinor;
+    private bool _resuelta;
+    private bool _valida;
     public string Sku { get => _sku; set => SetProperty(ref _sku, value); }
     public string CantidadTexto { get => _cantidadTexto; set => SetProperty(ref _cantidadTexto, value); }
     public string CostoTexto { get => _costoTexto; set => SetProperty(ref _costoTexto, value); }
     public string Moneda { get => _moneda; set => SetProperty(ref _moneda, value); }
     public string? VarianteId { get => _varianteId; set => SetProperty(ref _varianteId, value); }
     public string? Detalle { get => _detalle; set => SetProperty(ref _detalle, value); }
+
+    /// <summary>
+    /// Lectura derivada de consultas existentes (verificación bajo demanda).
+    /// StockActual/Quedará/Subtotal no recalculan reglas: Quedará es la suma
+    /// aritmética que la recepción SUMA confirmará.
+    /// </summary>
+    public long? StockActual { get => _stockActual; set => SetProperty(ref _stockActual, value); }
+    public long? Quedara { get => _quedara; set => SetProperty(ref _quedara, value); }
+    public long? SubtotalMinor { get => _subtotalMinor; set => SetProperty(ref _subtotalMinor, value); }
+    public bool Resuelta { get => _resuelta; set => SetProperty(ref _resuelta, value); }
+    public bool Valida { get => _valida; set => SetProperty(ref _valida, value); }
 }
 
 public sealed class RecepcionViewModel : ViewModelBase
@@ -35,6 +51,7 @@ public sealed class RecepcionViewModel : ViewModelBase
     private string? _error;
     private string? _mensaje;
     private bool _ocupado;
+    private bool _resumenListo;
 
     public RecepcionViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
     {
@@ -42,16 +59,46 @@ public sealed class RecepcionViewModel : ViewModelBase
         _idSesion = idSesion;
         Proveedores = new ObservableCollection<ProveedorRegistrado>();
         Filas = new ObservableCollection<FilaRecepcionViewModel> { new(), new() };
+        Filas.CollectionChanged += (_, _) => ResumenListo = false;
         _operacionId = servicios.GeneradorIds.NuevoId();
         ConfirmarCommand = new AsyncRelayCommand(ConfirmarAsync);
         AgregarFilaCommand = new AsyncRelayCommand(AgregarFilaAsync);
         QuitarFilaCommand = new AsyncRelayCommand(QuitarFilaAsync);
         RefrescarProveedoresCommand = new AsyncRelayCommand(CargarProveedoresAsync);
+        VerificarCommand = new AsyncRelayCommand(VerificarAsync);
     }
 
     public ObservableCollection<ProveedorRegistrado> Proveedores { get; }
     public ObservableCollection<FilaRecepcionViewModel> Filas { get; }
     public ProveedorRegistrado? ProveedorSeleccionado { get => _proveedorSeleccionado; set => SetProperty(ref _proveedorSeleccionado, value); }
+
+    /// <summary>Resumen lateral: solo filas verificadas como válidas.</summary>
+    public bool ResumenListo
+    {
+        get => _resumenListo;
+        private set
+        {
+            if (SetProperty(ref _resumenListo, value))
+            {
+                OnPropertyChanged(nameof(CantidadLineas));
+                OnPropertyChanged(nameof(UnidadesSumar));
+                OnPropertyChanged(nameof(TotalEstimado));
+                OnPropertyChanged(nameof(ConfirmarTexto));
+            }
+        }
+    }
+
+    public int CantidadLineas => ResumenListo ? Filas.Count(f => f.Valida) : 0;
+    public long UnidadesSumar => ResumenListo ? Filas.Where(f => f.Valida).Sum(f => long.TryParse(f.CantidadTexto.Trim(), out var c) ? c : 0) : 0;
+
+    /// <summary>Total exacto solo si todas las filas válidas tienen costo.</summary>
+    public long? TotalEstimado => !ResumenListo || CantidadLineas == 0 || Filas.Any(f => f.Valida && !f.SubtotalMinor.HasValue)
+        ? null
+        : Filas.Where(f => f.Valida).Sum(f => f.SubtotalMinor!.Value);
+
+    public string ConfirmarTexto => ResumenListo && CantidadLineas > 0
+        ? $"Confirmar y sumar {UnidadesSumar} unidades"
+        : "Confirmar recepción";
     public string? ComprobanteRef { get => _comprobanteRef; set => SetProperty(ref _comprobanteRef, value); }
     public string OperacionId { get => _operacionId; set => SetProperty(ref _operacionId, value); }
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
@@ -62,6 +109,66 @@ public sealed class RecepcionViewModel : ViewModelBase
     public AsyncRelayCommand AgregarFilaCommand { get; }
     public AsyncRelayCommand QuitarFilaCommand { get; }
     public AsyncRelayCommand RefrescarProveedoresCommand { get; }
+    public AsyncRelayCommand VerificarCommand { get; }
+
+    public Task VerificarAsyncPublic() => VerificarAsync();
+
+    /// <summary>
+    /// Resuelve cada fila con SKU usando consultas existentes (variante +
+    /// ficha con existencias). No valida reglas de negocio: solo expone
+    /// StockActual/Quedará/Subtotal de lectura para operar con contexto.
+    /// La confirmación vuelve a resolver y validar todo (lógica intacta).
+    /// </summary>
+    public async Task VerificarAsync()
+    {
+        if (Ocupado) return;
+        Error = null;
+        Ocupado = true;
+        try
+        {
+            var fecha = DateTime.UtcNow.ToString("o");
+            foreach (var f in Filas)
+            {
+                f.Resuelta = false;
+                f.Valida = false;
+                f.StockActual = null;
+                f.Quedara = null;
+                f.SubtotalMinor = null;
+                if (string.IsNullOrWhiteSpace(f.Sku)) continue;
+                try
+                {
+                    var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
+                    if (vari is null) { f.Detalle = "SKU no encontrado."; continue; }
+                    f.VarianteId = vari.Id;
+                    f.Detalle = $"{vari.Sku} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
+                    var ficha = await _servicios.ConsultasCatalogo.ObtenerFichaAsync(vari.ProductoId, fecha, _idSesion());
+                    var existencia = ficha?.Variantes.FirstOrDefault(v => v.Id == vari.Id)?.Existencias;
+                    f.StockActual = existencia;
+                    if (long.TryParse(f.CantidadTexto.Trim(), out var cant) && cant > 0)
+                    {
+                        f.Quedara = existencia.HasValue ? existencia.Value + cant : null;
+                        f.Valida = true;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(f.CostoTexto) && TryParseArs(f.CostoTexto, out var cm)
+                        && long.TryParse(f.CantidadTexto.Trim(), out var cant2) && cant2 > 0)
+                    {
+                        f.SubtotalMinor = cant2 * cm;
+                    }
+
+                    f.Resuelta = true;
+                }
+                catch (Exception ex)
+                {
+                    f.Detalle = MensajeError(ex);
+                }
+            }
+
+            ResumenListo = Filas.Any(f => f.Valida);
+            if (!ResumenListo) Mensaje = "Sin filas válidas para resumir.";
+        }
+        finally { Ocupado = false; }
+    }
 
     public async Task CargarProveedoresAsync()
     {
@@ -277,7 +384,8 @@ public sealed class RecepcionViewModel : ViewModelBase
         try
         {
             var id = await _servicios.CasoConfirmarRecepcion.EjecutarAsync(ProveedorSeleccionado.Id, lineas, _operacionId, comprobante, _idSesion());
-            Mensaje = $"SUMAR INGRESO DE MERCADERÍA — Recepción {id} confirmada: {lineas.Count} variante(s) sumadas. No es ESTABLECER.";
+            Mensaje = $"Recepción {ReferenciaHumana(comprobante, id)} confirmada: {lineas.Count} variante(s) sumadas. No es ESTABLECER.";
+            ResumenListo = false;
             AlmacenRecepcionPendiente.Eliminar(_servicios.RutaBaseDatos);
             _operacionId = _servicios.GeneradorIds.NuevoId();
             OnPropertyChanged(nameof(OperacionId));
@@ -298,6 +406,10 @@ public sealed class RecepcionViewModel : ViewModelBase
         }
         finally { Ocupado = false; }
     }
+
+    /// <summary>Referencia humana: comprobante si existe; nunca id técnico.</summary>
+    internal static string ReferenciaHumana(string? comprobante, string id)
+        => string.IsNullOrWhiteSpace(comprobante) ? "sin comprobante" : comprobante.Trim();
 
     private static bool LineasIguales(IReadOnlyList<LineaRecepcion> a, IReadOnlyList<LineaRecepcion> b)
     {

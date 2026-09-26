@@ -234,3 +234,28 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Fuente: decisión del usuario (prenda dañada/en revisión permanece en el local pero no puede venderse; baja definitiva deja de existir físicamente).
 - Regla: estados Disponible, Apartada/no vendible y Baja definitiva; apartar/reincorporar con motivo (no alteran el físico), baja de apartadas con confirmación y motivo (reduce apartado y físico atómicamente); invariantes físico = disponible + apartado y ninguna cantidad negativa; recepción/carga suman disponible; ajustes negativos, reversión y aprobación de conteos nunca consumen apartadas inadvertidamente; conteos cuentan apartadas y detectan cambios de clasificación con mismo saldo; permisos `inventario.no_vendible.gestionar` y `inventario.baja_definitiva.autorizar` separados y denegados por defecto; V8 aditiva (`apartado_movimiento` + `conteo_clasificacion`), V1–V7 intactas, histórico existente = disponible.
 - Alcance: sin POS/caja/Drive, sin valoración de costos; F03 no cerrada (falta validación visual).
+
+## Ajustes visuales menores no bloqueantes — E4-B
+
+- Estado: registrados para una pasada posterior; no bloquean E4-B.
+- Catálogo: corregir textos truncados en la paginación y su toolbar.
+- Recepción: revisar anchos de columnas para evitar encabezados cortados.
+- Inventario: seguir compactando cuando surja naturalmente, sin retroceder en densidad ni volver a layouts excesivamente aireados.
+
+## D-34 — Rediseño UI WPF (etapa aprobada y cerrada; F04 no iniciado)
+
+- Estado: terminado y validado en `feat/wpf-ui-redesign-phase1`; pendiente de revisión y commit.
+- Fecha: 2026-09-26.
+- Fuente: instrucción de la persona usuaria (cierre documental/técnico del rediseño; etapa aprobada).
+- Decisiones consolidadas, verificadas contra el estado real del repositorio:
+  1. `LoginWindow` separada: `Views/LoginWindow.xaml(.cs)` existe como `Window`; el enrutamiento bootstrap/login vive en `App.xaml.cs`.
+  2. Navegación agrupada por módulos: `ShellDuenaView` agrupa Inicio, Catálogo, Compras (Proveedores, Recepción, Consultas y reversiones), Inventario (Consulta, Conteo físico, No vendible) y Administración (Usuarios), con Perfil y Cerrar sesión a la derecha.
+  3. Patrón master/detail para Catálogo, Proveedores, Usuarios y Consultas: `CatalogoView`, `ProveedoresView`, `AdministracionUsuariosView` y `RecepcionesConsultaView` usan selección + panel de detalle.
+  4. Ventanas secundarias para ficha de producto y detalle de recepción: `FichaProductoWindow` (+ `FichaProductoViewModel`, `IDialogosCatalogo`) y `DetalleRecepcionWindow` (+ `DetalleRecepcionViewModel`, `IDialogosRecepciones`).
+  5. Conteo físico por pasos: `ConteoViewModel` implementa el flujo 1-4 (seleccionar → contar → revisar → aprobar) con `PasoActual`, `SiguientePaso`/`AnteriorPaso`/`IrAPaso` (el stepper solo permite retroceder).
+  6. Inicio operativo basado en datos reales: `ConsultasInicio` + `RepositorioInicio` + `DatosInicio` alimentan `PortadaViewModel` (acciones por permiso, conteos pendientes, inventario, actividad); sin datos ficticios en Inicio.
+  7. Resolución mínima validada 980×620: `DevMainWindow` declara 1200×750 con `MinWidth=980 MinHeight=620`; captura nativa 64 a 980×620; `ScrollViewer` de respaldo solo si la altura no alcanza.
+  8. Tokens/`ControlTemplate` centralizados: paleta y estilos en `Recursos/DisenoRecursos.xaml` (`Color.*`, `EstiloBoton*`, etc.); `ContentStringFormat` se propaga con `TemplateBinding` en los 5 templates de `Button` (Primario/Secundario/Quiet/Destructivo/DangerOutline) tras el fix puntual de Inicio; `EstiloSegmento` (`RadioButton`) no lo necesita (sin usos con `StringFormat`). El texto visible de Inicio lo forma la VM (`TextoConteosPendientes`/`TextoApartado` con singular/plural).
+  9. No inventar precio de producto, SKU de producto, stock mínimo ni KPIs inexistentes: verificación 2026-09-26 sin ocurrencias de `StockMinimo`/`Kpi`/`PrecioSugerido`/`SkuGenerado` en ViewModels WPF; precio ARS exacto a centavos, SKU inmutable, sin stock mínimo ni KPIs en la interfaz.
+- Verificación de cierre: `dotnet build` Debug 0 advertencias 0 errores; suite 263/263; `git diff --check` limpio; sin `.db`, capturas, harnesses, binarios ni artefactos de build en el árbol git (`bin/`/`obj/`/`artifacts/` excluidos del scan; `docs/ui-reference/` son 4 archivos de trabajo HTML/md que quedan sin trackear y fuera del commit propuesto).
+- Alcance: sin F04 (ninguna tarea iniciada), sin cambios de reglas comerciales, permisos ni migraciones nuevas; `LocalInfantil.sln`, `AssemblyInfo.cs`, `MainWindow.xaml(.cs)` solo presentan normalización de fin de línea, sin cambio de contenido.

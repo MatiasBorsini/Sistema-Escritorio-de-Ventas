@@ -11,8 +11,12 @@
             </ResourceDictionary.MergedDictionaries>
             <infra:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <infra:BoolToVisibilityInvertedConverter x:Key="BoolToVisibilityInverted"/>
+        <infra:BoolInvertidoConverter x:Key="BoolInvertido"/>
+        <infra:DiferenciaColorConverter x:Key="DiferenciaColor"/>
+        <infra:FechaCortaConverter x:Key="FechaCorta"/>
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
         <infra:MinorToArsConverter x:Key="MinorToArs"/>
+        <infra:CeroVisibleConverter x:Key="CeroVisible"/>
         <DataTemplate DataType="{x:Type viewModels:InicioViewModel}">
             <views:InicioView />
         </DataTemplate>

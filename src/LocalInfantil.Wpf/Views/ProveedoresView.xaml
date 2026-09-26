@@ -1,33 +1,35 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.ProveedoresView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <DockPanel Margin="12">
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Proveedores"/>
-            <TextBlock Foreground="#6B7280" Text="Solo nombre comercial. Sin CUIT/domicilio/tel. No se borra con historial." TextWrapping="Wrap"/>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <TextBox Width="200" Text="{Binding NuevoNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre nuevo"/>
-                <Button Content="Crear" Margin="8,0,0,0" Padding="8,4" Command="{Binding CrearCommand}"/>
-                <CheckBox Margin="12,6,0,0" Content="Solo activos" IsChecked="{Binding SoloActivos}"/>
-                <Button Content="Refrescar" Margin="8,0,0,0" Padding="8,4" Command="{Binding RefrescarCommand}"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <TextBox Width="200" Text="{Binding EdicionNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Editar nombre seleccionado"/>
-                <Button Content="Guardar nombre" Margin="8,0,0,0" Padding="8,4" Command="{Binding EditarCommand}"/>
-                <Button Content="Desactivar" Margin="8,0,0,0" Padding="8,4" Command="{Binding SolicitarDesactivarCommand}"/>
-            </StackPanel>
-            <Border Margin="0,8,0,0" Padding="8" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionVisible, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock Foreground="#991B1B" TextWrapping="Wrap"><Run Text="¿Confirmás desactivar a "/><Run Text="{Binding NombrePendiente}" FontWeight="SemiBold"/><Run Text="?"/></TextBlock>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="Confirmar" Padding="8,4" Command="{Binding ConfirmarDesactivarCommand}"/>
-                        <Button Content="Cancelar" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarDesactivarCommand}"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-            <TextBlock Margin="0,6,0,0" Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
-            <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap"/>
-        </StackPanel>
-        <ListBox ItemsSource="{Binding Proveedores}" SelectedItem="{Binding Seleccionado}" DisplayMemberPath="Nombre" MaxHeight="400"/>
-    </DockPanel>
+    <Grid Margin="20,12,20,14">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Text="COMPRAS"/><TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Proveedores"/><TextBlock Style="{StaticResource EstiloAyuda}" Text="Gestioná proveedores activos. Este módulo administra únicamente el nombre comercial."/></StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource EstiloBotonPrimario}" VerticalAlignment="Center" Content="+ Nuevo proveedor" Click="AbrirAlta_Click"/>
+        </Grid>
+        <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,10,0"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock FontSize="16" FontWeight="SemiBold" Text="Lista de proveedores"/><TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Seleccioná un proveedor para editarlo."/></StackPanel><Button Grid.Column="1" Style="{StaticResource EstiloBotonQuiet}" Margin="0" Content="Refrescar" Command="{Binding RefrescarCommand}"/></Grid>
+                <StackPanel Grid.Row="1" Style="{StaticResource EstiloToolbar}" Margin="0,8,0,8"><CheckBox VerticalAlignment="Center" Content="Mostrar solo activos" IsChecked="{Binding SoloActivos}"/></StackPanel>
+                <ListBox Grid.Row="2" Style="{StaticResource EstiloLista}" ItemsSource="{Binding Proveedores}" SelectedItem="{Binding Seleccionado}">
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="3"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Fila" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="5"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Fila" Property="Background" Value="{StaticResource Color.Surface2Brush}"/><Setter TargetName="Fila" Property="BorderBrush" Value="{StaticResource Color.PrimaryBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Fila" Property="Background" Value="{StaticResource Color.Surface2Brush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate><DataTemplate><Grid Margin="5,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock FontWeight="SemiBold" Text="{Binding Nombre}" TextTrimming="CharacterEllipsis"/><TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Proveedor comercial"/></StackPanel><Border Grid.Column="1" Background="{StaticResource Color.SuccessBgBrush}" CornerRadius="4" Padding="7,3" VerticalAlignment="Center" Visibility="{Binding Activo, Converter={StaticResource BoolToVisibility}}"><TextBlock Foreground="{StaticResource Color.SuccessTextBrush}" FontSize="12" FontWeight="SemiBold" Text="Activo"/></Border><Border Grid.Column="1" Background="{StaticResource Color.Surface2Brush}" CornerRadius="4" Padding="7,3" VerticalAlignment="Center" Visibility="{Binding Activo, Converter={StaticResource BoolToVisibilityInverted}}"><TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Text="Inactivo"/></Border></Grid></DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+            </Grid></Border>
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0"><Grid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="300"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Seleccionado}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Text="Seleccioná un proveedor"/><TextBlock Style="{StaticResource EstiloAyuda}" TextAlignment="Center" Text="La ficha y sus acciones aparecerán al elegir una fila de la lista."/></StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding Seleccionado, Converter={StaticResource NullToVisibility}}"><StackPanel>
+                    <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Text="FICHA DEL PROVEEDOR"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,2"><TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Seleccionado.Nombre}"/><Border Background="{StaticResource Color.SuccessBgBrush}" CornerRadius="4" Padding="7,3" Margin="10,2,0,0" Visibility="{Binding Seleccionado.Activo, Converter={StaticResource BoolToVisibility}}"><TextBlock Foreground="{StaticResource Color.SuccessTextBrush}" FontSize="12" FontWeight="SemiBold" Text="Activo"/></Border></StackPanel>
+                    <TextBlock Style="{StaticResource EstiloAyuda}" Text="Los proveedores con historial no se eliminan: pueden desactivarse."/>
+                    <Border Style="{StaticResource EstiloAvisoInfo}"><TextBlock Foreground="{StaticResource Color.InfoTextBrush}" FontSize="13" TextWrapping="Wrap" Text="Solo se administra el nombre comercial."/></Border>
+                    <Border Style="{StaticResource EstiloSeparador}"/><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Nombre comercial"/><TextBox Style="{StaticResource EstiloCampoTexto}" MaxWidth="440" Text="{Binding EdicionNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Editar nombre seleccionado"/>
+                    <StackPanel Orientation="Horizontal" Style="{StaticResource EstiloToolbar}" Margin="0,4,0,0"><Button Style="{StaticResource EstiloBotonPrimario}" Content="Guardar nombre" Command="{Binding EditarCommand}"/><Button Style="{StaticResource EstiloBotonDangerOutline}" Content="Desactivar proveedor" Command="{Binding SolicitarDesactivarCommand}"/></StackPanel>
+                    <Border Style="{StaticResource EstiloAvisoInfo}" Background="{StaticResource Color.ErrorBgBrush}" BorderBrush="{StaticResource Color.DestructiveBrush}" Visibility="{Binding ConfirmacionVisible, Converter={StaticResource BoolToVisibility}}"><StackPanel><TextBlock Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap"><Run Text="¿Confirmás desactivar a "/><Run Text="{Binding NombrePendiente}" FontWeight="SemiBold"/><Run Text="?"/></TextBlock><StackPanel Orientation="Horizontal" Style="{StaticResource EstiloToolbar}" Margin="0,6,0,0"><Button Style="{StaticResource EstiloBotonDestructivo}" Content="Confirmar desactivación" Command="{Binding ConfirmarDesactivarCommand}"/><Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar" Command="{Binding CancelarDesactivarCommand}"/></StackPanel></StackPanel></Border>
+                </StackPanel></ScrollViewer>
+                <Border x:Name="AltaPanel" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14" HorizontalAlignment="Right" VerticalAlignment="Top" Width="330" Visibility="Collapsed"><StackPanel><TextBlock FontSize="16" FontWeight="SemiBold" Text="Nuevo proveedor"/><TextBlock Style="{StaticResource EstiloAyuda}" Text="Ingresá el nombre comercial."/><TextBox x:Name="NuevoNombreInput" Style="{StaticResource EstiloCampoTexto}" Text="{Binding NuevoNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre nuevo"/><StackPanel Orientation="Horizontal" Style="{StaticResource EstiloToolbar}"><Button Style="{StaticResource EstiloBotonPrimario}" Content="Crear proveedor" Command="{Binding CrearCommand}"/><Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar" Click="CerrarAlta_Click"/></StackPanel><TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/><TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/></StackPanel></Border>
+            </Grid></Border>
+        </Grid>
+    </Grid>
 </UserControl>

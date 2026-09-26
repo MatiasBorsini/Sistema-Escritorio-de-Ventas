@@ -18,15 +18,25 @@
                     <MenuItem Header="_Inicio" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Portada}"/>
                     <MenuItem Header="_Catálogo" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Catalogo}"/>
                     <MenuItem Header="Co_mpras" Foreground="{StaticResource Color.CanvasBrush}">
+                        <MenuItem Header="PROVEEDORES" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Proveedores" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Proveedores}"/>
+                        <Separator/>
+                        <MenuItem Header="MERCADERÍA" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Recepción de mercadería" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Recepcion}"/>
                         <MenuItem Header="Consultas y reversiones" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Recepciones}"/>
                     </MenuItem>
                     <MenuItem Header="I_nventario" Foreground="{StaticResource Color.CanvasBrush}">
+                        <MenuItem Header="STOCK" Style="{StaticResource EstiloItemSeccionMenu}"/>
+                        <MenuItem Header="Consulta de inventario" Foreground="{StaticResource Color.TextBrush}" Command="{Binding IrAApartadoCommand}"/>
                         <MenuItem Header="Conteo físico" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Conteo}"/>
-                        <MenuItem Header="No vendible" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Apartado}"/>
+                        <Separator/>
+                        <MenuItem Header="CLASIFICACIÓN" Style="{StaticResource EstiloItemSeccionMenu}"/>
+                        <MenuItem Header="No vendible" Foreground="{StaticResource Color.TextBrush}" Command="{Binding IrAApartadoCommand}" CommandParameter="Apartar"/>
                     </MenuItem>
-                    <MenuItem Header="_Administración" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Administracion}"/>
+                    <MenuItem Header="_Administración" Foreground="{StaticResource Color.CanvasBrush}">
+                        <MenuItem Header="ACCESOS" Style="{StaticResource EstiloItemSeccionMenu}"/>
+                        <MenuItem Header="Usuarios" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Administracion}"/>
+                    </MenuItem>
                 </Menu>
             </DockPanel>
         </Border>

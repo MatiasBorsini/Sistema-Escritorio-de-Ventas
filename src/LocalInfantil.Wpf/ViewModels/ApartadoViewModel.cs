@@ -16,6 +16,7 @@ public sealed class ApartadoViewModel : ViewModelBase
     private bool _ocupado;
     private bool _confirmacionBajaVisible;
     private ExistenciaClasificada? _existencia;
+    private string _accionSeleccionada = "Apartar";
 
     public ApartadoViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
     {
@@ -23,6 +24,7 @@ public sealed class ApartadoViewModel : ViewModelBase
         _idSesion = idSesion;
         Historial = new ObservableCollection<ApartadoHistorial>();
         BuscarCommand = new AsyncRelayCommand(BuscarAsync);
+        SeleccionarAccionCommand = new RelayCommand(SeleccionarAccion);
         ApartarCommand = new AsyncRelayCommand(ApartarAsync);
         ReincorporarCommand = new AsyncRelayCommand(ReincorporarAsync);
         SolicitarBajaCommand = new AsyncRelayCommand(SolicitarBajaAsync);
@@ -40,7 +42,44 @@ public sealed class ApartadoViewModel : ViewModelBase
     public bool Ocupado { get => _ocupado; set => SetProperty(ref _ocupado, value); }
     public bool ConfirmacionBajaVisible { get => _confirmacionBajaVisible; set => SetProperty(ref _confirmacionBajaVisible, value); }
 
+    public string AccionSeleccionada
+    {
+        get => _accionSeleccionada;
+        private set
+        {
+            if (SetProperty(ref _accionSeleccionada, value))
+            {
+                OnPropertyChanged(nameof(PanelApartarVisible));
+                OnPropertyChanged(nameof(PanelReincorporarVisible));
+                OnPropertyChanged(nameof(PanelBajaVisible));
+                OnPropertyChanged(nameof(AccionApartarActiva));
+                OnPropertyChanged(nameof(AccionReincorporarActiva));
+                OnPropertyChanged(nameof(AccionBajaActiva));
+            }
+        }
+    }
+
+    /// <summary>Estado del segmented: solo lectura del selector existente.</summary>
+    public bool AccionApartarActiva => AccionSeleccionada == "Apartar";
+    public bool AccionReincorporarActiva => AccionSeleccionada == "Reincorporar";
+    public bool AccionBajaActiva => AccionSeleccionada == "Baja";
+
+    public bool PanelApartarVisible => AccionSeleccionada == "Apartar";
+
+    public bool PanelReincorporarVisible => AccionSeleccionada == "Reincorporar";
+
+    public bool PanelBajaVisible => AccionSeleccionada == "Baja";
+
+    private void SeleccionarAccion(object? accion)
+    {
+        if (accion is string nombre && (nombre == "Apartar" || nombre == "Reincorporar" || nombre == "Baja"))
+        {
+            AccionSeleccionada = nombre;
+        }
+    }
+
     public AsyncRelayCommand BuscarCommand { get; }
+    public RelayCommand SeleccionarAccionCommand { get; }
     public AsyncRelayCommand ApartarCommand { get; }
     public AsyncRelayCommand ReincorporarCommand { get; }
     public AsyncRelayCommand SolicitarBajaCommand { get; }
@@ -102,7 +141,7 @@ public sealed class ApartadoViewModel : ViewModelBase
             Mensaje = $"Apartadas {cantidad} unidades (no vendibles). El total físico no cambió.";
             await RefrescarAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "apartar prendas"); }
         finally { Ocupado = false; }
     }
 
@@ -118,7 +157,7 @@ public sealed class ApartadoViewModel : ViewModelBase
             Mensaje = $"Reincorporadas {cantidad} unidades a disponible.";
             await RefrescarAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "reincorporar prendas"); }
         finally { Ocupado = false; }
     }
 
@@ -151,7 +190,7 @@ public sealed class ApartadoViewModel : ViewModelBase
             ConfirmacionBajaVisible = false;
             await RefrescarAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "autorizar bajas definitivas"); }
         finally { Ocupado = false; }
     }
 
@@ -162,5 +201,14 @@ public sealed class ApartadoViewModel : ViewModelBase
     public Task CancelarBajaAsyncPublic() => CancelarBajaAsync();
     public Task ConfirmarBajaAsyncPublic() => ConfirmarBajaAsync();
 
-    private static string MensajeError(Exception ex) => ex is LocalInfantil.Application.Abstractions.AccesoDenegadoException ? "Permiso denegado." : ex is LocalInfantil.Application.Abstractions.SesionInvalidaException ? "Sesión inválida. Iniciá sesión nuevamente." : ex.Message;
+    private static string MensajeError(Exception ex, string? accion = null) => ex switch
+    {
+        LocalInfantil.Application.Abstractions.AccesoDenegadoException when accion is not null
+            => $"No tenés permiso para {accion}. La Dueña puede habilitarlo desde Administración → Permisos.",
+        LocalInfantil.Application.Abstractions.AccesoDenegadoException
+            => "Permiso denegado. La Dueña puede habilitar permisos comerciales desde Administración → Permisos.",
+        LocalInfantil.Application.Abstractions.SesionInvalidaException
+            => "Sesión inválida. Iniciá sesión nuevamente.",
+        _ => ex.Message,
+    };
 }

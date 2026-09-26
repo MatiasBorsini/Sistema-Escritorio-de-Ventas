@@ -432,10 +432,10 @@ public sealed class ApartadoStockTests
         vm.Motivo = "baja";
         await vm.SolicitarBajaAsyncPublic();
         await vm.ConfirmarBajaAsyncPublic();
-        Assert.Contains("Permiso denegado", vm.Error ?? "");
+        Assert.Contains("No tenés permiso para autorizar bajas definitivas", vm.Error ?? "");
 
         await vm.ConfirmarBajaAsyncPublic();
-        Assert.Contains("Permiso denegado", vm.Error ?? "");
+        Assert.Contains("No tenés permiso para autorizar bajas definitivas", vm.Error ?? "");
         var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP15", e.SesionDuena))!;
         Assert.Equal(2, ex.Apartado);
         Assert.Equal(10, ex.Fisico);

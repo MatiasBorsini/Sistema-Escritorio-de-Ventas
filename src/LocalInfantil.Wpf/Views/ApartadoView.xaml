@@ -1,53 +1,131 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.ApartadoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
-        <StackPanel>
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Stock no vendible — apartar, reincorporar, baja definitiva"/>
-            <TextBlock Foreground="#6B7280" TextWrapping="Wrap" Text="Físico = disponible + apartado. Apartar y reincorporar no alteran el físico; la baja definitiva sí." Margin="0,4,0,8"/>
-            <TextBlock Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
-            <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBox Width="160" Text="{Binding SkuBusqueda, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU exacto"/>
-                <Button Content="Buscar" Margin="8,0,0,0" Padding="8,4" Command="{Binding BuscarCommand}"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBlock Text="Físico: "/><TextBlock Text="{Binding Existencia.Fisico, FallbackValue=—}" FontWeight="SemiBold" Margin="0,0,12,0"/>
-                <TextBlock Text="Disponible: "/><TextBlock Text="{Binding Existencia.Disponible, FallbackValue=—}" FontWeight="SemiBold" Margin="0,0,12,0"/>
-                <TextBlock Text="Apartado: "/><TextBlock Text="{Binding Existencia.Apartado, FallbackValue=—}" FontWeight="SemiBold"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <TextBox Width="100" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera >0"/>
-                <TextBox Width="260" Margin="8,0,0,0" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo obligatorio"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <Button Content="Apartar" Padding="8,4" Command="{Binding ApartarCommand}"/>
-                <Button Content="Reincorporar" Margin="8,0,0,0" Padding="8,4" Command="{Binding ReincorporarCommand}"/>
-                <Button Content="Solicitar baja definitiva" Margin="8,0,0,0" Padding="8,4" Command="{Binding SolicitarBajaCommand}"/>
-                <Button Content="Cancelar baja" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarBajaCommand}"/>
-            </StackPanel>
-            <Border Margin="0,0,0,8" Padding="8" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" Visibility="{Binding ConfirmacionBajaVisible, Converter={StaticResource BoolToVisibility}}">
+    <DockPanel Background="{StaticResource Color.CanvasBrush}">
+        <StackPanel DockPanel.Dock="Top" Margin="20,12,20,0">
+            <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Inventario" Margin="0,0,0,0"/>
+            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Consultá una variante y gestioná prendas temporalmente fuera de venta o dadas de baja." Margin="0,0,0,2"/>
+            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
+        </StackPanel>
+        <Grid Margin="20,2,20,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="7*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Foreground="#991B1B" TextWrapping="Wrap" Text="¿Confirmás la BAJA DEFINITIVA? Esas unidades dejan de existir físicamente. Esta acción no se puede deshacer desde esta pantalla."/>
-                    <Button Content="Confirmar baja definitiva" Margin="0,8,0,0" Padding="8,4" HorizontalAlignment="Left" Command="{Binding ConfirmarBajaCommand}"/>
-                </StackPanel>
-            </Border>
-            <GroupBox Header="Historial (apartados, reincorporaciones y bajas)" Padding="8">
-                <ItemsControl ItemsSource="{Binding Historial}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="4">
+                    <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Consultar variante"/>
+                            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal">
+                                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="220" Text="{Binding SkuBusqueda, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU exacto"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Buscar" Command="{Binding BuscarCommand}"/>
+                            </StackPanel>
+                            <TextBlock Margin="0,6,0,0" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Existencia.Sku, FallbackValue=Buscá una variante para ver su stock}" Visibility="{Binding Existencia, Converter={StaticResource NullToVisibility}, FallbackValue=Collapsed}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,6,0" MinWidth="120">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource EstiloNumeroMetrica}" FontSize="22" Text="{Binding Existencia.Fisico, FallbackValue=—}"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Físico · total existente"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{StaticResource Color.SuccessBgBrush}" BorderBrush="{StaticResource Color.SuccessTextBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,6,0" MinWidth="140">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource EstiloNumeroMetricaDestacado}" FontSize="26" Text="{Binding Existencia.Disponible, FallbackValue=—}"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Disponible para vender"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" MinWidth="120">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource EstiloNumeroMetrica}" FontSize="22" Text="{Binding Existencia.Apartado, FallbackValue=—}"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Apartado / no vendible"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Margin="0,6,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" Text="Físico = Disponible + Apartado."/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Gestionar disponibilidad"/>
+                            <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" Text="Elegí la acción. Solo aparece el formulario necesario." Margin="0,0,0,4"/>
+                            <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="10" Padding="3" HorizontalAlignment="Left" Margin="0,0,0,4">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Tipo}" Width="110"/>
-                                    <TextBlock Text="{Binding Cantidad}" Width="60"/>
-                                    <TextBlock Text="{Binding Motivo}" Width="200" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Foreground="#6B7280" FontSize="11" Text="{Binding ResponsableNombre, FallbackValue=—}"/>
+                                    <RadioButton Style="{StaticResource EstiloSegmento}" GroupName="AccionApartado" Content="Apartar" IsChecked="{Binding AccionApartarActiva, Mode=OneWay}" Command="{Binding SeleccionarAccionCommand}" CommandParameter="Apartar"/>
+                                    <RadioButton Style="{StaticResource EstiloSegmento}" GroupName="AccionApartado" Content="Reincorporar" IsChecked="{Binding AccionReincorporarActiva, Mode=OneWay}" Command="{Binding SeleccionarAccionCommand}" CommandParameter="Reincorporar"/>
+                                    <RadioButton Style="{StaticResource EstiloSegmento}" GroupName="AccionApartado" Content="Baja definitiva" IsChecked="{Binding AccionBajaActiva, Mode=OneWay}" Command="{Binding SeleccionarAccionCommand}" CommandParameter="Baja"/>
                                 </StackPanel>
                             </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </GroupBox>
-        </StackPanel>
-    </ScrollViewer>
+                            <StackPanel Visibility="{Binding PanelApartarVisible, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap" Text="Retirar temporalmente de la venta. Baja el disponible, el total físico no cambia." Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" Width="120" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera mayor a cero"/>
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" Width="280" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo obligatorio"/>
+                                </StackPanel>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Margin="0,8,0,0" HorizontalAlignment="Left" Content="Apartar prendas" Command="{Binding ApartarCommand}"/>
+                            </StackPanel>
+                            <StackPanel Visibility="{Binding PanelReincorporarVisible, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap" Text="Volver a dejar disponible para vender. Vuelve de apartado a disponible." Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" Width="120" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera mayor a cero"/>
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" Width="280" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo obligatorio"/>
+                                </StackPanel>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Margin="0,8,0,0" HorizontalAlignment="Left" Content="Reincorporar prendas" Command="{Binding ReincorporarCommand}"/>
+                            </StackPanel>
+                            <StackPanel Visibility="{Binding PanelBajaVisible, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap" Text="Retirar definitivamente del inventario. Reduce el físico: esas unidades dejan de existir." Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" Width="120" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera mayor a cero"/>
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" Width="280" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo obligatorio"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Style="{StaticResource EstiloBotonDestructivo}" Content="Solicitar baja definitiva" Command="{Binding SolicitarBajaCommand}"/>
+                                    <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarBajaCommand}"/>
+                                </StackPanel>
+                                <Border Margin="0,8,0,0" Padding="12" Background="{StaticResource Color.ErrorBgBrush}" BorderBrush="{StaticResource Color.ErrorTextBrush}" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionBajaVisible, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel>
+                                        <TextBlock Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap" Text="¿Confirmás la baja definitiva? Esas unidades dejan de existir físicamente y no se puede deshacer desde esta pantalla."/>
+                                        <Button Style="{StaticResource EstiloBotonDestructivo}" Margin="0,8,0,0" HorizontalAlignment="Left" Content="Confirmar baja definitiva" Command="{Binding ConfirmarBajaCommand}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0" Padding="{StaticResource RellenoPanel}" VerticalAlignment="Top">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Historial" FontSize="15"/>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Últimos movimientos (máx. 20)"/>
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Historial}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                            <Ellipse Width="11" Height="11" Fill="{StaticResource Color.PrimaryBrush}" VerticalAlignment="Top" Margin="0,4,8,0"/>
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Tipo}"/>
+                                                    <TextBlock Margin="6,0,0,0" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Cantidad, StringFormat={}{0} u.}"/>
+                                                </StackPanel>
+                                                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CreadoEn, Converter={StaticResource FechaCorta}}"/>
+                                                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Motivo}" TextWrapping="Wrap"/>
+                                                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding ResponsableNombre, FallbackValue=—}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Style="{StaticResource EstiloEstadoVacio}" Text="Todavía no hay movimientos de clasificación para esta variante." Visibility="{Binding Historial.Count, Converter={StaticResource CeroVisible}}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
 </UserControl>

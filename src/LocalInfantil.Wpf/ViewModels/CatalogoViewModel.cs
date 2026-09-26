@@ -18,14 +18,44 @@ public sealed class FilaCargaViewModel : ViewModelBase
     public string? Detalle { get => _detalle; set => SetProperty(ref _detalle, value); }
 }
 
+/// <summary>
+/// Fila densa del master: resumen oficial por página (una sola lectura batch).
+/// Agregados siempre conocidos (COUNT/SUM con COALESCE); sin N+1.
+/// </summary>
+public sealed class FilaCatalogo : ViewModelBase
+{
+    public FilaCatalogo(ResumenProducto resumen)
+    {
+        Producto = new ProductoRegistrado(resumen.Id, resumen.Nombre, resumen.Marca, resumen.Categoria, resumen.Activo);
+        CantidadVariantes = resumen.CantidadVariantes;
+        StockTotal = resumen.StockTotal;
+    }
+
+    public FilaCatalogo(ProductoRegistrado producto, int cantidadVariantes, long stockTotal)
+    {
+        Producto = producto;
+        CantidadVariantes = cantidadVariantes;
+        StockTotal = stockTotal;
+    }
+
+    public ProductoRegistrado Producto { get; }
+    public int CantidadVariantes { get; }
+    public long StockTotal { get; }
+    public string VariantesTexto => CantidadVariantes.ToString();
+    public string StockTexto => StockTotal.ToString();
+    public string EstadoTexto => Producto.Activo ? "Activo" : "Inactivo";
+}
+
 public sealed class CatalogoViewModel : ViewModelBase
 {
     private readonly ServiciosComerciales _servicios;
     private readonly Func<string?> _idSesion;
+    private readonly IDialogosCatalogo? _dialogos;
     private string _textoBusqueda = string.Empty;
     private string _skuBusqueda = string.Empty;
     private int _pagina;
-    private const int TamanoPagina = 20;
+    private int _tamanoPagina = 20;
+    public int PaginaVisible => _pagina + 1;
     private string? _error;
     private string? _mensaje;
     private bool _ocupado;
@@ -41,11 +71,13 @@ public sealed class CatalogoViewModel : ViewModelBase
     private string _operacionIdCarga = string.Empty;
     private IReadOnlyList<FilaCargaInicial>? _ultimasFilasEnviadas;
 
-    public CatalogoViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
+    public CatalogoViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosCatalogo? dialogos = null)
     {
         _servicios = servicios;
         _idSesion = idSesion;
+        _dialogos = dialogos;
         Productos = new ObservableCollection<ProductoRegistrado>();
+        Filas = new ObservableCollection<FilaCatalogo>();
         FilasCarga = new ObservableCollection<FilaCargaViewModel> { new(), new() };
         _operacionIdCarga = servicios.GeneradorIds.NuevoId();
         BuscarCommand = new AsyncRelayCommand(BuscarAsync);
@@ -63,10 +95,14 @@ public sealed class CatalogoViewModel : ViewModelBase
         AgregarFilaCargaCommand = new AsyncRelayCommand(AgregarFilaAsync);
         QuitarFilaCargaCommand = new AsyncRelayCommand(QuitarFilaAsync);
         EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
+        AbrirFichaCommand = new AsyncRelayCommand(AbrirFichaAsync);
+        NuevaFichaCommand = new AsyncRelayCommand(NuevaFichaAsync);
     }
 
     public ObservableCollection<ProductoRegistrado> Productos { get; }
+    public ObservableCollection<FilaCatalogo> Filas { get; }
     public ObservableCollection<FilaCargaViewModel> FilasCarga { get; }
+    public int[] TamanosPagina { get; } = [20, 50, 100];
     public string TextoBusqueda { get => _textoBusqueda; set => SetProperty(ref _textoBusqueda, value); }
     public string SkuBusqueda { get => _skuBusqueda; set => SetProperty(ref _skuBusqueda, value); }
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
@@ -78,10 +114,64 @@ public sealed class CatalogoViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _productoSeleccionado, value))
+            {
+                SincronizarFilaSeleccionada();
                 _ = VerFichaAsync();
+            }
         }
     }
-    public FichaProducto? Ficha { get => _ficha; set => SetProperty(ref _ficha, value); }
+
+    private FilaCatalogo? _filaSeleccionada;
+
+    /// <summary>Selección del DataGrid. Sincroniza ProductoSeleccionado (y su ficha).</summary>
+    public FilaCatalogo? FilaSeleccionada
+    {
+        get => _filaSeleccionada;
+        set
+        {
+            if (SetProperty(ref _filaSeleccionada, value) && value is not null)
+                ProductoSeleccionado = value.Producto;
+        }
+    }
+
+    private void SincronizarFilaSeleccionada()
+    {
+        if (_productoSeleccionado is null) return;
+        foreach (var f in Filas)
+        {
+            if (f.Producto.Id == _productoSeleccionado.Id)
+            {
+                SetProperty(ref _filaSeleccionada, f, nameof(FilaSeleccionada));
+                return;
+            }
+        }
+    }
+
+    public FichaProducto? Ficha
+    {
+        get => _ficha;
+        set
+        {
+            if (SetProperty(ref _ficha, value))
+            {
+                OnPropertyChanged(nameof(HayFicha));
+                OnPropertyChanged(nameof(CantidadVariantesVista));
+                OnPropertyChanged(nameof(StockVistaTotal));
+                OnPropertyChanged(nameof(PrimerasVariantesVista));
+            }
+        }
+    }
+
+    public bool HayFicha => Ficha is not null;
+
+    /// <summary>Vista rápida readonly: agregados de la ficha ya cargada.</summary>
+    public int CantidadVariantesVista => Ficha?.Variantes.Count ?? 0;
+
+    public long? StockVistaTotal => Ficha is null ? null : Ficha.Variantes.Sum(v => v.Existencias);
+
+    public IReadOnlyList<FichaVariante> PrimerasVariantesVista => Ficha is null
+        ? Array.Empty<FichaVariante>()
+        : Ficha.Variantes.Take(4).ToList();
     public string NuevoProductoNombre { get => _nuevoProductoNombre; set => SetProperty(ref _nuevoProductoNombre, value); }
     public string? NuevoProductoMarca { get => _nuevoProductoMarca; set => SetProperty(ref _nuevoProductoMarca, value); }
     public string? NuevoProductoCategoria { get => _nuevoProductoCategoria; set => SetProperty(ref _nuevoProductoCategoria, value); }
@@ -90,6 +180,46 @@ public sealed class CatalogoViewModel : ViewModelBase
     public string? NuevoVarianteColor { get => _nuevoVarianteColor; set => SetProperty(ref _nuevoVarianteColor, value); }
     public string PrecioTexto { get => _precioTexto; set => SetProperty(ref _precioTexto, value); }
     public int Pagina => _pagina;
+
+    /// <summary>Tamaño de página real: se envía como límite a la consulta
+    /// SQLite (1–100). Cambiarlo reinicia a la primera página.</summary>
+    public int TamanoPagina
+    {
+        get => _tamanoPagina;
+        set
+        {
+            if (value < 1 || value > 100 || value == _tamanoPagina) return;
+            _tamanoPagina = value;
+            _pagina = 0;
+            OnPropertyChanged(nameof(TamanoPagina));
+            OnPropertyChanged(nameof(Pagina));
+            OnPropertyChanged(nameof(PaginaVisible));
+            _ = BuscarAsync();
+        }
+    }
+
+    private bool _haySiguiente;
+
+    /// <summary>
+    /// Peek +1: la consulta trae hasta TamanoPagina+1 y se muestran N. Si
+    /// llegó la extra hay siguiente (correcto aunque el total sea múltiplo
+    /// exacto del tamaño). Sin COUNT (*).
+    /// </summary>
+    public bool HaySiguiente
+    {
+        get => _haySiguiente;
+        private set => SetProperty(ref _haySiguiente, value);
+    }
+
+    public bool EsUltimaPagina => !HaySiguiente;
+
+    public bool HayAnterior => _pagina > 0;
+
+    /// <summary>Cantidad fiable: filas de la página actual (sin total global).</summary>
+    public string Resumen => Productos.Count == 0
+        ? "Sin resultados."
+        : $"{Productos.Count} resultado(s) · Página {PaginaVisible}" + (EsUltimaPagina ? " · Fin del listado" : string.Empty);
+
     public string OperacionIdCarga => _operacionIdCarga;
 
     public AsyncRelayCommand BuscarCommand { get; }
@@ -107,6 +237,8 @@ public sealed class CatalogoViewModel : ViewModelBase
     public AsyncRelayCommand AgregarFilaCargaCommand { get; }
     public AsyncRelayCommand QuitarFilaCargaCommand { get; }
     public AsyncRelayCommand EjecutarCargaCommand { get; }
+    public AsyncRelayCommand AbrirFichaCommand { get; }
+    public AsyncRelayCommand NuevaFichaCommand { get; }
 
     public static string FormatearArs(long? minor)
     {
@@ -122,10 +254,21 @@ public sealed class CatalogoViewModel : ViewModelBase
         try
         {
             var sesion = _idSesion();
-            var lista = await _servicios.ConsultasCatalogo.BuscarProductosAsync(TextoBusqueda ?? string.Empty, TamanoPagina, _pagina * TamanoPagina, sesion);
+            var lista = await _servicios.ConsultasCatalogo.BuscarResumenAsync(TextoBusqueda ?? string.Empty, _tamanoPagina, _pagina * _tamanoPagina, sesion);
+            HaySiguiente = lista.Count > _tamanoPagina;
             Productos.Clear();
-            foreach (var p in lista) Productos.Add(p);
-            Mensaje = lista.Count == 0 ? "Sin resultados." : $"{lista.Count} producto(s). Página {_pagina + 1}.";
+            Filas.Clear();
+            SetProperty(ref _filaSeleccionada, null, nameof(FilaSeleccionada));
+            foreach (var r in lista.Take(_tamanoPagina))
+            {
+                Productos.Add(new ProductoRegistrado(r.Id, r.Nombre, r.Marca, r.Categoria, r.Activo));
+                Filas.Add(new FilaCatalogo(r));
+            }
+
+            Mensaje = null;
+            OnPropertyChanged(nameof(Resumen));
+            OnPropertyChanged(nameof(EsUltimaPagina));
+            OnPropertyChanged(nameof(HayAnterior));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
@@ -146,10 +289,17 @@ public sealed class CatalogoViewModel : ViewModelBase
             if (prod is not null)
             {
                 Productos.Clear();
+                Filas.Clear();
+                SetProperty(ref _filaSeleccionada, null, nameof(FilaSeleccionada));
                 Productos.Add(prod);
+                Filas.Add(new FilaCatalogo(prod, ficha!.Variantes.Count, ficha.Variantes.Sum(x => x.Existencias)));
+                HaySiguiente = false;
                 ProductoSeleccionado = prod;
             }
             Mensaje = $"SKU {v.Sku} encontrado.";
+            OnPropertyChanged(nameof(Resumen));
+            OnPropertyChanged(nameof(EsUltimaPagina));
+            OnPropertyChanged(nameof(HayAnterior));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
@@ -157,11 +307,30 @@ public sealed class CatalogoViewModel : ViewModelBase
 
     private async Task CambiarPaginaAsync(int delta)
     {
+        if (delta > 0 && EsUltimaPagina) return;
         var nueva = _pagina + delta;
         if (nueva < 0) return;
         _pagina = nueva;
         OnPropertyChanged(nameof(Pagina));
+        OnPropertyChanged(nameof(PaginaVisible));
         await BuscarAsync();
+    }
+
+    private Task AbrirFichaAsync()
+    {
+        Error = null;
+        if (ProductoSeleccionado is null) { Error = "Seleccioná un producto."; return Task.CompletedTask; }
+        if (_dialogos is null) { Error = "Apertura de ficha no disponible."; return Task.CompletedTask; }
+        _dialogos.MostrarFichaProducto(ProductoSeleccionado.Id, () => BuscarAsync());
+        return Task.CompletedTask;
+    }
+
+    private Task NuevaFichaAsync()
+    {
+        Error = null;
+        if (_dialogos is null) { Error = "Alta de producto no disponible."; return Task.CompletedTask; }
+        _dialogos.MostrarFichaProducto(null, () => BuscarAsync());
+        return Task.CompletedTask;
     }
 
     private async Task VerFichaAsync()
@@ -186,12 +355,12 @@ public sealed class CatalogoViewModel : ViewModelBase
         try
         {
             var id = await _servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), NullSiVacio(NuevoProductoCategoria)), _idSesion());
-            Mensaje = $"Producto creado {id}.";
+            Mensaje = "Producto creado.";
             NuevoProductoNombre = string.Empty; NuevoProductoMarca = null; NuevoProductoCategoria = null;
             OnPropertyChanged(nameof(NuevoProductoNombre)); OnPropertyChanged(nameof(NuevoProductoMarca)); OnPropertyChanged(nameof(NuevoProductoCategoria));
             await BuscarAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "crear productos"); }
         finally { Ocupado = false; }
     }
 
@@ -207,7 +376,7 @@ public sealed class CatalogoViewModel : ViewModelBase
             await BuscarAsync();
             await VerFichaAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "editar productos"); }
         finally { Ocupado = false; }
     }
 
@@ -222,7 +391,7 @@ public sealed class CatalogoViewModel : ViewModelBase
             Mensaje = "Producto desactivado.";
             await BuscarAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "desactivar productos"); }
         finally { Ocupado = false; }
     }
 
@@ -235,12 +404,12 @@ public sealed class CatalogoViewModel : ViewModelBase
         try
         {
             var id = await _servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(ProductoSeleccionado.Id, NuevoVarianteSku.Trim(), NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
-            Mensaje = $"Variante creada {id}.";
+            Mensaje = "Variante creada.";
             NuevoVarianteSku = string.Empty; NuevoVarianteTalle = null; NuevoVarianteColor = null;
             OnPropertyChanged(nameof(NuevoVarianteSku)); OnPropertyChanged(nameof(NuevoVarianteTalle)); OnPropertyChanged(nameof(NuevoVarianteColor));
             await VerFichaAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "crear variantes"); }
         finally { Ocupado = false; }
     }
 
@@ -256,7 +425,7 @@ public sealed class CatalogoViewModel : ViewModelBase
             Mensaje = "Variante editada (talle/color). SKU no se reasigna.";
             await VerFichaAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "editar variantes"); }
         finally { Ocupado = false; }
     }
 
@@ -272,7 +441,7 @@ public sealed class CatalogoViewModel : ViewModelBase
             Mensaje = "Variante desactivada (historial conservado).";
             await VerFichaAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "desactivar variantes"); }
         finally { Ocupado = false; }
     }
 
@@ -289,12 +458,14 @@ public sealed class CatalogoViewModel : ViewModelBase
             Mensaje = $"Precio fijado {FormatearArs(minor)} (historial conservado).";
             await VerFichaAsync();
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { Error = MensajeError(ex, "fijar precios"); }
         finally { Ocupado = false; }
     }
 
     public Task BuscarAsyncPublic() => BuscarAsync();
     public Task VerFichaAsyncPublic() => VerFichaAsync();
+    public Task AbrirFichaAsyncPublic() => AbrirFichaAsync();
+    public Task NuevaFichaAsyncPublic() => NuevaFichaAsync();
     public Task CrearVarianteAsyncPublic() => CrearVarianteAsync();
     public Task FijarPrecioAsyncPublic() => FijarPrecioAsync();
     public Task CrearProductoAsyncPublic() => CrearProductoAsync();
@@ -348,8 +519,8 @@ public sealed class CatalogoViewModel : ViewModelBase
             // Conservar mismo operacion_id y filas para reintento idempotente si es error incierto
             _ultimasFilasEnviadas = filas;
             var msg = ex is InvalidOperationException && ex.Message.Contains("ya fue registrada")
-                ? "Esta carga ya quedó registrada con ese operacion_id; no se volvió a crear."
-                : MensajeError(ex) + " (sin éxito parcial; si el resultado es incierto, reintentá con mismo operacion_id y mismas filas: " + _operacionIdCarga + ")";
+                ? "Esta carga ya quedó registrada; no se volvió a crear."
+                : MensajeError(ex, "cargar stock inicial") + " (sin éxito parcial; si el resultado es incierto, reintentá con las mismas filas)";
             Error = msg;
         }
         finally { Ocupado = false; }
@@ -374,5 +545,14 @@ public sealed class CatalogoViewModel : ViewModelBase
             if (a[i].VarianteId != b[i].VarianteId || a[i].Cantidad != b[i].Cantidad) return false;
         return true;
     }
-    private static string MensajeError(Exception ex) => ex is LocalInfantil.Application.Abstractions.AccesoDenegadoException ? "Permiso denegado." : ex is LocalInfantil.Application.Abstractions.SesionInvalidaException ? "Sesión inválida. Iniciá sesión nuevamente." : ex.Message;
+    private static string MensajeError(Exception ex, string? accion = null) => ex switch
+    {
+        LocalInfantil.Application.Abstractions.AccesoDenegadoException when accion is not null
+            => $"No tenés permiso para {accion}. La Dueña puede habilitarlo desde Administración → Permisos.",
+        LocalInfantil.Application.Abstractions.AccesoDenegadoException
+            => "Permiso denegado. La Dueña puede habilitar permisos comerciales desde Administración → Permisos.",
+        LocalInfantil.Application.Abstractions.SesionInvalidaException
+            => "Sesión inválida. Iniciá sesión nuevamente.",
+        _ => ex.Message,
+    };
 }

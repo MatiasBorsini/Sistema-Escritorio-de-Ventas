@@ -74,16 +74,7 @@ public partial class App : System.Windows.Application
             await migrador.MigrarAsync(MigracionesF01.Todas, respaldoDir);
 
             await using var sesion = await servicios.Fabrica.IniciarLecturaAsync();
-            var total = await servicios.RepoUsuarios.ContarTodosAsync(sesion);
-            if (total == 0)
-            {
-                // placeholder: se reemplaza tras crear root
-                contenidoInicial = new InicioViewModel();
-            }
-            else
-            {
-                contenidoInicial = new InicioViewModel();
-            }
+            _ = await servicios.RepoUsuarios.ContarTodosAsync(sesion);
         }
         catch (Exception ex)
         {
@@ -91,28 +82,79 @@ public partial class App : System.Windows.Application
             servicios = null;
         }
 
-        AppRootViewModel root;
         if (servicios is null)
         {
-            root = new AppRootViewModel(null, rutaDev, error, contenidoInicial);
-        }
-        else
-        {
-            root = new AppRootViewModel(servicios, rutaDev, error, contenidoInicial);
-            await using var sesion = await servicios.Fabrica.IniciarLecturaAsync();
-            var total = await servicios.RepoUsuarios.ContarTodosAsync(sesion);
-            if (total == 0)
-            {
-                root.Mostrar(new BootstrapDuenaViewModel(servicios, async s => await root.AutenticadoAsync(s)));
-            }
-            else
-            {
-                root.Mostrar(new LoginViewModel(servicios, async s => await root.AutenticadoAsync(s)));
-            }
+            var rootError = new AppRootViewModel(null, rutaDev, error, contenidoInicial);
+            var winError = new DevMainWindow { DataContext = rootError };
+            winError.Show();
+            return;
         }
 
-        var win = new DevMainWindow { DataContext = root };
-        win.Show();
+        var root = new AppRootViewModel(servicios, rutaDev, error, contenidoInicial);
+
+        // Cerrar sesión respeta la misma arquitectura que el inicio: Login
+        // siempre en LoginWindow. Se oculta la principal, se abre una
+        // LoginWindow nueva; si autentica, se vuelve a mostrar la principal;
+        // si se cierra sin autenticar, se cierra la aplicación.
+        void ConfigurarCierreSesion(DevMainWindow principal)
+        {
+            root.AlCerrarSesion = async () =>
+            {
+                principal.Hide();
+                var reautenticado = false;
+                Views.LoginWindow? ventanaReingreso = null;
+                var reingresoVm = new LoginViewModel(servicios, async s =>
+                {
+                    reautenticado = true;
+                    await root.AutenticadoAsync(s);
+                    if (principal.WindowState == WindowState.Minimized)
+                        principal.WindowState = WindowState.Normal;
+                    principal.Show();
+                    principal.Activate();
+                    ventanaReingreso?.Close();
+                });
+                ventanaReingreso = new Views.LoginWindow(reingresoVm, rutaDev);
+                ventanaReingreso.Closed += (_, _) =>
+                {
+                    if (!reautenticado)
+                        Shutdown();
+                };
+                ventanaReingreso.Show();
+            };
+        }
+
+        await using var sesionLectura = await servicios.Fabrica.IniciarLecturaAsync();
+        var total = await servicios.RepoUsuarios.ContarTodosAsync(sesionLectura);
+        if (total == 0)
+        {
+            // Bootstrap de primera dueña preservado: misma ventana principal.
+            root.Mostrar(new BootstrapDuenaViewModel(servicios, async s => await root.AutenticadoAsync(s)));
+            var winBootstrap = new DevMainWindow { DataContext = root };
+            ConfigurarCierreSesion(winBootstrap);
+            winBootstrap.Show();
+            return;
+        }
+
+        // Ya existe configuración inicial: LoginWindow separada y compacta.
+        // Login exitoso → cerrar LoginWindow y abrir la principal.
+        var autenticado = false;
+        Views.LoginWindow? ventanaLogin = null;
+        var loginVm = new LoginViewModel(servicios, async s =>
+        {
+            autenticado = true;
+            await root.AutenticadoAsync(s);
+            var win = new DevMainWindow { DataContext = root };
+            ConfigurarCierreSesion(win);
+            win.Show();
+            ventanaLogin?.Close();
+        });
+        ventanaLogin = new Views.LoginWindow(loginVm, rutaDev);
+        ventanaLogin.Closed += (_, _) =>
+        {
+            if (!autenticado)
+                Shutdown();
+        };
+        ventanaLogin.Show();
     }
 
     private static void AbrirVistaPreviaImpresion(DocumentoImpresionDePrueba documento)
