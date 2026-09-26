@@ -168,6 +168,59 @@ public sealed class RepositorioProductos : IRepositorioProductos
         }
     }
 
+    public async Task<IReadOnlyList<ResumenProducto>> BuscarResumenAsync(ISesionPersistencia sesion, string texto, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        if (limite < 1 || limite > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limite), "El límite debe estar entre 1 y 100.");
+        }
+
+        if (desplazamiento < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(desplazamiento), "El desplazamiento no puede ser negativo.");
+        }
+
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            // Una sola lectura: mismo filtro y orden que BuscarAsync, con
+            // agregados por producto (COUNT de variantes, SUM de existencias
+            // por variante) y una fila extra de peek para HaySiguiente.
+            comando.CommandText = """
+                SELECT p.id, p.nombre, p.marca, p.categoria, p.activo,
+                       COUNT(v.id),
+                       COALESCE(SUM(COALESCE((SELECT SUM(m.cantidad) FROM movimiento_inventario m WHERE m.variante_id = v.id), 0)), 0)
+                FROM producto p LEFT JOIN variante v ON v.producto_id = p.id
+                WHERE p.nombre LIKE $t OR p.marca LIKE $t OR p.categoria LIKE $t
+                GROUP BY p.id ORDER BY p.nombre, p.id LIMIT $limite OFFSET $desplazamiento;
+                """;
+            comando.Parameters.AddWithValue("$t", $"%{texto.Trim()}%");
+            comando.Parameters.AddWithValue("$limite", limite + 1);
+            comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<ResumenProducto>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(new ResumenProducto(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.IsDBNull(2) ? null : lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.GetInt64(4) == 1,
+                    (int)lector.GetInt64(5),
+                    lector.GetInt64(6)));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ProductoRegistrado Leer(SqliteDataReader lector)
     {
         return new ProductoRegistrado(

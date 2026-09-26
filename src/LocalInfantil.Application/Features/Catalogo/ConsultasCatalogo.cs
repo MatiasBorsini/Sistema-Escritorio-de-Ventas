@@ -64,6 +64,16 @@ public sealed class ConsultasCatalogo
         return await _productos.BuscarAsync(sesion, texto ?? string.Empty, limite, desplazamiento, cancellationToken);
     }
 
+    /// <summary>
+    /// Resumen por página en una sola lectura (hasta limite+1 filas para el
+    /// peek de HaySiguiente). Solo lectura agregada; sin reglas nuevas.
+    /// </summary>
+    public async Task<IReadOnlyList<ResumenProducto>> BuscarResumenAsync(string texto, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        return await _productos.BuscarResumenAsync(sesion, texto ?? string.Empty, limite, desplazamiento, cancellationToken);
+    }
+
     public async Task<FichaProducto?> ObtenerFichaAsync(string productoId, string fecha, string? idSesion, CancellationToken cancellationToken = default)
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);

@@ -22,5 +22,12 @@ public sealed record DetalleConteo(string VarianteId, long ExistenciaEsperada, l
 /// <summary>Línea de informe: esperado, contado y diferencia por SKU.</summary>
 public sealed record InformeConteoLinea(string VarianteId, string Sku, long Esperado, long Contado, long Diferencia);
 
-/// <summary>Conteo físico registrado.</summary>
-public sealed record ConteoRegistrado(string Id, string OperacionId, string Estado, string? AprobadoPorUsuarioId);
+/// <summary>Conteo físico registrado — datos humanos disponibles para la lista.</summary>
+public sealed record ConteoRegistrado(
+    string Id,
+    string OperacionId,
+    string Estado,
+    string? AprobadoPorUsuarioId,
+    string CreadoEn = "",
+    int CantidadVariantes = 0,
+    string? CreadoPorNombre = null);

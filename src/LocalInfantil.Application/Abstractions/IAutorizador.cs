@@ -9,4 +9,6 @@ namespace LocalInfantil.Application.Abstractions;
 public interface IAutorizador
 {
     Task<UsuarioRegistrado> AutorizarAsync(string idSesion, string permiso, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlySet<string>> ObtenerPermisosEfectivosAsync(string idSesion, IReadOnlyCollection<string> permisos, CancellationToken cancellationToken = default);
 }

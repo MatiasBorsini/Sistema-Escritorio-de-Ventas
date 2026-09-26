@@ -35,6 +35,20 @@ public sealed class ConsultasRecepciones
         return await _recepciones.ListarLineasAsync(sesion, recepcionId, cancellationToken);
     }
 
+    /// <summary>Historial con agregados en una lectura (peek +1 para HaySiguiente).</summary>
+    public async Task<IReadOnlyList<ResumenRecepcion>> BuscarResumenAsync(string texto, string filtro, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        return await _recepciones.BuscarResumenAsync(sesion, texto ?? string.Empty, filtro ?? FiltroRecepciones.Todas, limite, desplazamiento, cancellationToken);
+    }
+
+    /// <summary>Líneas con variante resuelta en una lectura (detalle bajo demanda).</summary>
+    public async Task<IReadOnlyList<LineaRecepcionDetalle>> ListarLineasDetalleAsync(string recepcionId, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
+        return await _recepciones.ListarLineasDetalleAsync(sesion, recepcionId, cancellationToken);
+    }
+
     public async Task<bool> EstaRevertidaAsync(string recepcionId, string? idSesion, CancellationToken cancellationToken = default)
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);

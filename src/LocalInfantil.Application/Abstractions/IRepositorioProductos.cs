@@ -15,4 +15,11 @@ public interface IRepositorioProductos
     Task<IReadOnlyList<ProductoRegistrado>> ListarAsync(ISesionPersistencia sesion, bool soloActivos, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ProductoRegistrado>> BuscarAsync(ISesionPersistencia sesion, string texto, int limite, int desplazamiento, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Búsqueda con agregados por página en una sola lectura. El parámetro
+    /// <paramref name="limite"/> es el tamaño de página (1–100); devuelve
+    /// hasta limite+1 filas para detectar HaySiguiente sin COUNT (*).
+    /// </summary>
+    Task<IReadOnlyList<ResumenProducto>> BuscarResumenAsync(ISesionPersistencia sesion, string texto, int limite, int desplazamiento, CancellationToken cancellationToken = default);
 }

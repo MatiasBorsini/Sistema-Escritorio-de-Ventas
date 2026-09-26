@@ -4,6 +4,7 @@ using LocalInfantil.Application.Features.Autenticacion;
 using LocalInfantil.Application.Features.Catalogo;
 using LocalInfantil.Application.Features.Compras;
 using LocalInfantil.Application.Features.Inventario;
+using LocalInfantil.Application.Features.Inicio;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
@@ -48,10 +49,12 @@ public sealed class ServiciosComerciales
     public IRepositorioRecepciones RepoRecepciones { get; }
     public IRepositorioConteos RepoConteos { get; }
     public IRepositorioApartados RepoApartados { get; }
+    public IRepositorioInicio RepoInicio { get; }
     public ConsultasProveedores ConsultasProveedores { get; }
     public ConsultasRecepciones ConsultasRecepciones { get; }
     public ConsultasConteos ConsultasConteos { get; }
     public ConsultasInventario ConsultasInventario { get; }
+    public ConsultasInicio ConsultasInicio { get; }
     public CrearProveedor CasoCrearProveedor { get; }
     public EditarProveedor CasoEditarProveedor { get; }
     public DesactivarProveedor CasoDesactivarProveedor { get; }
@@ -84,6 +87,7 @@ public sealed class ServiciosComerciales
         RepoRecepciones = new RepositorioRecepciones(GeneradorIds);
         RepoConteos = new RepositorioConteos(GeneradorIds);
         RepoApartados = new RepositorioApartados(GeneradorIds);
+        RepoInicio = new RepositorioInicio();
         Autorizador = new Autorizador(Gestor, RepoUsuarios, RepoPermisos, Fabrica, Matriz);
         CasoIniciarSesion = new IniciarSesion(RepoUsuarios, Hasher, Gestor, Fabrica, RepoAuditoria, GeneradorIds, Reloj, new OpcionesAutenticacion());
         CasoCerrarSesion = new CerrarSesion(Gestor, Fabrica, RepoAuditoria, GeneradorIds);
@@ -112,6 +116,7 @@ public sealed class ServiciosComerciales
         CasoCorregirConteo = new CorregirConteo(RepoConteos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoAprobarConteo = new AprobarConteo(RepoConteos, RepoMovimientos, RepoApartados, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         ConsultasInventario = new ConsultasInventario(RepoMovimientos, RepoVariantes, RepoConteos, RepoApartados, Gestor, Fabrica);
+        ConsultasInicio = new ConsultasInicio(Autorizador, RepoInicio, Fabrica);
         CasoApartarStock = new ApartarStock(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoReincorporarStock = new ReincorporarStock(RepoApartados, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoBajaDefinitiva = new BajaDefinitivaApartado(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);

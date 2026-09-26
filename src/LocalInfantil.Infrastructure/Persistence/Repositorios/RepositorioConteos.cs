@@ -174,13 +174,26 @@ public sealed class RepositorioConteos : IRepositorioConteos
         {
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
-            comando.CommandText = "SELECT id, operacion_id, estado, aprobado_por_usuario_id FROM conteo ORDER BY creado_en DESC, id DESC LIMIT $limite OFFSET $desplazamiento;";
+            comando.CommandText = """
+                SELECT c.id, c.operacion_id, c.estado, c.aprobado_por_usuario_id, c.creado_en,
+                       (SELECT COUNT(*) FROM conteo_detalle d WHERE d.conteo_id = c.id),
+                       u.nombre
+                FROM conteo c LEFT JOIN usuario u ON u.id = c.creado_por_usuario_id
+                ORDER BY c.creado_en DESC, c.id DESC LIMIT $limite OFFSET $desplazamiento;
+                """;
             comando.Parameters.AddWithValue("$limite", limite);
             comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
             await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
             var lista = new List<ConteoRegistrado>();
             while (await lector.ReadAsync(cancellationToken))
-                lista.Add(new ConteoRegistrado(lector.GetString(0), lector.GetString(1), lector.GetString(2), lector.IsDBNull(3) ? null : lector.GetString(3)));
+                lista.Add(new ConteoRegistrado(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.GetString(4),
+                    (int)lector.GetInt64(5),
+                    lector.IsDBNull(6) ? null : lector.GetString(6)));
             return lista;
         }
         catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))

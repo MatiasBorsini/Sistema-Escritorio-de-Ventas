@@ -56,4 +56,14 @@ public sealed class Autorizador : IAutorizador
 
         return usuario;
     }
+
+    public async Task<IReadOnlySet<string>> ObtenerPermisosEfectivosAsync(string idSesion, IReadOnlyCollection<string> permisos, CancellationToken cancellationToken = default)
+    {
+        var sesion = _sesiones.Obtener(idSesion) ?? throw new SesionInvalidaException();
+        await using var lectura = await _fabrica.IniciarLecturaAsync(cancellationToken);
+        var usuario = await _usuarios.ObtenerPorIdAsync(lectura, sesion.UsuarioId, cancellationToken);
+        if (usuario is null || !usuario.Activo) { _sesiones.Expulsar(idSesion); throw new SesionInvalidaException(); }
+        var definidos = await _permisos.ObtenerDefinidosAsync(lectura, usuario.Id, permisos, cancellationToken);
+        return permisos.Where(p => definidos.TryGetValue(p, out var individual) ? individual : _matriz.Permite(usuario.Rol, p)).ToHashSet();
+    }
 }

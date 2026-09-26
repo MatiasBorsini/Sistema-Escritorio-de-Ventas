@@ -37,6 +37,16 @@ public interface IRepositorioRecepciones
 
     Task<IReadOnlyList<LineaRecepcion>> ListarLineasAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Historial con agregados en una sola lectura. <paramref name="limite"/>
+    /// es tamaño de página (1–100); devuelve hasta limite+1 para el peek de
+    /// HaySiguiente. <paramref name="filtro"/>: todas/confirmadas/revertidas.
+    /// </summary>
+    Task<IReadOnlyList<ResumenRecepcion>> BuscarResumenAsync(ISesionPersistencia sesion, string texto, string filtro, int limite, int desplazamiento, CancellationToken cancellationToken = default);
+
+    /// <summary>Líneas con variante resuelta (SKU/talle/color) en una lectura.</summary>
+    Task<IReadOnlyList<LineaRecepcionDetalle>> ListarLineasDetalleAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
+
     Task<RecepcionRegistrada?> ObtenerAsync(ISesionPersistencia sesion, string id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<RecepcionRegistrada>> ListarAsync(ISesionPersistencia sesion, int limite, int desplazamiento, CancellationToken cancellationToken = default);
