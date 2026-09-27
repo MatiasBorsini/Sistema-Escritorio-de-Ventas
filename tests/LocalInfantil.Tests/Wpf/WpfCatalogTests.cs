@@ -1,4 +1,4 @@
-using LocalInfantil.Application.Abstractions;
+﻿using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Autenticacion;
 using LocalInfantil.Application.Features.Catalogo;
@@ -263,6 +263,88 @@ public sealed class WpfCatalogTests
     }
 
     // ViewModel: estado y comandos
+    [Fact]
+    public async Task Catalogo_carga_primera_pagina_al_mostrarse_por_primera_vez()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        for (int i = 0; i < 3; i++) await e.CrearProducto.EjecutarAsync(new NuevoProducto($"ProdAuto-{i}", null, null), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
+
+        // Al inicializar, el VM debe cargar productos automáticamente
+        await vm.InicializarAsyncPublic();
+
+        Assert.True(vm.Filas.Count >= 3);
+        Assert.Null(vm.Error);
+        // La primera fila debe estar seleccionada automáticamente
+        Assert.NotNull(vm.FilaSeleccionada);
+    }
+
+    [Fact]
+    public async Task Inicializacion_dos_llamadas_rapidas_solo_una_carga()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-1", null, null), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
+
+        // Dos llamadas concurrentes rápidas
+        var t1 = vm.InicializarAsyncPublic();
+        var t2 = vm.InicializarAsyncPublic();
+        await Task.WhenAll(t1, t2);
+
+        // Solo debe haber una carga (la primera), sin error
+        Assert.Null(vm.Error);
+        Assert.True(vm.Filas.Count >= 1);
+    }
+
+    [Fact]
+    public async Task Inicializacion_fallida_permite_reintento()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-Reintento", null, null), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        string? sesionActual = "sesion-inexistente";
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesionActual);
+
+        // Primera carga falla (sesión inválida): queda Fallida, no Inicializada
+        await vm.InicializarAsyncPublic();
+        Assert.NotNull(vm.Error);
+
+        // Al volverse válida la sesión, una llamada posterior reintenta y carga
+        sesionActual = sesVm.IdSesion;
+        await vm.InicializarAsyncPublic();
+        Assert.Null(vm.Error);
+        Assert.True(vm.Filas.Count >= 1);
+        Assert.NotNull(vm.FilaSeleccionada);
+    }
+
+    [Fact]
+    public async Task Inicializacion_exitosa_no_recarga_al_volver()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-1", null, null), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
+
+        await vm.InicializarAsyncPublic();
+        var primeraCarga = vm.Filas.Count;
+
+        // Simular volver a la pantalla: llamar InicializarAsync nuevamente
+        await vm.InicializarAsyncPublic();
+
+        // No debe recargar (misma cantidad de filas)
+        Assert.Equal(primeraCarga, vm.Filas.Count);
+    }
+
     [Fact]
     public async Task ViewModel_busqueda_y_paginacion()
     {

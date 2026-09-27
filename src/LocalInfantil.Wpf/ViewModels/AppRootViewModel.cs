@@ -158,7 +158,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Recepciones = cons;
         Conteo = conteo;
         Apartado = apartado;
-        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.NuevaFichaAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
+        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
@@ -180,6 +180,11 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         if (vista is ViewModelBase viewModel)
         {
             VistaActual = viewModel;
+        }
+
+        if (vista is CatalogoViewModel catalogo)
+        {
+            _ = catalogo.InicializarAsyncPublic();
         }
     }
 
@@ -228,7 +233,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         Recepciones = cons;
         Conteo = conteo;
         Apartado = apartado;
-        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.NuevaFichaAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
+        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
@@ -250,6 +255,11 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         if (vista is ViewModelBase viewModel)
         {
             VistaActual = viewModel;
+        }
+
+        if (vista is CatalogoViewModel catalogo)
+        {
+            _ = catalogo.InicializarAsyncPublic();
         }
     }
 

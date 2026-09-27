@@ -71,6 +71,10 @@ public sealed class CatalogoViewModel : ViewModelBase
     private string _operacionIdCarga = string.Empty;
     private IReadOnlyList<FilaCargaInicial>? _ultimasFilasEnviadas;
 
+    private enum EstadoInicializacion { NoIniciada, Inicializando, Inicializada, Fallida }
+
+    private EstadoInicializacion _estadoInicializacion = EstadoInicializacion.NoIniciada;
+
     public CatalogoViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosCatalogo? dialogos = null)
     {
         _servicios = servicios;
@@ -94,9 +98,10 @@ public sealed class CatalogoViewModel : ViewModelBase
         FijarPrecioCommand = new AsyncRelayCommand(FijarPrecioAsync);
         AgregarFilaCargaCommand = new AsyncRelayCommand(AgregarFilaAsync);
         QuitarFilaCargaCommand = new AsyncRelayCommand(QuitarFilaAsync);
-        EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
+EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         AbrirFichaCommand = new AsyncRelayCommand(AbrirFichaAsync);
         NuevaFichaCommand = new AsyncRelayCommand(NuevaFichaAsync);
+        InicializarCommand = new AsyncRelayCommand(InicializarAsync);
     }
 
     public ObservableCollection<ProductoRegistrado> Productos { get; }
@@ -158,6 +163,9 @@ public sealed class CatalogoViewModel : ViewModelBase
                 OnPropertyChanged(nameof(CantidadVariantesVista));
                 OnPropertyChanged(nameof(StockVistaTotal));
                 OnPropertyChanged(nameof(PrimerasVariantesVista));
+                OnPropertyChanged(nameof(VistaTop3));
+                OnPropertyChanged(nameof(VariantesRestantes));
+                OnPropertyChanged(nameof(HayMasVariantes));
             }
         }
     }
@@ -172,6 +180,14 @@ public sealed class CatalogoViewModel : ViewModelBase
     public IReadOnlyList<FichaVariante> PrimerasVariantesVista => Ficha is null
         ? Array.Empty<FichaVariante>()
         : Ficha.Variantes.Take(4).ToList();
+
+    /// <summary>Vista rápida tabular: hasta 3 variantes + conteo restante.</summary>
+    public IReadOnlyList<FichaVariante> VistaTop3 => Ficha is null
+        ? Array.Empty<FichaVariante>()
+        : Ficha.Variantes.Take(3).ToList();
+
+    public int VariantesRestantes => Math.Max(0, CantidadVariantesVista - 3);
+    public bool HayMasVariantes => VariantesRestantes > 0;
     public string NuevoProductoNombre { get => _nuevoProductoNombre; set => SetProperty(ref _nuevoProductoNombre, value); }
     public string? NuevoProductoMarca { get => _nuevoProductoMarca; set => SetProperty(ref _nuevoProductoMarca, value); }
     public string? NuevoProductoCategoria { get => _nuevoProductoCategoria; set => SetProperty(ref _nuevoProductoCategoria, value); }
@@ -239,6 +255,28 @@ public sealed class CatalogoViewModel : ViewModelBase
     public AsyncRelayCommand EjecutarCargaCommand { get; }
     public AsyncRelayCommand AbrirFichaCommand { get; }
     public AsyncRelayCommand NuevaFichaCommand { get; }
+    public AsyncRelayCommand InicializarCommand { get; }
+
+    private async Task InicializarAsync()
+    {
+        if (_estadoInicializacion == EstadoInicializacion.Inicializada) return;
+        if (_estadoInicializacion == EstadoInicializacion.Inicializando) return;
+
+        _estadoInicializacion = EstadoInicializacion.Inicializando;
+        await BuscarAsync();
+        // BuscarAsync no propaga: informa el fallo en Error. Solo se marca
+        // Inicializada si la carga terminó sin error; si falló queda Fallida
+        // y una navegación posterior puede reintentar.
+        if (Error is not null)
+        {
+            _estadoInicializacion = EstadoInicializacion.Fallida;
+            return;
+        }
+
+        if (Filas.Count > 0)
+            FilaSeleccionada = Filas[0];
+        _estadoInicializacion = EstadoInicializacion.Inicializada;
+    }
 
     public static string FormatearArs(long? minor)
     {
@@ -321,7 +359,7 @@ public sealed class CatalogoViewModel : ViewModelBase
         Error = null;
         if (ProductoSeleccionado is null) { Error = "Seleccioná un producto."; return Task.CompletedTask; }
         if (_dialogos is null) { Error = "Apertura de ficha no disponible."; return Task.CompletedTask; }
-        _dialogos.MostrarFichaProducto(ProductoSeleccionado.Id, () => BuscarAsync());
+        _dialogos.MostrarFichaProducto(ProductoSeleccionado.Id, () => BuscarAsync(), SeleccionarCreadoAsync);
         return Task.CompletedTask;
     }
 
@@ -329,7 +367,19 @@ public sealed class CatalogoViewModel : ViewModelBase
     {
         Error = null;
         if (_dialogos is null) { Error = "Alta de producto no disponible."; return Task.CompletedTask; }
-        _dialogos.MostrarFichaProducto(null, () => BuscarAsync());
+        _dialogos.MostrarFichaProducto(null, () => BuscarAsync(), SeleccionarCreadoAsync);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Tras cerrar el wizard con un producto recién creado, lo deja
+    /// seleccionado en el master ya refrescado (sin consultas nuevas).
+    /// </summary>
+    private Task SeleccionarCreadoAsync(string productoId)
+    {
+        var fila = Filas.FirstOrDefault(f => f.Producto.Id == productoId);
+        if (fila is not null)
+            FilaSeleccionada = fila;
         return Task.CompletedTask;
     }
 
@@ -466,6 +516,7 @@ public sealed class CatalogoViewModel : ViewModelBase
     public Task VerFichaAsyncPublic() => VerFichaAsync();
     public Task AbrirFichaAsyncPublic() => AbrirFichaAsync();
     public Task NuevaFichaAsyncPublic() => NuevaFichaAsync();
+    public Task InicializarAsyncPublic() => InicializarAsync();
     public Task CrearVarianteAsyncPublic() => CrearVarianteAsync();
     public Task FijarPrecioAsyncPublic() => FijarPrecioAsync();
     public Task CrearProductoAsyncPublic() => CrearProductoAsync();

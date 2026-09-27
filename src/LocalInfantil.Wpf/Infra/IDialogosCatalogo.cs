@@ -10,7 +10,11 @@ namespace LocalInfantil.Wpf.Infra;
 /// </summary>
 public interface IDialogosCatalogo
 {
-    void MostrarFichaProducto(string? productoId, Func<Task>? alCerrar = null);
+    /// <summary>
+    /// Abre la ficha. Al cerrar, si el wizard creó un producto, se informa
+    /// su id por <paramref name="alProductoCreado"/> (para seleccionarlo).
+    /// </summary>
+    void MostrarFichaProducto(string? productoId, Func<Task>? alCerrar = null, Func<string, Task>? alProductoCreado = null);
 }
 
 /// <summary>
@@ -54,7 +58,7 @@ public sealed class DialogosCatalogoWpf : IDialogosCatalogo
         _idSesion = idSesion;
     }
 
-    public void MostrarFichaProducto(string? productoId, Func<Task>? alCerrar = null)
+    public void MostrarFichaProducto(string? productoId, Func<Task>? alCerrar = null, Func<string, Task>? alProductoCreado = null)
     {
         var clave = productoId ?? ClaveCreacion;
         if (_ventanas.TryGetValue(clave, out var existente))
@@ -74,11 +78,17 @@ public sealed class DialogosCatalogoWpf : IDialogosCatalogo
         _ventanas[clave] = win;
         win.Closed += async (_, _) =>
         {
+            var creado = vm.ProductoIdCreado;
             _ventanas.Remove(clave);
             _registro.Liberar(clave);
             if (alCerrar is not null)
             {
                 try { await alCerrar.Invoke(); } catch { }
+            }
+
+            if (creado is not null && alProductoCreado is not null)
+            {
+                try { await alProductoCreado.Invoke(creado); } catch { }
             }
         };
         win.Owner = VentanaPrincipal();

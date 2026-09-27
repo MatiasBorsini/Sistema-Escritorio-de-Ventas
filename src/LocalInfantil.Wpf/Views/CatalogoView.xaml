@@ -48,16 +48,14 @@
                             <KeyBinding Key="Enter" Command="{Binding AbrirFichaCommand}"/>
                         </DataGrid.InputBindings>
                         <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="Producto" Width="2*" MinWidth="200">
+                            <DataGridTemplateColumn Header="Producto" Width="2*" MinWidth="180">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <StackPanel Margin="2">
-                                            <TextBlock FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Producto.Nombre}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock FontSize="10" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Producto.Marca, TargetNullValue=—, FallbackValue=—}" TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
+                                        <TextBlock Margin="2" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Producto.Nombre}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Marca" Binding="{Binding Producto.Marca, TargetNullValue=—}" Width="*" MinWidth="100"/>
                             <DataGridTextColumn Header="Categoría" Binding="{Binding Producto.Categoria, TargetNullValue=—}" Width="*" MinWidth="110"/>
                             <DataGridTextColumn Header="Variantes" Binding="{Binding VariantesTexto}" Width="70"/>
                             <DataGridTextColumn Header="Stock" Binding="{Binding StockTexto}" Width="70"/>
@@ -101,16 +99,25 @@
                             </StackPanel>
                         </Grid>
                         <TextBlock Style="{StaticResource EstiloEtiqueta}" Margin="0,12,0,4" Text="Variantes principales"/>
-                        <ItemsControl ItemsSource="{Binding PrimerasVariantesVista}">
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="SKU"/>
+                            <TextBlock Grid.Column="1" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="TALLE / COLOR"/>
+                            <TextBlock Grid.Column="2" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="STOCK"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding VistaTop3}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,0,0,4">
-                                        <TextBlock FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Sku}" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock DockPanel.Dock="Right" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Existencias, StringFormat={}{0} u.}"/>
-                                    </DockPanel>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Sku}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TalleColorTexto}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="2" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Existencias, StringFormat={}{0} u.}"/>
+                                    </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding VariantesRestantes, StringFormat=+ \{0\} variantes más}" Visibility="{Binding HayMasVariantes, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}"/>
                         <TextBlock Style="{StaticResource EstiloEstadoVacio}" Text="Seleccioná un producto del listado para ver su contexto." Visibility="{Binding HayFicha, Converter={StaticResource BoolToVisibilityInverted}, FallbackValue=Visible}"/>
                         <Border Style="{StaticResource EstiloSeparador}"/>
                         <Button Style="{StaticResource EstiloBotonPrimario}" Content="Abrir ficha completa" Command="{Binding AbrirFichaCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,0"/>

@@ -15,7 +15,17 @@ public sealed record FichaVariante(
     bool Activa,
     long? PrecioMinor,
     string? Moneda,
-    long Existencias);
+    long Existencias)
+{
+    /// <summary>Texto humano talle/color para vistas de lectura ("M · Rojo").</summary>
+    public string TalleColorTexto => (Talle, Color) switch
+    {
+        (null, null) => "—",
+        (null, var c) => c!,
+        (var t, null) => t!,
+        (var t, var c) => $"{t} · {c}"
+    };
+}
 
 /// <summary>Ficha de producto: cabecera más sus variantes con precio y existencias.</summary>
 public sealed record FichaProducto(ProductoRegistrado Producto, IReadOnlyList<FichaVariante> Variantes);

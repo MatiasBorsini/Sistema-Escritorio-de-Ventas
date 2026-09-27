@@ -1,3 +1,4 @@
+using System.Reflection;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Autenticacion;
 using LocalInfantil.Application.Features.Catalogo;
@@ -71,7 +72,7 @@ public sealed class WpfCatalogoFichaTests
         Assert.False(ficha.SolapasSecundariasHabilitadas);
 
         await ficha.CrearVarianteAsyncPublic();
-        Assert.Contains("Creá primero", ficha.Error ?? "");
+        Assert.Contains("Creá primero", ficha.ErrorVariantes ?? "");
 
         ficha.Nombre = "Buzo Nuevo";
         await ficha.GuardarDatosAsyncPublic();
@@ -80,19 +81,49 @@ public sealed class WpfCatalogoFichaTests
         Assert.False(ficha.EsCreacion);
         Assert.True(ficha.SolapasSecundariasHabilitadas);
         Assert.Equal("Variantes", ficha.Solapa);
+        Assert.Contains("agregar variantes", ficha.MensajeVariantes ?? "");
 
         await ficha.CrearVarianteAsyncPublic();
-        Assert.Contains("SKU", ficha.Error ?? "");
+        Assert.Contains("SKU", ficha.ErrorVariantes ?? "");
+        ficha.SolicitarAltaCommand.Execute(null);
+        Assert.True(ficha.MostrarFormularioAlta);
         ficha.NuevoVarianteSku = "FICHA-001";
         await ficha.CrearVarianteAsyncPublic();
-        Assert.Null(ficha.Error);
+        Assert.Null(ficha.ErrorVariantes);
+        Assert.False(ficha.MostrarFormularioAlta);
         Assert.NotNull(ficha.Ficha);
         Assert.Contains(ficha.Ficha!.Variantes, v => v.Sku == "FICHA-001");
+        Assert.Equal("FICHA-001", ficha.SkuSeleccionado);
 
-        ficha.VarianteSeleccionada = ficha.Ficha.Variantes.First(v => v.Sku == "FICHA-001");
         ficha.PrecioTexto = "100,00";
         await ficha.FijarPrecioAsyncPublic();
+        Assert.Null(ficha.ErrorVariantes);
+        Assert.Contains("100", ficha.PrecioVigenteSel?.ToString() ?? "");
+    }
+
+    [Fact]
+    public async Task Ficha_seleccion_precarga_edicion_y_errores_van_a_seccion()
+    {
+        using var e = await Entorno.CrearAsync();
+        var pid = await e.CrearProductoAsync("Remera Sel");
+        var ficha = new FichaProductoViewModel(e.Servicios, () => e.Sesion, pid);
+        await ficha.InicializarAsyncPublic();
+        Assert.False(ficha.HayVarianteSeleccionada);
+
+        await ficha.EditarVarianteAsyncPublic();
+        Assert.Contains("Seleccioná una variante", ficha.ErrorVariantes ?? "");
         Assert.Null(ficha.Error);
+
+        ficha.SolicitarAltaCommand.Execute(null);
+        ficha.NuevoVarianteSku = "SEL-01";
+        ficha.NuevoVarianteTalle = "M";
+        ficha.NuevoVarianteColor = "Rojo";
+        await ficha.CrearVarianteAsyncPublic();
+        Assert.Equal("SEL-01", ficha.SkuSeleccionado);
+        Assert.Equal("M · Rojo", ficha.TalleColorSeleccionado);
+        Assert.Equal("Activa", ficha.EstadoSeleccionado);
+        Assert.Equal("M", ficha.EditarTalle);
+        Assert.Equal("Rojo", ficha.EditarColor);
     }
 
     [Fact]
@@ -159,6 +190,96 @@ public sealed class WpfCatalogoFichaTests
     }
 
     [Fact]
+    public async Task Wizard_creacion_avanza_y_cierra_con_confirmacion()
+    {
+        using var e = await Entorno.CrearAsync();
+        var ficha = new FichaProductoViewModel(e.Servicios, () => e.Sesion, null);
+        Assert.True(ficha.ModoCreacion);
+        Assert.Equal(1, ficha.PasoCreacion);
+        Assert.False(ficha.MostrarNavVariantes);
+        Assert.False(ficha.MostrarNavEstado);
+
+        await ficha.IrAPasoCreacionAsyncPublic(2);
+        Assert.Equal(1, ficha.PasoCreacion);
+
+        ficha.Nombre = "Wizard Uno";
+        await ficha.GuardarDatosAsyncPublic();
+        Assert.Equal(2, ficha.PasoCreacion);
+        Assert.True(ficha.MostrarNavVariantes);
+        Assert.False(ficha.MostrarNavEstado);
+        Assert.Contains("agregar variantes", ficha.MensajeVariantes ?? "");
+
+        // Cerrar sin variantes: no cierra, muestra confirmación humana.
+        Assert.True(ficha.RequiereConfirmacionCierre);
+        Assert.False(ficha.AlIntentarCerrar());
+        Assert.True(ficha.ConfirmacionCierreVisible);
+        var cerro = false;
+        ficha.SolicitarCierre += () => cerro = true;
+        ficha.SeguirCompletandoCommand.Execute(null);
+        Assert.False(ficha.ConfirmacionCierreVisible);
+        Assert.False(cerro);
+
+        // Con una variante ya no requiere confirmación.
+        ficha.NuevoVarianteSku = "WIZ-01";
+        await ficha.CrearVarianteAsyncPublic();
+        Assert.False(ficha.RequiereConfirmacionCierre);
+        Assert.True(ficha.AlIntentarCerrar());
+
+        // Paso Listo con resumen real.
+        await ficha.IrAPasoCreacionAsyncPublic(3);
+        Assert.Equal(3, ficha.PasoCreacion);
+        Assert.Equal("Wizard Uno", ficha.Nombre);
+        Assert.Equal(1, ficha.CantVariantesResumen);
+
+        // Terminar pide cierre y el catálogo puede seleccionarlo.
+        ficha.TerminarCommand.Execute(null);
+        Assert.True(cerro);
+        Assert.NotNull(ficha.ProductoIdCreado);
+        var vm = new CatalogoViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await e.Dialogos.InformarCreadoAsync(ficha.ProductoIdCreado!);
+        Assert.Equal(ficha.ProductoIdCreado, e.Dialogos.CreadoInformado);
+        _ = vm;
+    }
+
+    [Fact]
+    public async Task Establecer_stock_inicial_sin_reingresar_sku()
+    {
+        using var e = await Entorno.CrearAsync();
+        var pid = await e.CrearProductoAsync("Remera Stock");
+        var ficha = new FichaProductoViewModel(e.Servicios, () => e.Sesion, pid);
+        await ficha.InicializarAsyncPublic();
+        ficha.SolicitarAltaCommand.Execute(null);
+        ficha.NuevoVarianteSku = "STK-01";
+        await ficha.CrearVarianteAsyncPublic();
+        Assert.Equal("STK-01", ficha.SkuSeleccionado);
+
+        await ficha.EstablecerStockInicialAsyncPublic();
+        Assert.Contains("Cantidad", ficha.ErrorVariantes ?? "");
+
+        ficha.CantidadInicialTexto = "7";
+        await ficha.EstablecerStockInicialAsyncPublic();
+        Assert.Null(ficha.ErrorVariantes);
+        Assert.Contains("establecida", (ficha.MensajeVariantes ?? "").ToLowerInvariant());
+        Assert.Equal(7, ficha.Ficha!.Variantes.First(v => v.Sku == "STK-01").Existencias);
+        Assert.Equal("", ficha.CantidadInicialTexto);
+    }
+
+    [Fact]
+    public async Task Catalogo_selecciona_recien_creado_al_cerrar_ficha()
+    {
+        using var e = await Entorno.CrearAsync();
+        var pid = await e.CrearProductoAsync("Recién Creado");
+        var vm = new CatalogoViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.BuscarAsyncPublic();
+        Assert.Empty(vm.Filas.Where(f => f.Producto.Id == pid && vm.FilaSeleccionada == f));
+        var metodo = typeof(CatalogoViewModel).GetMethod("SeleccionarCreadoAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        await (Task)metodo.Invoke(vm, [pid])!;
+        Assert.NotNull(vm.FilaSeleccionada);
+        Assert.Equal(pid, vm.FilaSeleccionada!.Producto.Id);
+        Assert.NotNull(vm.Ficha);
+    }
+
+    [Fact]
     public void Registro_ventanas_evita_doble_editor()
     {
         var registro = new RegistroVentanasAbiertas();
@@ -176,12 +297,19 @@ public sealed class WpfCatalogoFichaTests
         public bool Llamado { get; private set; }
         public string? UltimoId { get; private set; }
         public bool UltimaFueCreacion { get; private set; }
+        public string? CreadoInformado { get; private set; }
 
-        public void MostrarFichaProducto(string? productoId, Func<Task>? alCerrar = null)
+        public void MostrarFichaProducto(string? productoId, Func<Task>? alCerrar = null, Func<string, Task>? alProductoCreado = null)
         {
             Llamado = true;
             UltimoId = productoId;
             UltimaFueCreacion = productoId is null;
+        }
+
+        public Task InformarCreadoAsync(string id)
+        {
+            CreadoInformado = id;
+            return Task.CompletedTask;
         }
     }
 

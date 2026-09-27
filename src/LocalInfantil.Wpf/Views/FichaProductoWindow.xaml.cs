@@ -16,6 +16,12 @@ public partial class FichaProductoWindow : Window
         InitializeComponent();
         DataContext = vm;
         Loaded += async (_, _) => await vm.InicializarAsync();
+        vm.SolicitarCierre += () => Close();
+        Closing += (_, e) =>
+        {
+            if (DataContext is FichaProductoViewModel actual && !actual.AlIntentarCerrar())
+                e.Cancel = true;
+        };
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape)

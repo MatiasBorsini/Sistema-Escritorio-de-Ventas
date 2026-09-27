@@ -394,9 +394,30 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style x:Key="EstiloGrillaOperativa" TargetType="DataGrid">
+        <Style.Resources>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="{StaticResource Color.SuccessBg}"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="{StaticResource Color.Text}"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource Color.SuccessBg}"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="{StaticResource Color.Text}"/>
+        </Style.Resources>
         <Setter Property="RowHeight" Value="32"/>
         <Setter Property="ColumnHeaderHeight" Value="30"/>
         <Setter Property="HeadersVisibility" Value="Column"/>
         <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        <Setter Property="RowStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Color.Surface2Brush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Color.SuccessBgBrush}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Color.TextBrush}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Setter.Value>
+        </Setter>
     </Style>
 </ResourceDictionary>
