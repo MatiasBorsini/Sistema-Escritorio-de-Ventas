@@ -33,6 +33,7 @@ public sealed class ServiciosComerciales
     public RestablecerContrasena CasoRestablecerContrasena { get; }
     public ConfigurarPermiso CasoConfigurarPermiso { get; }
     public IRepositorioProductos RepoProductos { get; }
+    public IRepositorioCategorias RepoCategorias { get; }
     public IRepositorioVariantes RepoVariantes { get; }
     public IRepositorioPrecios RepoPrecios { get; }
     public IRepositorioMovimientos RepoMovimientos { get; }
@@ -80,6 +81,7 @@ public sealed class ServiciosComerciales
         RepoPermisos = new RepositorioPermisos();
         RepoAuditoria = new RepositorioAuditoria(GeneradorIds, Reloj);
         RepoProductos = new RepositorioProductos(GeneradorIds);
+        RepoCategorias = new RepositorioCategorias(GeneradorIds);
         RepoVariantes = new RepositorioVariantes(GeneradorIds);
         RepoPrecios = new RepositorioPrecios(GeneradorIds);
         RepoMovimientos = new RepositorioMovimientos(GeneradorIds);
@@ -95,8 +97,8 @@ public sealed class ServiciosComerciales
         CasoDesactivarUsuario = new DesactivarUsuario(RepoUsuarios, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoRestablecerContrasena = new RestablecerContrasena(RepoUsuarios, Hasher, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoConfigurarPermiso = new ConfigurarPermiso(RepoPermisos, RepoUsuarios, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
-        CasoCrearProducto = new CrearProducto(RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
-        CasoEditarProducto = new EditarProducto(RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
+        CasoCrearProducto = new CrearProducto(RepoProductos, RepoCategorias, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoEditarProducto = new EditarProducto(RepoProductos, RepoCategorias, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoDesactivarProducto = new DesactivarProducto(RepoProductos, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoCrearVariante = new CrearVariante(RepoVariantes, RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoEditarVariante = new EditarVariante(RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);

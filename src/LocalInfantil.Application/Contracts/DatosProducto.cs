@@ -1,8 +1,8 @@
 namespace LocalInfantil.Application.Contracts;
 
-public sealed record NuevoProducto(string Nombre, string? Marca, string? Categoria);
+public sealed record NuevoProducto(string Nombre, string? Marca, string? CategoriaId);
 
-public sealed record ProductoRegistrado(string Id, string Nombre, string? Marca, string? Categoria, bool Activo);
+public sealed record ProductoRegistrado(string Id, string CodigoInterno, string Nombre, string? Marca, string? Categoria, string? CategoriaId, bool Activo);
 
 /// <summary>
 /// Fila de resumen para el master de Catálogo: cabecera del producto más
@@ -12,9 +12,11 @@ public sealed record ProductoRegistrado(string Id, string Nombre, string? Marca,
 /// </summary>
 public sealed record ResumenProducto(
     string Id,
+    string CodigoInterno,
     string Nombre,
     string? Marca,
     string? Categoria,
+    string? CategoriaId,
     bool Activo,
     int CantidadVariantes,
     long StockTotal);

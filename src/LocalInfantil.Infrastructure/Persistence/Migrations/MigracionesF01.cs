@@ -6,7 +6,9 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// recepciones. V6: permisos individuales por usuario y conversión del único
 /// Administrador activo en Dueña (D-27). V7: conteo físico y reversión de
 /// recepciones (F03-T05). V8: stock apartado/no vendible y foto de
-/// clasificación para conteos (F03-T04, D-33). Ver docs/ESQUEMA.md.
+/// clasificación para conteos (F03-T04, D-33). V9: categorías controladas,
+/// código interno automático de producto y variante, y unicidad Talle+Color.
+/// Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -20,6 +22,7 @@ public static class MigracionesF01
         new(6, "permisos-individuales-duena", SqlV6),
         new(7, "conteo-reversion-f03", SqlV7),
         new(8, "stock-no-vendible-f03", SqlV8),
+        new(9, "categorias-codigos-internos", SqlV9),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -277,6 +280,94 @@ public static class MigracionesF01
             apartado_esperado INTEGER NOT NULL CHECK (apartado_esperado >= 0),
             clasificaciones_contadas INTEGER NOT NULL CHECK (clasificaciones_contadas >= 0),
             PRIMARY KEY (conteo_id, variante_id)
+        );
+        """;
+
+    private const string SqlV9 = """
+        -- Categorías controladas (prefijo para código interno, ej REM).
+        -- Categoría obligatoria para productos nuevos (sin default "Otros").
+        -- prefijo UNIQUE: dos categorías no pueden generar los mismos códigos.
+        CREATE TABLE IF NOT EXISTS categoria (
+            id TEXT PRIMARY KEY,
+            nombre TEXT NOT NULL UNIQUE CHECK (nombre <> ''),
+            prefijo TEXT NOT NULL UNIQUE CHECK (prefijo <> ''),
+            activa INTEGER NOT NULL DEFAULT 1 CHECK (activa IN (0, 1)),
+            orden INTEGER NOT NULL DEFAULT 0,
+            creado_en TEXT NOT NULL
+        );
+
+        -- Seed primero: el fallback de compatibilidad para heredados es OTR.
+        INSERT OR IGNORE INTO categoria (id, nombre, prefijo, activa, orden, creado_en) VALUES
+            ('cat-rem', 'Remeras y tops', 'REM', 1, 10, '2026-01-01T00:00:00Z'),
+            ('cat-buz', 'Buzos y sweaters', 'BUZ', 1, 20, '2026-01-01T00:00:00Z'),
+            ('cat-abr', 'Camperas y abrigos', 'ABR', 1, 30, '2026-01-01T00:00:00Z'),
+            ('cat-pan', 'Pantalones y calzas', 'PAN', 1, 40, '2026-01-01T00:00:00Z'),
+            ('cat-sho', 'Shorts y bermudas', 'SHO', 1, 50, '2026-01-01T00:00:00Z'),
+            ('cat-ves', 'Vestidos y polleras', 'VES', 1, 60, '2026-01-01T00:00:00Z'),
+            ('cat-con', 'Conjuntos', 'CON', 1, 70, '2026-01-01T00:00:00Z'),
+            ('cat-bod', 'Bodies y enteritos', 'BOD', 1, 80, '2026-01-01T00:00:00Z'),
+            ('cat-pij', 'Pijamas', 'PIJ', 1, 90, '2026-01-01T00:00:00Z'),
+            ('cat-int', 'Ropa interior y medias', 'INT', 1, 100, '2026-01-01T00:00:00Z'),
+            ('cat-acc', 'Accesorios', 'ACC', 1, 110, '2026-01-01T00:00:00Z'),
+            ('cat-otr', 'Otros', 'OTR', 1, 120, '2026-01-01T00:00:00Z');
+
+        -- Columnas nuevas de variante. talle_norm/color_norm son
+        -- infraestructura (el texto humano queda en talle/color) y las
+        -- escribe el repositorio con la misma función central de Application.
+        ALTER TABLE variante ADD COLUMN codigo_interno TEXT NOT NULL DEFAULT '' CHECK (codigo_interno <> '' OR codigo_interno = '');
+        ALTER TABLE variante ADD COLUMN talle_norm TEXT NOT NULL DEFAULT '';
+        ALTER TABLE variante ADD COLUMN color_norm TEXT NOT NULL DEFAULT '';
+
+        -- Código interno provisorio para ADD COLUMN con filas heredadas.
+        ALTER TABLE producto ADD COLUMN codigo_interno TEXT NOT NULL DEFAULT '' CHECK (codigo_interno <> '' OR codigo_interno = '');
+        ALTER TABLE producto ADD COLUMN categoria_id TEXT NULL REFERENCES categoria(id) ON DELETE SET NULL;
+
+        -- Backfill heredados (una sola convención: la variante espeja su SKU;
+        -- el producto recibe MIG-*). Las normas se aproximan en SQL
+        -- (UPPER/ TRIM ASCII); las escrituras reales las calcula C#.
+        UPDATE variante SET codigo_interno = sku WHERE codigo_interno = '';
+        UPDATE producto SET codigo_interno = 'MIG-' || substr(id, 1, 8) WHERE codigo_interno = '';
+        UPDATE variante SET talle_norm = COALESCE(UPPER(TRIM(talle)), ''), color_norm = COALESCE(UPPER(TRIM(color)), '');
+
+        -- Reconstrucción de producto a su forma final: categoria_id NOT NULL
+        -- con FK, sin la columna texto libre heredada (fin de la doble
+        -- fuente), código interno único. Heredados sin categoría van a OTR
+        -- (compatibilidad de migración; la UX sigue exigiendo elección).
+        -- defer_foreign_keys difiere las FK inmediatas hasta el COMMIT, donde
+        -- las filas ya copiadas satisfacen todas las referencias.
+        PRAGMA defer_foreign_keys = ON;
+        CREATE TABLE producto_nuevo (
+            id TEXT PRIMARY KEY,
+            codigo_interno TEXT NOT NULL UNIQUE CHECK (codigo_interno <> ''),
+            nombre TEXT NOT NULL CHECK (nombre <> ''),
+            marca TEXT NULL,
+            categoria_id TEXT NOT NULL REFERENCES categoria(id) ON DELETE SET NULL,
+            activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+            creado_en TEXT NOT NULL
+        );
+        INSERT INTO producto_nuevo (id, codigo_interno, nombre, marca, categoria_id, activo, creado_en)
+            SELECT id, codigo_interno, nombre, marca, COALESCE(categoria_id, 'cat-otr'), activo, creado_en FROM producto;
+        DROP TABLE producto;
+        ALTER TABLE producto_nuevo RENAME TO producto;
+        PRAGMA defer_foreign_keys = OFF;
+
+        -- Unicidad real de códigos de variante.
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_variante_codigo_interno ON variante(codigo_interno);
+
+        -- Unicidad lógica Talle+Color por producto sobre la representación
+        -- normalizada persistida (misma función que valida el caso de uso).
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_variante_talle_color_unico ON variante(producto_id, talle_norm, color_norm);
+
+        -- Tablas de secuencia para generación automática (dentro de la misma
+        -- sesión BEGIN IMMEDIATE del alta, sin transacciones anidadas)
+        CREATE TABLE IF NOT EXISTS secuencia_producto (
+            categoria_id TEXT PRIMARY KEY REFERENCES categoria(id) ON DELETE RESTRICT,
+            ultimo_numero INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS secuencia_variante (
+            producto_id TEXT PRIMARY KEY REFERENCES producto(id) ON DELETE RESTRICT,
+            ultimo_numero INTEGER NOT NULL DEFAULT 0
         );
         """;
 }

@@ -101,7 +101,7 @@ public sealed class AuditoriaTests
             await using (var sesion = await fabrica.IniciarAsync())
             {
                 productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Ficticio", null, null), FechaTexto);
-                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "FIC-001", null, null), FechaTexto);
+                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, null, null), FechaTexto);
                 await movimientos.RegistrarAsync(
                     sesion,
                     new NuevoMovimiento(varianteId, "ingreso", 10, null, "op-ficticia-3", null),
@@ -119,9 +119,9 @@ public sealed class AuditoriaTests
             var producto = await productos.ObtenerPorIdAsync(lectura, productoId);
             Assert.NotNull(producto);
             Assert.Equal(productoId, producto.Id);
-            var variante = await variantes.ObtenerPorSkuAsync(lectura, "FIC-001");
+            var variante = await variantes.ObtenerPorIdAsync(lectura, varianteId);
             Assert.NotNull(variante);
-            Assert.Equal(varianteId, variante.Id);
+            Assert.False(string.IsNullOrWhiteSpace(variante.CodigoInterno));
             Assert.NotEqual(productoId, varianteId);
             Assert.Equal("op-ficticia-3", await ConsultarOperacionMovimientoAsync(ruta, varianteId));
             var eventos = await auditoria.ObtenerPorOperacionAsync(lectura, "op-ficticia-3");
@@ -205,15 +205,22 @@ public sealed class AuditoriaTests
             var catalogoV1 = MigracionesF01.Todas.Where(m => m.Version == 1).ToList();
             Assert.Equal(new[] { 1 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null));
 
-            var fabricaV1 = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
-            await using (var sesion = await fabricaV1.IniciarAsync())
+            // Siembra con SQL de forma V1 (sin columnas V9): los repositorios
+            // actuales requieren el esquema completo.
+            await using (var conexion = new SqliteConnection(new SqliteConnectionStringBuilder
             {
-                var productos = new RepositorioProductos(new GeneradorIds());
-                await productos.InsertarAsync(sesion, new NuevoProducto("Ficticio V1", null, null), FechaTexto);
-                await sesion.ConfirmarAsync();
+                DataSource = ruta,
+                Pooling = false,
+            }.ToString()))
+            {
+                await conexion.OpenAsync();
+                using var comando = conexion.CreateCommand();
+                comando.CommandText = "INSERT INTO producto (id, nombre, creado_en) VALUES ('p-v1', 'Ficticio V1', $ahora);";
+                comando.Parameters.AddWithValue("$ahora", FechaTexto);
+                await comando.ExecuteNonQueryAsync();
             }
 
-            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivosRespaldo = Directory.GetFiles(respaldos, "*.db");
             Assert.Single(archivosRespaldo);
@@ -230,7 +237,10 @@ public sealed class AuditoriaTests
             await using var lectura = await fabrica.IniciarLecturaAsync();
             Assert.Single(await auditoria.ObtenerPorOperacionAsync(lectura, "op-post-v2"));
             var productosLectura = new RepositorioProductos(new GeneradorIds());
-            Assert.NotNull(await productosLectura.ObtenerPorIdAsync(lectura, await UnicoProductoIdAsync(ruta)));
+            var heredado = await productosLectura.ObtenerPorIdAsync(lectura, await UnicoProductoIdAsync(ruta));
+            Assert.NotNull(heredado);
+            // Backfill V9: la fila heredada recibe código provisorio MIG-*.
+            Assert.StartsWith("MIG-", heredado.CodigoInterno);
 
             Assert.Empty(await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
         }

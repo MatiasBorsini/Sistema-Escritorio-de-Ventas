@@ -26,7 +26,7 @@ public sealed class FilaCatalogo : ViewModelBase
 {
     public FilaCatalogo(ResumenProducto resumen)
     {
-        Producto = new ProductoRegistrado(resumen.Id, resumen.Nombre, resumen.Marca, resumen.Categoria, resumen.Activo);
+        Producto = new ProductoRegistrado(resumen.Id, resumen.CodigoInterno, resumen.Nombre, resumen.Marca, resumen.Categoria, resumen.CategoriaId, resumen.Activo);
         CantidadVariantes = resumen.CantidadVariantes;
         StockTotal = resumen.StockTotal;
     }
@@ -64,7 +64,6 @@ public sealed class CatalogoViewModel : ViewModelBase
     private string _nuevoProductoNombre = string.Empty;
     private string? _nuevoProductoMarca;
     private string? _nuevoProductoCategoria;
-    private string _nuevoVarianteSku = string.Empty;
     private string? _nuevoVarianteTalle;
     private string? _nuevoVarianteColor;
     private string _precioTexto = string.Empty;
@@ -102,7 +101,14 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         AbrirFichaCommand = new AsyncRelayCommand(AbrirFichaAsync);
         NuevaFichaCommand = new AsyncRelayCommand(NuevaFichaAsync);
         InicializarCommand = new AsyncRelayCommand(InicializarAsync);
+        MotorSugerencias = new MotorSugerencias<SugerenciaVariante>((t, ct) =>
+            _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct));
+        SeleccionarSugerenciaCommand = new AsyncRelayCommand(p => SeleccionarSugerenciaAsync(p as SugerenciaVariante));
+        BuscarDirectaCommand = new AsyncRelayCommand(() => BuscarDirectaAsync(MotorSugerencias.Texto));
     }
+
+    /// <summary>Motor del buscador asistido (modo Producto). El VM es dueño.</summary>
+    public MotorSugerencias<SugerenciaVariante> MotorSugerencias { get; }
 
     public ObservableCollection<ProductoRegistrado> Productos { get; }
     public ObservableCollection<FilaCatalogo> Filas { get; }
@@ -191,7 +197,6 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
     public string NuevoProductoNombre { get => _nuevoProductoNombre; set => SetProperty(ref _nuevoProductoNombre, value); }
     public string? NuevoProductoMarca { get => _nuevoProductoMarca; set => SetProperty(ref _nuevoProductoMarca, value); }
     public string? NuevoProductoCategoria { get => _nuevoProductoCategoria; set => SetProperty(ref _nuevoProductoCategoria, value); }
-    public string NuevoVarianteSku { get => _nuevoVarianteSku; set => SetProperty(ref _nuevoVarianteSku, value); }
     public string? NuevoVarianteTalle { get => _nuevoVarianteTalle; set => SetProperty(ref _nuevoVarianteTalle, value); }
     public string? NuevoVarianteColor { get => _nuevoVarianteColor; set => SetProperty(ref _nuevoVarianteColor, value); }
     public string PrecioTexto { get => _precioTexto; set => SetProperty(ref _precioTexto, value); }
@@ -256,6 +261,67 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
     public AsyncRelayCommand AbrirFichaCommand { get; }
     public AsyncRelayCommand NuevaFichaCommand { get; }
     public AsyncRelayCommand InicializarCommand { get; }
+    public AsyncRelayCommand SeleccionarSugerenciaCommand { get; }
+    public AsyncRelayCommand BuscarDirectaCommand { get; }
+
+    public Task SeleccionarSugerenciaAsyncPublic(SugerenciaVariante? s) => SeleccionarSugerenciaAsync(s);
+    public Task BuscarDirectaAsyncPublic(string? texto) => BuscarDirectaAsync(texto);
+
+    /// <summary>
+    /// Salto directo desde una sugerencia: filtra por el producto sugerido con
+    /// el mismo flujo de búsqueda (sin flujo paralelo) y lo selecciona.
+    /// </summary>
+    private async Task SeleccionarSugerenciaAsync(SugerenciaVariante? sugerencia)
+    {
+        if (sugerencia is null) return;
+        if (Ocupado) return;
+        Error = null;
+        TextoBusqueda = sugerencia.NombreProducto;
+        OnPropertyChanged(nameof(TextoBusqueda));
+        _pagina = 0;
+        OnPropertyChanged(nameof(Pagina));
+        OnPropertyChanged(nameof(PaginaVisible));
+        await BuscarAsync();
+        var fila = Filas.FirstOrDefault(f => f.Producto.Id == sugerencia.ProductoId);
+        if (fila is not null)
+            FilaSeleccionada = fila;
+    }
+
+    /// <summary>
+    /// Enter sin sugerencia activa: si el texto es un código interno exacto
+    /// y válido, salta directo a su producto (ingreso rápido / lector, sin
+    /// obligar a elegir sugerencia); si no, búsqueda por texto normal.
+    /// </summary>
+    private async Task BuscarDirectaAsync(string? texto)
+    {
+        if (Ocupado) return;
+        if (string.IsNullOrWhiteSpace(texto)) return;
+        var t = texto.Trim();
+        try
+        {
+            var exacta = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(t, _idSesion());
+            if (exacta is not null)
+            {
+                // Código exacto válido: salto directo a su producto, sin
+                // obligar a elegir sugerencia (mismo flujo que Buscar código).
+                SkuBusqueda = t;
+                OnPropertyChanged(nameof(SkuBusqueda));
+                await BuscarSkuAsync();
+                return;
+            }
+        }
+        catch
+        {
+            // Si la resolución exacta falla, se sigue con búsqueda por texto.
+        }
+
+        TextoBusqueda = t;
+        OnPropertyChanged(nameof(TextoBusqueda));
+        _pagina = 0;
+        OnPropertyChanged(nameof(Pagina));
+        OnPropertyChanged(nameof(PaginaVisible));
+        await BuscarAsync();
+    }
 
     private async Task InicializarAsync()
     {
@@ -299,7 +365,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
             SetProperty(ref _filaSeleccionada, null, nameof(FilaSeleccionada));
             foreach (var r in lista.Take(_tamanoPagina))
             {
-                Productos.Add(new ProductoRegistrado(r.Id, r.Nombre, r.Marca, r.Categoria, r.Activo));
+                Productos.Add(new ProductoRegistrado(r.Id, r.CodigoInterno, r.Nombre, r.Marca, r.Categoria, r.CategoriaId, r.Activo));
                 Filas.Add(new FilaCatalogo(r));
             }
 
@@ -314,13 +380,13 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
 
     private async Task BuscarSkuAsync()
     {
-        if (Ocupado || string.IsNullOrWhiteSpace(SkuBusqueda)) { Error = "Ingresá un SKU."; return; }
+        if (Ocupado || string.IsNullOrWhiteSpace(SkuBusqueda)) { Error = "Ingresá un código interno."; return; }
         Error = null; Mensaje = null; Ocupado = true;
         try
         {
             var sesion = _idSesion();
-            var v = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(SkuBusqueda.Trim(), sesion);
-            if (v is null) { Error = "SKU no encontrado."; return; }
+            var v = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(SkuBusqueda.Trim(), sesion);
+            if (v is null) { Error = "Código interno no encontrado."; return; }
             var ficha = await _servicios.ConsultasCatalogo.ObtenerFichaAsync(v.ProductoId, DateTime.UtcNow.ToString("o"), sesion);
             Ficha = ficha;
             var prod = ficha?.Producto;
@@ -334,7 +400,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
                 HaySiguiente = false;
                 ProductoSeleccionado = prod;
             }
-            Mensaje = $"SKU {v.Sku} encontrado.";
+            Mensaje = $"Código {v.CodigoInterno} encontrado.";
             OnPropertyChanged(nameof(Resumen));
             OnPropertyChanged(nameof(EsUltimaPagina));
             OnPropertyChanged(nameof(HayAnterior));
@@ -396,6 +462,26 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         finally { Ocupado = false; }
     }
 
+    /// <summary>
+    /// Resuelve el texto libre heredado a categoría controlada por nombre;
+    /// null = el caso de uso asigna "Otros". Las categorías controladas
+    /// reemplazan el texto libre para productos nuevos (la ficha usa ComboBox).
+    /// </summary>
+    private async Task<string?> ResolverCategoriaIdAsync(string? nombre)
+    {
+        var n = NullSiVacio(nombre);
+        if (n is null) return null;
+        try
+        {
+            var cats = await _servicios.ConsultasCatalogo.ListarCategoriasAsync(_idSesion(), true);
+            return cats.FirstOrDefault(c => string.Equals(c.Nombre, n, StringComparison.OrdinalIgnoreCase))?.Id;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task CrearProductoAsync()
     {
         if (Ocupado) return;
@@ -404,7 +490,8 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         Ocupado = true;
         try
         {
-            var id = await _servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), NullSiVacio(NuevoProductoCategoria)), _idSesion());
+            var catId = await ResolverCategoriaIdAsync(NuevoProductoCategoria);
+            var id = await _servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), catId), _idSesion());
             Mensaje = "Producto creado.";
             NuevoProductoNombre = string.Empty; NuevoProductoMarca = null; NuevoProductoCategoria = null;
             OnPropertyChanged(nameof(NuevoProductoNombre)); OnPropertyChanged(nameof(NuevoProductoMarca)); OnPropertyChanged(nameof(NuevoProductoCategoria));
@@ -421,7 +508,8 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         Error = null; Mensaje = null; Ocupado = true;
         try
         {
-            await _servicios.CasoEditarProducto.EjecutarAsync(ProductoSeleccionado.Id, new EdicionProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), NullSiVacio(NuevoProductoCategoria)), _idSesion());
+            var catId = await ResolverCategoriaIdAsync(NuevoProductoCategoria) ?? ProductoSeleccionado.CategoriaId;
+            await _servicios.CasoEditarProducto.EjecutarAsync(ProductoSeleccionado.Id, new EdicionProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), catId), _idSesion());
             Mensaje = "Producto editado.";
             await BuscarAsync();
             await VerFichaAsync();
@@ -448,15 +536,15 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
     private async Task CrearVarianteAsync()
     {
         if (ProductoSeleccionado is null) { Error = "Seleccioná un producto para su variante."; return; }
-        if (string.IsNullOrWhiteSpace(NuevoVarianteSku)) { Error = "SKU obligatorio e inmutable."; return; }
         if (Ocupado) return;
         Error = null; Mensaje = null; Ocupado = true;
         try
         {
-            var id = await _servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(ProductoSeleccionado.Id, NuevoVarianteSku.Trim(), NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
-            Mensaje = "Variante creada.";
-            NuevoVarianteSku = string.Empty; NuevoVarianteTalle = null; NuevoVarianteColor = null;
-            OnPropertyChanged(nameof(NuevoVarianteSku)); OnPropertyChanged(nameof(NuevoVarianteTalle)); OnPropertyChanged(nameof(NuevoVarianteColor));
+            // Código interno automático: la usuaria no lo escribe.
+            var id = await _servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(ProductoSeleccionado.Id, NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
+            Mensaje = "Variante creada (código interno automático).";
+            NuevoVarianteTalle = null; NuevoVarianteColor = null;
+            OnPropertyChanged(nameof(NuevoVarianteTalle)); OnPropertyChanged(nameof(NuevoVarianteColor));
             await VerFichaAsync();
         }
         catch (Exception ex) { Error = MensajeError(ex, "crear variantes"); }
@@ -472,7 +560,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         try
         {
             await _servicios.CasoEditarVariante.EjecutarAsync(v.Id, new EdicionVariante(NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
-            Mensaje = "Variante editada (talle/color). SKU no se reasigna.";
+            Mensaje = "Variante editada (talle/color). El código interno no se reasigna.";
             await VerFichaAsync();
         }
         catch (Exception ex) { Error = MensajeError(ex, "editar variantes"); }
@@ -533,20 +621,20 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         foreach (var f in FilasCarga)
         {
             if (string.IsNullOrWhiteSpace(f.Sku)) continue;
-            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant <= 0) { Error = $"Cantidad inválida para SKU {f.Sku}. Debe ser entero >0."; return; }
-            // Resolver variante por SKU
+            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant <= 0) { Error = $"Cantidad inválida para código {f.Sku}. Debe ser entero >0."; return; }
+            // Resolver variante por código interno exacto (ingreso rápido / lector)
             try
             {
-                var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
-                if (vari is null) { Error = $"SKU no encontrado: {f.Sku}."; return; }
-                if (!vistos.Add(vari.Id)) { Error = $"SKU repetido en grilla: {f.Sku}."; return; }
+                var vari = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(f.Sku.Trim(), _idSesion());
+                if (vari is null) { Error = $"Código interno no encontrado: {f.Sku}."; return; }
+                if (!vistos.Add(vari.Id)) { Error = $"Código repetido en grilla: {f.Sku}."; return; }
                 f.VarianteId = vari.Id;
-                f.Detalle = $"{vari.Sku} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
+                f.Detalle = $"{vari.CodigoInterno} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
                 filas.Add(new FilaCargaInicial(vari.Id, cant));
             }
             catch (Exception ex) { Error = MensajeError(ex); return; }
         }
-        if (filas.Count == 0) { Error = "Agregá al menos una fila válida (SKU y cantidad)."; return; }
+        if (filas.Count == 0) { Error = "Agregá al menos una fila válida (código y cantidad)."; return; }
         // Idempotencia: si el contenido cambió respecto al último intento fallido, rotar id
         if (_ultimasFilasEnviadas is not null && !FilasIguales(_ultimasFilasEnviadas, filas))
         {

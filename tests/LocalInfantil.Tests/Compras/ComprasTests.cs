@@ -26,9 +26,9 @@ public sealed class ComprasTests
     {
         using var entorno = await EntornoCompras.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedor.EjecutarAsync(new NuevoProveedor("Mayorista Ficticio"), entorno.Sesion);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-C-004", "4", null), entorno.Sesion);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-C-006", "6", null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.Sesion);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.Sesion);
 
         var recepcionId = await entorno.Recepcion.EjecutarAsync(
             proveedorId,
@@ -57,9 +57,9 @@ public sealed class ComprasTests
     {
         using var entorno = await EntornoCompras.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedor.EjecutarAsync(new NuevoProveedor("Mayorista"), entorno.Sesion);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-0-001", null, null), entorno.Sesion);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-0-002", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.Sesion);
 
         var recepcionId = await entorno.Recepcion.EjecutarAsync(
             proveedorId,
@@ -77,8 +77,8 @@ public sealed class ComprasTests
     {
         using var entorno = await EntornoCompras.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedor.EjecutarAsync(new NuevoProveedor("Mayorista"), entorno.Sesion);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-R-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
         await entorno.Recepcion.EjecutarAsync(
             proveedorId, new List<LineaRecepcion> { new(v1, 4, null, null) }, "op-rec-dup", null, entorno.Sesion);
 
@@ -94,8 +94,8 @@ public sealed class ComprasTests
     {
         using var entorno = await EntornoCompras.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedor.EjecutarAsync(new NuevoProveedor("Mayorista"), entorno.Sesion);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-F-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => entorno.Recepcion.EjecutarAsync(
             proveedorId,
@@ -115,8 +115,8 @@ public sealed class ComprasTests
     {
         using var entorno = await EntornoCompras.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedor.EjecutarAsync(new NuevoProveedor("Mayorista"), entorno.Sesion);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-I-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
 
         await Assert.ThrowsAsync<ArgumentException>(() => entorno.Recepcion.EjecutarAsync(
             proveedorId, new List<LineaRecepcion> { new(v1, 0, null, null) }, "op-i-001", null, entorno.Sesion));
@@ -142,8 +142,8 @@ public sealed class ComprasTests
     {
         using var entorno = await EntornoCompras.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedor.EjecutarAsync(new NuevoProveedor("Mayorista"), entorno.Sesion);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-H-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
         await entorno.Recepcion.EjecutarAsync(
             proveedorId, new List<LineaRecepcion> { new(v1, 5, 7000, "ARS") }, "op-rec-h", null, entorno.Sesion);
 
@@ -201,8 +201,8 @@ public sealed class ComprasTests
     public async Task Carga_inicial_y_ajustes_siguen_funcionando()
     {
         using var entorno = await EntornoCompras.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-S-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
 
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 10) }, "op-carga-s", entorno.Sesion);
         await entorno.Ajuste.EjecutarAsync(v1, -3, "Merma", "op-ajuste-s", entorno.Sesion);
@@ -262,7 +262,7 @@ public sealed class ComprasTests
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
             var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             Autorizador = autorizador;
-            CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
+            CrearProducto = new CrearProducto(productos, new RepositorioCategorias(_ids), autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
             Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);

@@ -17,8 +17,7 @@
         </Border>
         <Border DockPanel.Dock="Bottom" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">
             <DockPanel>
-                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Doble clic en el master abre esta ficha. Los cambios se guardan por sección."/>
-                <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="Cerrar" Click="Cerrar_Click" HorizontalAlignment="Right"/>
+                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Doble clic en el master abre esta ficha. Los cambios se guardan por sección. Esc o ✕ para salir."/>
             </DockPanel>
         </Border>
         <Grid>
@@ -80,8 +79,8 @@
                                 <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Marca, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Categoría (opcional)"/>
-                                <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Categoria, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Categoría"/>
+                                <ComboBox Style="{StaticResource EstiloCombo}" ItemsSource="{Binding Categorias}" SelectedItem="{Binding CategoriaSeleccionada}" DisplayMemberPath="Nombre" ToolTip="Categoría controlada (reemplaza el texto libre)"/>
                             </StackPanel>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
@@ -111,7 +110,7 @@
                                   ItemsSource="{Binding Ficha.Variantes}" SelectedItem="{Binding VarianteSeleccionada}"
                                   MinHeight="140" MaxHeight="320" HorizontalScrollBarVisibility="Auto" BorderBrush="{StaticResource Color.BorderBrush}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Código / SKU" Binding="{Binding Sku}" Width="2*" MinWidth="110"/>
+                                <DataGridTextColumn Header="Código interno" Binding="{Binding CodigoInterno}" Width="2*" MinWidth="110"/>
                                 <DataGridTextColumn Header="Talle" Binding="{Binding Talle, TargetNullValue=—}" Width="60"/>
                                 <DataGridTextColumn Header="Color" Binding="{Binding Color, TargetNullValue=—}" Width="80"/>
                                 <DataGridTextColumn Header="Stock" Binding="{Binding Existencias}" Width="60"/>
@@ -143,10 +142,8 @@
                                     <StackPanel Visibility="{Binding MostrarFormularioAlta, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="ALTA"/>
                                         <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Nueva variante"/>
-                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Completá solo los datos básicos." Margin="0,0,0,8"/>
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Código / SKU"/>
-                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding NuevoVarianteSku, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,0"/>
-                                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Debe ser único. Después de crear la variante no puede modificarse." TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Completá solo talle y color." Margin="0,0,0,8"/>
+                                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="El código interno se genera solo (ej REM-001-03) y no se puede modificar." TextWrapping="Wrap" Margin="0,2,0,8"/>
                                         <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Talle"/>
                                         <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding NuevoVarianteTalle, UpdateSourceTrigger=PropertyChanged}" ToolTip="Vacío = sin talle" Margin="0,0,0,8"/>
                                         <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Color"/>

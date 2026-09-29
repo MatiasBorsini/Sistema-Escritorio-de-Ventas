@@ -32,7 +32,7 @@ public sealed class WpfConteoPasosTests
     {
         using var e = await Entorno.CrearAsync();
         var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
-        vm.FilasSeleccion[0].Sku = "STP-01";
+        vm.FilasSeleccion[0].Sku = e.Codigo;
         vm.FilasSeleccion[0].CantidadTexto = "5";
         await vm.SiguientePasoAsyncPublic();
         Assert.Equal(2, vm.PasoActual);
@@ -43,7 +43,7 @@ public sealed class WpfConteoPasosTests
         Assert.Equal(3, vm.PasoActual);
         Assert.NotNull(vm.Seleccionado);
         await EsperarAsync(() => vm.Informe.Count == 1);
-        Assert.Equal("STP-01", vm.Informe[0].Sku);
+        Assert.Equal(e.Codigo, vm.Informe[0].Sku);
 
         await vm.SiguientePasoAsyncPublic();
         Assert.Equal(4, vm.PasoActual);
@@ -55,7 +55,7 @@ public sealed class WpfConteoPasosTests
     {
         using var e = await Entorno.CrearAsync();
         var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
-        vm.FilasSeleccion[0].Sku = "STP-01";
+        vm.FilasSeleccion[0].Sku = e.Codigo;
         vm.FilasSeleccion[0].CantidadTexto = "5";
         await vm.SiguientePasoAsyncPublic();
         await vm.SiguientePasoAsyncPublic();
@@ -72,7 +72,7 @@ public sealed class WpfConteoPasosTests
     {
         using var e = await Entorno.CrearAsync();
         var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
-        vm.FilasSeleccion[0].Sku = "STP-01";
+        vm.FilasSeleccion[0].Sku = e.Codigo;
         vm.FilasSeleccion[0].CantidadTexto = "5";
         await vm.SiguientePasoAsyncPublic();
         Assert.Equal(2, vm.PasoActual);
@@ -95,13 +95,15 @@ public sealed class WpfConteoPasosTests
     {
         public ServiciosComerciales Servicios { get; }
         public string Sesion { get; }
+        public string Codigo { get; }
         private readonly string _dir;
 
-        private Entorno(string dir, ServiciosComerciales servicios, string sesion)
+        private Entorno(string dir, ServiciosComerciales servicios, string sesion, string codigo)
         {
             _dir = dir;
             Servicios = servicios;
             Sesion = sesion;
+            Codigo = codigo;
         }
 
         public static async Task<Entorno> CrearAsync()
@@ -112,16 +114,17 @@ public sealed class WpfConteoPasosTests
             var servicios = new ServiciosComerciales(ruta);
             var duenaId = await servicios.CasoCrearUsuario.EjecutarAsync(new NuevoUsuario("duena", RolesLocal.Duena), "clave-duena-000000", null);
             var sesion = await servicios.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
-            var e = new Entorno(dir, servicios, sesion.IdSesion);
+            var e = new Entorno(dir, servicios, sesion.IdSesion, string.Empty);
             await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, PermisosCatalogo.ProductosGestionar, true, e.Sesion);
             await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, PermisosCatalogo.VariantesGestionar, true, e.Sesion);
             await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, PermisosInventario.CargaInicialEstablecer, true, e.Sesion);
             await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, PermisosInventario.ConteoRegistrar, true, e.Sesion);
             await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, PermisosInventario.ConteoAprobar, true, e.Sesion);
-            var pid = await servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Prod Paso", null, null), e.Sesion);
-            var vid = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, "STP-01", null, null), e.Sesion);
+            var pid = await servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Prod Paso", null, "cat-otr"), e.Sesion);
+            var vid = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.Sesion);
             await servicios.CasoCargarExistenciaInicial.EjecutarAsync(new[] { new FilaCargaInicial(vid, 10) }, Guid.NewGuid().ToString("N"), e.Sesion);
-            return e;
+            var vari = await servicios.ConsultasCatalogo.ObtenerVarianteAsync(vid, e.Sesion);
+            return new Entorno(dir, servicios, sesion.IdSesion, vari!.CodigoInterno);
         }
 
         public void Dispose()

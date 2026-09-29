@@ -183,7 +183,7 @@ public sealed class WpfSuppliersReceivingTests
         // reintento con mismo operacionId
         var rec2 = (await e.ConsultasRecepciones.ListarAsync(10, 0, e.SesionDuena)).First();
         // crear segunda recepción para probar duplicado operacionId
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante((await e.ConsultasCatalogo.ObtenerFichaAsync((await e.ConsultasCatalogo.BuscarProductosAsync("", 10, 0, e.SesionDuena)).First().Id, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Producto.Id, "SKU-NEW-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, null), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante((await e.ConsultasCatalogo.ObtenerFichaAsync((await e.ConsultasCatalogo.BuscarProductosAsync("", 10, 0, e.SesionDuena)).First().Id, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Producto.Id, "L", null), e.SesionDuena);
         // no necesitamos probar más, el primer caso ya cubre
     }
 
@@ -308,7 +308,7 @@ public sealed class WpfSuppliersReceivingTests
         var (prod, v1, _) = await CrearCatalogoAsync(e);
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("ProvRec"), e.SesionDuena);
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        var sku = ficha!.Variantes.First(x => x.Id == v1).Sku;
+        var sku = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno;
         var op = Guid.NewGuid().ToString("N");
         await e.ConfirmarRecepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 2, null, null) }, op, null, e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
@@ -346,8 +346,8 @@ public sealed class WpfSuppliersReceivingTests
         var (prod, v1, v2) = await CrearCatalogoAsync(e);
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("ProvRec2"), e.SesionDuena);
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        var sku1 = ficha!.Variantes.First(x => x.Id == v1).Sku;
-        var sku2 = ficha.Variantes.First(x => x.Id == v2).Sku;
+        var sku1 = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno;
+        var sku2 = ficha.Variantes.First(x => x.Id == v2).CodigoInterno;
         var op = Guid.NewGuid().ToString("N");
         await e.ConfirmarRecepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 2, null, null) }, op, null, e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
@@ -406,7 +406,7 @@ public sealed class WpfSuppliersReceivingTests
         vmInvalida.ProveedorSeleccionado = new ProveedorRegistrado(prov, "ProvRec3", true);
         vmInvalida.Filas.Clear();
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        vmInvalida.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).Sku, CantidadTexto = "2" });
+        vmInvalida.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno, CantidadTexto = "2" });
         await vmInvalida.ConfirmarAsyncPublic();
         Assert.NotNull(vmInvalida.Error);
         Assert.Equal(op, vmInvalida.OperacionId); // conserva id para reintento idempotente
@@ -422,8 +422,9 @@ public sealed class WpfSuppliersReceivingTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.RecepcionConfirmar, true, e.SesionDuena);
         var provId = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("ProvVM"), e.SesionDuena);
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdVM", null, null), e.SesionDuena);
-        var vari = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-VM-PROV", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdVM", null, "cat-otr"), e.SesionDuena);
+        var vari = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
+        var cod = (await e.ConsultasCatalogo.ObtenerVarianteAsync(vari, e.SesionDuena))!.CodigoInterno;
 
         var svc = new ServiciosComerciales(e.Ruta);
         var sesVm = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
@@ -435,7 +436,7 @@ public sealed class WpfSuppliersReceivingTests
         await vmRec.CargarProveedoresAsync();
         Assert.Contains(vmRec.Proveedores, p => p.Id == provId);
         vmRec.ProveedorSeleccionado = vmRec.Proveedores.First(p => p.Id == provId);
-        vmRec.Filas.First().Sku = "SKU-VM-PROV";
+        vmRec.Filas.First().Sku = cod;
         vmRec.Filas.First().CantidadTexto = "3";
         vmRec.Filas.First().CostoTexto = "150,50";
         var opAntes = vmRec.OperacionId;
@@ -450,9 +451,9 @@ public sealed class WpfSuppliersReceivingTests
     {
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), "M", "Rojo"), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", "Rojo"), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
         return (prod, v1, v2);
     }
 
@@ -509,7 +510,7 @@ public sealed class WpfSuppliersReceivingTests
             var editarProv = new EditarProveedor(provRepo, autorizador, fabrica, auditoria, ids);
             var desactivarProv = new DesactivarProveedor(provRepo, autorizador, fabrica, auditoria, ids);
             var cprov = new ConsultasProveedores(provRepo, sesiones, fabrica);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var consultasCat = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var confirmarRec = new ConfirmarRecepcion(recepRepo, provRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);

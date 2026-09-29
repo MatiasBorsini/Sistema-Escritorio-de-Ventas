@@ -22,7 +22,6 @@ public sealed class FichaProductoViewModel : ViewModelBase
     private string _nombre = string.Empty;
     private string? _marca;
     private string? _categoria;
-    private string _nuevoVarianteSku = string.Empty;
     private string? _nuevoVarianteTalle;
     private string? _nuevoVarianteColor;
     private string? _editarTalle;
@@ -166,14 +165,29 @@ public sealed class FichaProductoViewModel : ViewModelBase
 
     /// <summary>Encabezado de la variante seleccionada (solo lectura).</summary>
     public bool HayVarianteSeleccionada => VarianteSeleccionada is not null;
-    public string SkuSeleccionado => VarianteSeleccionada?.Sku ?? "—";
+    public string SkuSeleccionado => VarianteSeleccionada?.CodigoInterno ?? "—";
+    public string CodigoSeleccionado => VarianteSeleccionada?.CodigoInterno ?? "—";
     public string TalleColorSeleccionado => VarianteSeleccionada?.TalleColorTexto ?? "—";
     public string EstadoSeleccionado => VarianteSeleccionada is null ? "—" : VarianteSeleccionada.Activa ? "Activa" : "Inactiva";
     public long? PrecioVigenteSel => VarianteSeleccionada?.PrecioMinor;
     public string Nombre { get => _nombre; set => SetProperty(ref _nombre, value); }
     public string? Marca { get => _marca; set => SetProperty(ref _marca, value); }
     public string? Categoria { get => _categoria; set => SetProperty(ref _categoria, value); }
-    public string NuevoVarianteSku { get => _nuevoVarianteSku; set => SetProperty(ref _nuevoVarianteSku, value); }
+    /// <summary>Categorías controladas para el ComboBox (reemplazan texto libre).</summary>
+    public ObservableCollection<CategoriaRegistrada> Categorias { get; } = new();
+    private CategoriaRegistrada? _categoriaSeleccionada;
+    public CategoriaRegistrada? CategoriaSeleccionada
+    {
+        get => _categoriaSeleccionada;
+        set
+        {
+            if (SetProperty(ref _categoriaSeleccionada, value))
+                Categoria = value?.Nombre;
+        }
+    }
+    /// <summary>Código interno de la última variante creada (solo lectura).</summary>
+    public string? UltimoCodigoVarianteCreado { get => _ultimoCodigoVarianteCreado; set => SetProperty(ref _ultimoCodigoVarianteCreado, value); }
+    private string? _ultimoCodigoVarianteCreado;
     public string? NuevoVarianteTalle { get => _nuevoVarianteTalle; set => SetProperty(ref _nuevoVarianteTalle, value); }
     public string? NuevoVarianteColor { get => _nuevoVarianteColor; set => SetProperty(ref _nuevoVarianteColor, value); }
 
@@ -197,7 +211,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
 
     private string _cantidadInicialTexto = string.Empty;
 
-    /// <summary>Cantidad para establecer stock inicial de la seleccionada (sin reingresar SKU).</summary>
+    /// <summary>Cantidad para establecer stock inicial de la seleccionada (sin reingresar el código).</summary>
     public string CantidadInicialTexto { get => _cantidadInicialTexto; set => SetProperty(ref _cantidadInicialTexto, value); }
 
     /// <summary>Mensajes de la sección Variantes (no contaminan otras solapas).</summary>
@@ -242,7 +256,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
     public Task EstablecerStockInicialAsyncPublic() => EstablecerStockInicialAsync();
 
     /// <summary>
-    /// Existencia inicial de la variante seleccionada sin reingresar el SKU:
+    /// Existencia inicial de la variante seleccionada sin reingresar el código:
     /// reutiliza el caso existente con una colección de una sola fila
     /// (misma validación, idempotencia y semántica ESTABLECE).
     /// </summary>
@@ -252,7 +266,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
         if (Ocupado) return;
         ErrorVariantes = null; MensajeVariantes = null;
         FilasCarga.Clear();
-        FilasCarga.Add(new FilaCargaViewModel { Sku = VarianteSeleccionada.Sku, CantidadTexto = CantidadInicialTexto });
+        FilasCarga.Add(new FilaCargaViewModel { Sku = VarianteSeleccionada.CodigoInterno, CantidadTexto = CantidadInicialTexto });
         await EjecutarCargaAsync();
         if (ErrorVariantes is null)
             CantidadInicialTexto = string.Empty;
@@ -331,8 +345,27 @@ public sealed class FichaProductoViewModel : ViewModelBase
     public Task DesactivarProductoAsyncPublic() => DesactivarProductoAsync();
     public Task EjecutarCargaAsyncPublic() => EjecutarCargaAsync();
 
+    /// <summary>
+    /// Carga las categorías controladas para el ComboBox. Sin default
+    /// automático: en creación la usuaria debe elegir explícitamente
+    /// (incluso "Otros"); si no, el guardado informa "Elegí una categoría.".
+    /// </summary>
+    public async Task CargarCategoriasAsync()
+    {
+        try
+        {
+            var lista = await _servicios.ConsultasCatalogo.ListarCategoriasAsync(_idSesion(), true);
+            Categorias.Clear();
+            foreach (var c in lista) Categorias.Add(c);
+            if (Ficha?.Producto.CategoriaId is string cid)
+                CategoriaSeleccionada = Categorias.FirstOrDefault(c => c.Id == cid);
+        }
+        catch (Exception ex) { Error = MensajeError(ex); }
+    }
+
     public async Task InicializarAsync()
     {
+        await CargarCategoriasAsync();
         if (EsCreacion) return;
         await RecargarFichaAsync();
         if (Ficha is not null)
@@ -340,6 +373,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
             Nombre = Ficha.Producto.Nombre;
             Marca = Ficha.Producto.Marca;
             Categoria = Ficha.Producto.Categoria;
+            CategoriaSeleccionada = Categorias.FirstOrDefault(c => c.Id == Ficha.Producto.CategoriaId);
             OnPropertyChanged(nameof(Nombre));
             OnPropertyChanged(nameof(Marca));
             OnPropertyChanged(nameof(Categoria));
@@ -386,8 +420,15 @@ public sealed class FichaProductoViewModel : ViewModelBase
         {
             if (EsCreacion)
             {
+                if (CategoriaSeleccionada is null)
+                {
+                    if (Categorias.Count == 0)
+                        await CargarCategoriasAsync();
+                    if (CategoriaSeleccionada is null) { Error = "Seleccioná una categoría."; return; }
+                }
+
                 _productoId = await _servicios.CasoCrearProducto.EjecutarAsync(
-                    new NuevoProducto(Nombre.Trim(), NullSiVacio(Marca), NullSiVacio(Categoria)), _idSesion());
+                    new NuevoProducto(Nombre.Trim(), NullSiVacio(Marca), CategoriaSeleccionada.Id), _idSesion());
                 OnPropertyChanged(nameof(EsCreacion));
                 OnPropertyChanged(nameof(SolapasSecundariasHabilitadas));
                 OnPropertyChanged(nameof(ProductoId));
@@ -403,7 +444,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
             else
             {
                 await _servicios.CasoEditarProducto.EjecutarAsync(
-                    _productoId!, new EdicionProducto(Nombre.Trim(), NullSiVacio(Marca), NullSiVacio(Categoria)), _idSesion());
+                    _productoId!, new EdicionProducto(Nombre.Trim(), NullSiVacio(Marca), CategoriaSeleccionada?.Id ?? Ficha?.Producto.CategoriaId), _idSesion());
                 Mensaje = "Producto editado.";
                 await RecargarFichaAsync();
             }
@@ -415,20 +456,22 @@ public sealed class FichaProductoViewModel : ViewModelBase
     private async Task CrearVarianteAsync()
     {
         if (_productoId is null) { ErrorVariantes = "Creá primero el producto."; return; }
-        if (string.IsNullOrWhiteSpace(NuevoVarianteSku)) { ErrorVariantes = "El código / SKU es obligatorio."; return; }
         if (Ocupado) return;
         ErrorVariantes = null; MensajeVariantes = null; Ocupado = true;
         try
         {
-            var sku = NuevoVarianteSku.Trim();
-            await _servicios.CasoCrearVariante.EjecutarAsync(
-                new NuevaVariante(_productoId, sku, NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
-            MensajeVariantes = "Variante creada.";
-            NuevoVarianteSku = string.Empty; NuevoVarianteTalle = null; NuevoVarianteColor = null;
-            OnPropertyChanged(nameof(NuevoVarianteSku)); OnPropertyChanged(nameof(NuevoVarianteTalle)); OnPropertyChanged(nameof(NuevoVarianteColor));
+            // Código interno automático: la usuaria solo indica talle/color.
+            var id = await _servicios.CasoCrearVariante.EjecutarAsync(
+                new NuevaVariante(_productoId, NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
+            NuevoVarianteTalle = null; NuevoVarianteColor = null;
+            OnPropertyChanged(nameof(NuevoVarianteTalle)); OnPropertyChanged(nameof(NuevoVarianteColor));
             MostrarFormularioAlta = false;
             await RecargarFichaAsync();
-            VarianteSeleccionada = Ficha?.Variantes.FirstOrDefault(v => v.Sku == sku);
+            VarianteSeleccionada = Ficha?.Variantes.FirstOrDefault(v => v.Id == id);
+            UltimoCodigoVarianteCreado = VarianteSeleccionada?.CodigoInterno;
+            MensajeVariantes = VarianteSeleccionada is null
+                ? "Variante creada."
+                : $"Variante creada con código interno {VarianteSeleccionada.CodigoInterno}.";
         }
         catch (Exception ex) { ErrorVariantes = MensajeError(ex, "crear variantes"); }
         finally { Ocupado = false; }
@@ -512,19 +555,19 @@ public sealed class FichaProductoViewModel : ViewModelBase
         foreach (var f in FilasCarga)
         {
             if (string.IsNullOrWhiteSpace(f.Sku)) continue;
-            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant <= 0) { ErrorVariantes = $"Cantidad inválida para SKU {f.Sku}. Debe ser entero >0."; return; }
+            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant <= 0) { ErrorVariantes = $"Cantidad inválida para código {f.Sku}. Debe ser entero >0."; return; }
             try
             {
-                var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
-                if (vari is null) { ErrorVariantes = $"SKU no encontrado: {f.Sku}."; return; }
-                if (!vistos.Add(vari.Id)) { ErrorVariantes = $"SKU repetido en grilla: {f.Sku}."; return; }
+                var vari = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(f.Sku.Trim(), _idSesion());
+                if (vari is null) { ErrorVariantes = $"Código interno no encontrado: {f.Sku}."; return; }
+                if (!vistos.Add(vari.Id)) { ErrorVariantes = $"Código repetido en grilla: {f.Sku}."; return; }
                 f.VarianteId = vari.Id;
-                f.Detalle = $"{vari.Sku} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
+                f.Detalle = $"{vari.CodigoInterno} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
                 filas.Add(new FilaCargaInicial(vari.Id, cant));
             }
             catch (Exception ex) { ErrorVariantes = MensajeError(ex); return; }
         }
-        if (filas.Count == 0) { ErrorVariantes = "Agregá al menos una fila válida (SKU y cantidad)."; return; }
+        if (filas.Count == 0) { ErrorVariantes = "Agregá al menos una fila válida (código y cantidad)."; return; }
         if (_ultimasFilasEnviadas is not null && !FilasIguales(_ultimasFilasEnviadas, filas))
         {
             _operacionIdCarga = _servicios.GeneradorIds.NuevoId();

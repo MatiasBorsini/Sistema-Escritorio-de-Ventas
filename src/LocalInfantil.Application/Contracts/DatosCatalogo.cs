@@ -1,15 +1,15 @@
 namespace LocalInfantil.Application.Contracts;
 
 /// <summary>Edición con reemplazo total: nombre obligatorio, marca/categoría se reemplazan (null las vacía).</summary>
-public sealed record EdicionProducto(string Nombre, string? Marca, string? Categoria);
+public sealed record EdicionProducto(string Nombre, string? Marca, string? CategoriaId);
 
-/// <summary>Edición con reemplazo total de talle/color (null los vacía). SKU y producto inmutables.</summary>
+/// <summary>Edición con reemplazo total de talle/color (null los vacía). Código interno y producto inmutables.</summary>
 public sealed record EdicionVariante(string? Talle, string? Color);
 
 /// <summary>Variante con su precio vigente e existencias derivadas, en una sola lectura.</summary>
 public sealed record FichaVariante(
     string Id,
-    string Sku,
+    string CodigoInterno,
     string? Talle,
     string? Color,
     bool Activa,

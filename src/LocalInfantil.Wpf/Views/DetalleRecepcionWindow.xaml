@@ -17,15 +17,14 @@
         </Border>
         <Border DockPanel.Dock="Bottom" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Padding="12,6">
             <DockPanel>
-                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Ventana de consulta: no bloquea Recepciones. Podés seguir consultando otras recepciones."/>
-                <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="Cerrar" Click="Cerrar_Click" HorizontalAlignment="Right"/>
+                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Ventana de consulta: no bloquea Recepciones. Podés seguir consultando otras recepciones. Esc o ✕ para salir."/>
             </DockPanel>
         </Border>
         <StackPanel DockPanel.Dock="Top" Margin="12,8,12,0">
             <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
             <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
             <DockPanel Margin="0,2,0,6">
-                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="300" Text="{Binding Filtro, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar SKU dentro de la recepción"/>
+                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="300" Text="{Binding Filtro, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar código dentro de la recepción"/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Resumen.Unidades, StringFormat={}{0} unidades}" Margin="0,0,12,0"/>
                     <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Resumen.CantidadLineas, StringFormat={}{0} líneas}" Margin="0,0,12,0"/>
@@ -51,7 +50,7 @@
         <DataGrid Style="{StaticResource EstiloGrillaOperativa}" Margin="12,0,12,12" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
                   ItemsSource="{Binding LineasFiltradas}" BorderBrush="{StaticResource Color.BorderBrush}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="2*"/>
+                <DataGridTextColumn Header="Código interno" Binding="{Binding Sku}" Width="2*"/>
                 <DataGridTextColumn Header="Talle" Binding="{Binding Talle, TargetNullValue=—}" Width="80"/>
                 <DataGridTextColumn Header="Color" Binding="{Binding Color, TargetNullValue=—}" Width="100"/>
                 <DataGridTextColumn Header="Cantidad" Binding="{Binding Cantidad}" Width="80"/>

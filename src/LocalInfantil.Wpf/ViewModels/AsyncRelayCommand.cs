@@ -7,10 +7,16 @@ namespace LocalInfantil.Wpf.ViewModels;
 /// </summary>
 public sealed class AsyncRelayCommand : ICommand
 {
-    private readonly Func<Task> _executeAsync;
+    private readonly Func<object?, Task> _executeAsync;
     private bool _ejecutando;
 
     public AsyncRelayCommand(Func<Task> executeAsync)
+        : this(_ => executeAsync())
+    {
+    }
+
+    /// <summary>Variante con parámetro (p. ej. ítem seleccionado de un buscador).</summary>
+    public AsyncRelayCommand(Func<object?, Task> executeAsync)
     {
         _executeAsync = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
     }
@@ -31,7 +37,7 @@ public sealed class AsyncRelayCommand : ICommand
 
         try
         {
-            await _executeAsync();
+            await _executeAsync(parameter);
         }
         finally
         {

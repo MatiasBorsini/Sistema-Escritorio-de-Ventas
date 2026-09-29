@@ -14,17 +14,78 @@ public sealed class FilaRecepcionViewModel : ViewModelBase
     private string _moneda = "ARS";
     private string? _varianteId;
     private string? _detalle;
+    private MotorSugerencias<SugerenciaVariante>? _motorVariantes;
     private long? _stockActual;
     private long? _quedara;
     private long? _subtotalMinor;
     private bool _resuelta;
     private bool _valida;
-    public string Sku { get => _sku; set => SetProperty(ref _sku, value); }
+    public string Sku
+    {
+        get => _sku;
+        set
+        {
+            if (SetProperty(ref _sku, value) && MotorVariantes is not null && MotorVariantes.Texto != value)
+                MotorVariantes.EstablecerTexto(value);
+        }
+    }
     public string CantidadTexto { get => _cantidadTexto; set => SetProperty(ref _cantidadTexto, value); }
     public string CostoTexto { get => _costoTexto; set => SetProperty(ref _costoTexto, value); }
     public string Moneda { get => _moneda; set => SetProperty(ref _moneda, value); }
     public string? VarianteId { get => _varianteId; set => SetProperty(ref _varianteId, value); }
     public string? Detalle { get => _detalle; set => SetProperty(ref _detalle, value); }
+
+    /// <summary>Buscador de la fila (lo provee el VM padre). Null = solo texto.</summary>
+    public MotorSugerencias<SugerenciaVariante>? MotorVariantes
+    {
+        get => _motorVariantes;
+        set
+        {
+            if (ReferenceEquals(_motorVariantes, value)) return;
+            if (_motorVariantes is not null)
+                _motorVariantes.PropertyChanged -= Motor_TextoCambiado;
+            SetProperty(ref _motorVariantes, value);
+            if (_motorVariantes is not null)
+            {
+                _motorVariantes.PropertyChanged += Motor_TextoCambiado;
+                if (_motorVariantes.Texto != _sku)
+                    _motorVariantes.EstablecerTexto(_sku);
+            }
+        }
+    }
+
+    /// <summary>Puente motor→fila: lo tipeado en el buscador es el código.</summary>
+    private void Motor_TextoCambiado(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MotorSugerencias<SugerenciaVariante>.Texto)
+            && _motorVariantes is not null && _motorVariantes.Texto != _sku)
+        {
+            _sku = _motorVariantes.Texto;
+            OnPropertyChanged(nameof(Sku));
+        }
+    }
+    public RelayCommand SeleccionarSugerenciaCommand { get; }
+    public AsyncRelayCommand? BuscarDirectaCommand { get; set; }
+
+    public FilaRecepcionViewModel()
+    {
+        SeleccionarSugerenciaCommand = new RelayCommand(p =>
+        {
+            if (p is SugerenciaVariante s)
+                AplicarSugerencia(s);
+        });
+    }
+
+    /// <summary>
+    /// Aplica una sugerencia con el código/id real y el detalle humano, sin
+    /// validaciones nuevas (Verificar/Confirmar siguen validando todo).
+    /// </summary>
+    public void AplicarSugerencia(SugerenciaVariante s)
+    {
+        Sku = s.CodigoInterno;
+        VarianteId = s.VarianteId;
+        Detalle = $"{s.CodigoInterno} — {s.DetalleTalleColor}";
+    }
 
     /// <summary>
     /// Lectura derivada de consultas existentes (verificación bajo demanda).
@@ -58,14 +119,25 @@ public sealed class RecepcionViewModel : ViewModelBase
         _servicios = servicios;
         _idSesion = idSesion;
         Proveedores = new ObservableCollection<ProveedorRegistrado>();
-        Filas = new ObservableCollection<FilaRecepcionViewModel> { new(), new() };
-        Filas.CollectionChanged += (_, _) => ResumenListo = false;
         _operacionId = servicios.GeneradorIds.NuevoId();
         ConfirmarCommand = new AsyncRelayCommand(ConfirmarAsync);
         AgregarFilaCommand = new AsyncRelayCommand(AgregarFilaAsync);
         QuitarFilaCommand = new AsyncRelayCommand(QuitarFilaAsync);
         RefrescarProveedoresCommand = new AsyncRelayCommand(CargarProveedoresAsync);
         VerificarCommand = new AsyncRelayCommand(VerificarAsync);
+        Filas = new ObservableCollection<FilaRecepcionViewModel> { CrearFila(), CrearFila() };
+        Filas.CollectionChanged += (_, _) => ResumenListo = false;
+    }
+
+    /// <summary>Fábrica de filas con buscador asistido ya cableado.</summary>
+    private FilaRecepcionViewModel CrearFila()
+    {
+        return new FilaRecepcionViewModel
+        {
+            MotorVariantes = new MotorSugerencias<SugerenciaVariante>((t, ct) =>
+                _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct)),
+            BuscarDirectaCommand = VerificarCommand,
+        };
     }
 
     public ObservableCollection<ProveedorRegistrado> Proveedores { get; }
@@ -114,7 +186,7 @@ public sealed class RecepcionViewModel : ViewModelBase
     public Task VerificarAsyncPublic() => VerificarAsync();
 
     /// <summary>
-    /// Resuelve cada fila con SKU usando consultas existentes (variante +
+    /// Resuelve cada fila con código usando consultas existentes (variante +
     /// ficha con existencias). No valida reglas de negocio: solo expone
     /// StockActual/Quedará/Subtotal de lectura para operar con contexto.
     /// La confirmación vuelve a resolver y validar todo (lógica intacta).
@@ -137,10 +209,10 @@ public sealed class RecepcionViewModel : ViewModelBase
                 if (string.IsNullOrWhiteSpace(f.Sku)) continue;
                 try
                 {
-                    var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
-                    if (vari is null) { f.Detalle = "SKU no encontrado."; continue; }
+                    var vari = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(f.Sku.Trim(), _idSesion());
+                    if (vari is null) { f.Detalle = "Código interno no encontrado."; continue; }
                     f.VarianteId = vari.Id;
-                    f.Detalle = $"{vari.Sku} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
+                    f.Detalle = $"{vari.CodigoInterno} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
                     var ficha = await _servicios.ConsultasCatalogo.ObtenerFichaAsync(vari.ProductoId, fecha, _idSesion());
                     var existencia = ficha?.Variantes.FirstOrDefault(v => v.Id == vari.Id)?.Existencias;
                     f.StockActual = existencia;
@@ -237,7 +309,7 @@ public sealed class RecepcionViewModel : ViewModelBase
                 Filas.Clear();
                 foreach (var l in pendiente.Lineas)
                 {
-                    // El id interno nunca se presenta como SKU: se recupera el SKU
+                    // El id interno nunca se presenta como código: se recupera el código
                     // auténtico por variante con sesión vigente.
                     LocalInfantil.Application.Contracts.VarianteRegistrada? variante;
                     try
@@ -254,12 +326,16 @@ public sealed class RecepcionViewModel : ViewModelBase
                         Error = $"La variante '{l.VarianteId}' del pendiente ya no existe. Pendiente conservado para revisión manual; no se reconstruye el formulario.";
                         return;
                     }
-                    var fila = new FilaRecepcionViewModel { Sku = variante.Sku, CantidadTexto = l.Cantidad.ToString(), CostoTexto = l.CostoUnitarioMinor.HasValue ? (l.CostoUnitarioMinor.Value / 100m).ToString("F2", CultureInfo.InvariantCulture) : string.Empty, Moneda = l.Moneda ?? "ARS" };
+                    var fila = CrearFila();
+                    fila.Sku = variante.CodigoInterno;
+                    fila.CantidadTexto = l.Cantidad.ToString();
+                    fila.CostoTexto = l.CostoUnitarioMinor.HasValue ? (l.CostoUnitarioMinor.Value / 100m).ToString("F2", CultureInfo.InvariantCulture) : string.Empty;
+                    fila.Moneda = l.Moneda ?? "ARS";
                     fila.VarianteId = variante.Id;
-                    fila.Detalle = $"{variante.Sku} — {variante.Talle ?? "sin talle"}/{variante.Color ?? "sin color"}";
+                    fila.Detalle = $"{variante.CodigoInterno} — {variante.Talle ?? "sin talle"}/{variante.Color ?? "sin color"}";
                     Filas.Add(fila);
                 }
-                if (Filas.Count == 0) Filas.Add(new FilaRecepcionViewModel());
+                if (Filas.Count == 0) Filas.Add(CrearFila());
                 var prov = Proveedores.FirstOrDefault(p => p.Id == pendiente.ProveedorId);
                 if (prov is not null) ProveedorSeleccionado = prov;
                 ComprobanteRef = pendiente.ComprobanteRef;
@@ -269,7 +345,7 @@ public sealed class RecepcionViewModel : ViewModelBase
     }
 
     public Task ConfirmarAsyncPublic() => ConfirmarAsync();
-    private Task AgregarFilaAsync() { Filas.Add(new FilaRecepcionViewModel()); return Task.CompletedTask; }
+    private Task AgregarFilaAsync() { Filas.Add(CrearFila()); return Task.CompletedTask; }
     private Task QuitarFilaAsync() { if (Filas.Count > 1) Filas.RemoveAt(Filas.Count - 1); return Task.CompletedTask; }
 
     public async Task ConfirmarAsync()
@@ -282,7 +358,7 @@ public sealed class RecepcionViewModel : ViewModelBase
         foreach (var f in Filas)
         {
             if (string.IsNullOrWhiteSpace(f.Sku)) continue;
-            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant <= 0) { Error = $"Cantidad inválida para SKU {f.Sku}. Entero >0."; return; }
+            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant <= 0) { Error = $"Cantidad inválida para código {f.Sku}. Entero >0."; return; }
             long? costoMinor = null;
             string? moneda = null;
             if (!string.IsNullOrWhiteSpace(f.CostoTexto))
@@ -300,11 +376,11 @@ public sealed class RecepcionViewModel : ViewModelBase
             }
             try
             {
-                var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
-                if (vari is null) { Error = $"SKU no encontrado: {f.Sku}."; return; }
+                var vari = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(f.Sku.Trim(), _idSesion());
+                if (vari is null) { Error = $"Código interno no encontrado: {f.Sku}."; return; }
                 if (!vistos.Add(vari.Id)) { Error = $"Variante repetida: {f.Sku}."; return; }
                 f.VarianteId = vari.Id;
-                f.Detalle = $"{vari.Sku} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
+                f.Detalle = $"{vari.CodigoInterno} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
                 lineas.Add(new LineaRecepcion(vari.Id, cant, costoMinor, moneda));
             }
             catch (Exception ex) { Error = MensajeError(ex); return; }

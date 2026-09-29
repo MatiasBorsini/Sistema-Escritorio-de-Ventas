@@ -76,7 +76,7 @@ public sealed class WpfRecepcionDurableTests
         var vm = new LocalInfantil.Wpf.ViewModels.RecepcionViewModel(svc, () => ses.IdSesion);
         await vm.CargarProveedoresAsync();
         vm.ProveedorSeleccionado = vm.Proveedores.FirstOrDefault(p => p.Id == prov) ?? new ProveedorRegistrado(prov, "Prov", true);
-        var sku = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v1).Sku;
+        var sku = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v1).CodigoInterno;
         vm.Filas.Clear();
         vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = sku, CantidadTexto = "1" });
         // Forzar pendiente corrupto bloquea Guardar
@@ -105,7 +105,7 @@ public sealed class WpfRecepcionDurableTests
         var vm = new LocalInfantil.Wpf.ViewModels.RecepcionViewModel(svc, () => ses.IdSesion);
         await vm.CargarProveedoresAsync();
         vm.ProveedorSeleccionado = vm.Proveedores.First(p => p.Id == prov);
-        var sku = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v1).Sku;
+        var sku = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v1).CodigoInterno;
         vm.Filas.Clear();
         vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = sku, CantidadTexto = "2" });
         await vm.ConfirmarAsyncPublic();
@@ -187,7 +187,7 @@ public sealed class WpfRecepcionDurableTests
         await vm.VerificarPendienteAsync(); // detectará ya registrada y limpiará con mensaje
         Assert.Contains("ya quedó registrada", vm.Mensaje ?? "");
         // Ahora cambiar contenido a v2 y confirmar debe requerir nueva confirmación explícita, no auto
-        var sku2 = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v2).Sku;
+        var sku2 = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v2).CodigoInterno;
         vm.Filas.Clear();
         vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = sku2, CantidadTexto = "5" });
         vm.ProveedorSeleccionado = vm.Proveedores.First(p => p.Id == prov);
@@ -211,8 +211,8 @@ public sealed class WpfRecepcionDurableTests
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Prov"), e.SesionDuena);
         var (prod, v1, v2) = await CrearCatalogoAsync(e);
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        var sku1 = ficha!.Variantes.First(x => x.Id == v1).Sku;
-        var sku2 = ficha.Variantes.First(x => x.Id == v2).Sku;
+        var sku1 = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno;
+        var sku2 = ficha.Variantes.First(x => x.Id == v2).CodigoInterno;
         var op = Guid.NewGuid().ToString("N");
         var lineas = new[] { new LineaRecepcion(v1, 3, 15050, "ARS"), new LineaRecepcion(v2, 2, null, null) };
         // Guardar pendiente y simular que la recepción NO llegó a confirmarse.
@@ -280,7 +280,7 @@ public sealed class WpfRecepcionDurableTests
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
         vm.ProveedorSeleccionado = vm.Proveedores.First(p => p.Id == prov);
         vm.Filas.Clear();
-        vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).Sku, CantidadTexto = "2" });
+        vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno, CantidadTexto = "2" });
         await vm.ConfirmarAsyncPublic();
         // Eliminación fallida: bloqueo conservado, sin otra recepción.
         Assert.Contains("No se pudo eliminar", vm.Error ?? "");
@@ -339,9 +339,9 @@ public sealed class WpfRecepcionDurableTests
     {
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), "M", "Rojo"), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", "Rojo"), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
         return (prod, v1, v2);
     }
 
@@ -385,7 +385,7 @@ public sealed class WpfRecepcionDurableTests
             var movRepo = new RepositorioMovimientos(ids);
             var recepRepo = new RepositorioRecepciones(ids);
             var crearProv = new CrearProveedor(provRepo, autorizador, fabrica, auditoria, ids, reloj);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var consultasCat = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var confirmarRec = new ConfirmarRecepcion(recepRepo, provRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);

@@ -29,13 +29,13 @@ public sealed class TransaccionesYBloqueosTests
             await using (var primera = await fabrica.IniciarAsync())
             {
                 await Assert.ThrowsAsync<SqliteException>(() =>
-                    variantes.InsertarAsync(primera, new NuevaVariante("producto-inexistente", "SKU-X", null, null), Fecha1));
+                    variantes.InsertarAsync(primera, new NuevaVariante("producto-inexistente", null, null), Fecha1));
             }
 
             await using (var segunda = await fabrica.IniciarAsync())
             {
                 await Assert.ThrowsAsync<SqliteException>(() =>
-                    variantes.InsertarAsync(segunda, new NuevaVariante("producto-inexistente", "SKU-Y", null, null), Fecha1));
+                    variantes.InsertarAsync(segunda, new NuevaVariante("producto-inexistente", null, null), Fecha1));
             }
         }
         finally
@@ -56,16 +56,17 @@ public sealed class TransaccionesYBloqueosTests
             var variantes = new RepositorioVariantes(new GeneradorIds());
 
             string productoId;
+            string varianteId;
             await using (var sesion = await fabrica.IniciarAsync())
             {
                 productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", "Marca", null), Fecha1);
-                await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "REM-T6", "6", null), Fecha1);
+                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "6", null), Fecha1);
                 await sesion.ConfirmarAsync();
             }
 
             await using var reapertura = await fabrica.IniciarAsync();
             var producto = await productos.ObtenerPorIdAsync(reapertura, productoId);
-            var variante = await variantes.ObtenerPorSkuAsync(reapertura, "REM-T6");
+            var variante = await variantes.ObtenerPorIdAsync(reapertura, varianteId);
             Assert.NotNull(producto);
             Assert.Equal("Remera", producto.Nombre);
             Assert.NotNull(variante);
@@ -126,17 +127,18 @@ public sealed class TransaccionesYBloqueosTests
             var variantes = new RepositorioVariantes(new GeneradorIds());
 
             string productoId;
+            string varianteId;
             await using (var sesion = await fabrica.IniciarAsync())
             {
                 productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", null, null), Fecha1);
-                await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "REM-T8", "8", null), Fecha1);
+                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "8", null), Fecha1);
                 await Assert.ThrowsAsync<SqliteException>(() =>
-                    variantes.InsertarAsync(sesion, new NuevaVariante("producto-inexistente", "REM-FALLA", null, null), Fecha1));
+                    variantes.InsertarAsync(sesion, new NuevaVariante("producto-inexistente", null, null), Fecha1));
             }
 
             await using var verificacion = await fabrica.IniciarAsync();
             Assert.Null(await productos.ObtenerPorIdAsync(verificacion, productoId));
-            Assert.Null(await variantes.ObtenerPorSkuAsync(verificacion, "REM-T8"));
+            Assert.Null(await variantes.ObtenerPorIdAsync(verificacion, varianteId));
         }
         finally
         {
@@ -161,7 +163,7 @@ public sealed class TransaccionesYBloqueosTests
             await using (var sesion = await fabrica.IniciarAsync())
             {
                 var productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Pantalón", null, null), Fecha1);
-                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "PAN-T4", "4", null), Fecha1);
+                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "4", null), Fecha1);
                 await precios.FijarAsync(sesion, new NuevoPrecio(varianteId, 15000, "ARS", Fecha1, null), Fecha1);
                 await movimientos.RegistrarAsync(
                     sesion,

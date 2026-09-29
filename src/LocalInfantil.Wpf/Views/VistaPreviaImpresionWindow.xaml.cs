@@ -17,6 +17,14 @@ public partial class VistaPreviaImpresionWindow : Window
 
         _documentoVisual = new DocumentoImpresionDePruebaRenderer().Renderizar(documento);
         VistaDocumento.Document = _documentoVisual;
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                Close();
+                e.Handled = true;
+            }
+        };
     }
 
     private void Imprimir_Click(object sender, RoutedEventArgs e)

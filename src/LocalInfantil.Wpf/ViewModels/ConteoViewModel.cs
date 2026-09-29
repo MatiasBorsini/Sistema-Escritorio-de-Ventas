@@ -10,10 +10,68 @@ public sealed class FilaConteoSeleccionViewModel : ViewModelBase
     private string _cantidadTexto = "0";
     private string? _varianteId;
     private string? _detalle;
-    public string Sku { get => _sku; set => SetProperty(ref _sku, value); }
+    private MotorSugerencias<SugerenciaVariante>? _motorVariantes;
+    public string Sku
+    {
+        get => _sku;
+        set
+        {
+            if (SetProperty(ref _sku, value) && MotorVariantes is not null && MotorVariantes.Texto != value)
+                MotorVariantes.EstablecerTexto(value);
+        }
+    }
     public string CantidadTexto { get => _cantidadTexto; set => SetProperty(ref _cantidadTexto, value); }
     public string? VarianteId { get => _varianteId; set => SetProperty(ref _varianteId, value); }
     public string? Detalle { get => _detalle; set => SetProperty(ref _detalle, value); }
+
+    /// <summary>Buscador de la fila (lo provee el VM padre). Null = solo texto.</summary>
+    public MotorSugerencias<SugerenciaVariante>? MotorVariantes
+    {
+        get => _motorVariantes;
+        set
+        {
+            if (ReferenceEquals(_motorVariantes, value)) return;
+            if (_motorVariantes is not null)
+                _motorVariantes.PropertyChanged -= Motor_TextoCambiado;
+            SetProperty(ref _motorVariantes, value);
+            if (_motorVariantes is not null)
+            {
+                _motorVariantes.PropertyChanged += Motor_TextoCambiado;
+                if (_motorVariantes.Texto != _sku)
+                    _motorVariantes.EstablecerTexto(_sku);
+            }
+        }
+    }
+
+    public RelayCommand SeleccionarSugerenciaCommand { get; }
+
+    public FilaConteoSeleccionViewModel()
+    {
+        SeleccionarSugerenciaCommand = new RelayCommand(p =>
+        {
+            if (p is SugerenciaVariante s)
+                AplicarSugerencia(s);
+        });
+    }
+
+    /// <summary>Aplica una sugerencia con el código/id real (Crear/Corregir validan igual).</summary>
+    public void AplicarSugerencia(SugerenciaVariante s)
+    {
+        Sku = s.CodigoInterno;
+        VarianteId = s.VarianteId;
+        Detalle = $"{s.CodigoInterno} {s.DetalleTalleColor}";
+    }
+
+    /// <summary>Puente motor→fila: lo tipeado en el buscador es el código.</summary>
+    private void Motor_TextoCambiado(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MotorSugerencias<SugerenciaVariante>.Texto)
+            && _motorVariantes is not null && _motorVariantes.Texto != _sku)
+        {
+            _sku = _motorVariantes.Texto;
+            OnPropertyChanged(nameof(Sku));
+        }
+    }
 }
 
 public sealed class ConteoViewModel : ViewModelBase
@@ -37,7 +95,7 @@ public sealed class ConteoViewModel : ViewModelBase
         _idSesion = idSesion;
         _operacionId = servicios.GeneradorIds.NuevoId();
         Conteos = new ObservableCollection<ConteoRegistrado>();
-        FilasSeleccion = new ObservableCollection<FilaConteoSeleccionViewModel> { new() };
+        FilasSeleccion = new ObservableCollection<FilaConteoSeleccionViewModel> { CrearFilaSeleccion() };
         CrearCommand = new AsyncRelayCommand(CrearAsync);
         CorregirCommand = new AsyncRelayCommand(CorregirAsync);
         AprobarCommand = new AsyncRelayCommand(AprobarAsync);
@@ -46,11 +104,21 @@ public sealed class ConteoViewModel : ViewModelBase
         RefrescarCommand = new AsyncRelayCommand(CargarConteosAsync);
         SiguienteCommand = new AsyncRelayCommand(SiguienteAsync);
         AnteriorCommand = new AsyncRelayCommand(AnteriorAsync);
-        AgregarFilaCommand = new AsyncRelayCommand(() => { FilasSeleccion.Add(new FilaConteoSeleccionViewModel()); return Task.CompletedTask; });
+        AgregarFilaCommand = new AsyncRelayCommand(() => { FilasSeleccion.Add(CrearFilaSeleccion()); return Task.CompletedTask; });
         QuitarFilaCommand = new AsyncRelayCommand(() => { if (FilasSeleccion.Count > 1) FilasSeleccion.RemoveAt(FilasSeleccion.Count - 1); return Task.CompletedTask; });
         SiguientePasoCommand = new AsyncRelayCommand(SiguientePasoAsync);
         AnteriorPasoCommand = new AsyncRelayCommand(() => { if (PasoActual > 1) PasoActual--; return Task.CompletedTask; });
         IrAPasoCommand = new RelayCommand(IrAPaso);
+    }
+
+    /// <summary>Fábrica de filas con buscador asistido ya cableado.</summary>
+    private FilaConteoSeleccionViewModel CrearFilaSeleccion()
+    {
+        return new FilaConteoSeleccionViewModel
+        {
+            MotorVariantes = new MotorSugerencias<SugerenciaVariante>((t, ct) =>
+                _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct)),
+        };
     }
 
     /// <summary>
@@ -138,7 +206,7 @@ public sealed class ConteoViewModel : ViewModelBase
             case 1:
                 if (!FilasSeleccion.Any(f => !string.IsNullOrWhiteSpace(f.Sku)))
                 {
-                    Error = "Agregá al menos una variante (SKU). Lo no seleccionado queda fuera del conteo.";
+                    Error = "Agregá al menos una variante (código). Lo no seleccionado queda fuera del conteo.";
                     return;
                 }
 
@@ -246,14 +314,14 @@ public sealed class ConteoViewModel : ViewModelBase
         foreach (var f in FilasSeleccion)
         {
             if (string.IsNullOrWhiteSpace(f.Sku)) continue;
-            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant < 0) { Error = $"Cantidad inválida para SKU {f.Sku}. Entero >=0."; return; }
+            if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant < 0) { Error = $"Cantidad inválida para código {f.Sku}. Entero >=0."; return; }
             try
             {
-                var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
-                if (vari is null) { Error = $"SKU no encontrado: {f.Sku}."; return; }
+                var vari = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(f.Sku.Trim(), _idSesion());
+                if (vari is null) { Error = $"Código interno no encontrado: {f.Sku}."; return; }
                 if (!vistos.Add(vari.Id)) { Error = $"Variante duplicada: {f.Sku}."; return; }
                 f.VarianteId = vari.Id;
-                f.Detalle = $"{vari.Sku} {vari.Talle ?? ""}/{vari.Color ?? ""}".Trim();
+                f.Detalle = $"{vari.CodigoInterno} {vari.Talle ?? ""}/{vari.Color ?? ""}".Trim();
                 filas.Add(new FilaConteo(vari.Id, cant));
             }
             catch (Exception ex) { Error = MensajeError(ex); return; }
@@ -287,8 +355,8 @@ public sealed class ConteoViewModel : ViewModelBase
             if (!long.TryParse(f.CantidadTexto.Trim(), out var cant) || cant < 0) { Error = $"Cantidad inválida {f.Sku}."; return; }
             try
             {
-                var vari = await _servicios.ConsultasCatalogo.BuscarPorSkuAsync(f.Sku.Trim(), _idSesion());
-                if (vari is null) { Error = $"SKU no encontrado {f.Sku}."; return; }
+                var vari = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(f.Sku.Trim(), _idSesion());
+                if (vari is null) { Error = $"Código interno no encontrado {f.Sku}."; return; }
                 filas.Add(new FilaConteo(vari.Id, cant));
             }
             catch (Exception ex) { Error = MensajeError(ex); return; }

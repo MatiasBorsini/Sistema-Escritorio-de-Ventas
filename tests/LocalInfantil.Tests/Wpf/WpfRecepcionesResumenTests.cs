@@ -21,7 +21,7 @@ public sealed class WpfRecepcionesResumenTests
     {
         using var e = await Entorno.CrearAsync();
         var prov = await e.CrearProveedorAsync("Prov Resumen");
-        var (v1, v2) = await e.CrearVariantesConStockAsync("RSM", 5, 7);
+        var (v1, v2, _, _) = await e.CrearVariantesConStockAsync("RSM", 5, 7);
         await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 5, 1000, "ARS"), new LineaRecepcion(v2, 7, null, null) }, "COMP-R1");
         await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 2, 2000, "ARS") }, null);
 
@@ -44,7 +44,7 @@ public sealed class WpfRecepcionesResumenTests
     {
         using var e = await Entorno.CrearAsync();
         var prov = await e.CrearProveedorAsync("Prov Filtro");
-        var (v1, _) = await e.CrearVariantesConStockAsync("FLT", 10, 10);
+        var (v1, _, _, _) = await e.CrearVariantesConStockAsync("FLT", 10, 10);
         var id1 = await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 1, null, null) }, "C-1");
         await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 1, null, null) }, "C-2");
         await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 1, null, null) }, "C-3");
@@ -67,13 +67,13 @@ public sealed class WpfRecepcionesResumenTests
     {
         using var e = await Entorno.CrearAsync();
         var prov = await e.CrearProveedorAsync("Prov Detalle");
-        var (v1, v2) = await e.CrearVariantesConStockAsync("DET", 3, 4);
+        var (v1, v2, cod1, cod2) = await e.CrearVariantesConStockAsync("DET", 3, 4);
         var id = await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 3, 500, "ARS"), new LineaRecepcion(v2, 4, null, null) }, "C-D");
         var lineas = await e.Servicios.ConsultasRecepciones.ListarLineasDetalleAsync(id, e.Sesion);
         Assert.Equal(2, lineas.Count);
-        Assert.All(lineas, l => Assert.StartsWith("DET-", l.Sku));
-        Assert.Equal(1500, lineas.First(l => l.Sku == "DET-01").SubtotalMinor);
-        Assert.Null(lineas.First(l => l.Sku == "DET-02").SubtotalMinor);
+        Assert.Equal(new[] { cod1, cod2 }.OrderBy(c => c), lineas.Select(l => l.Sku).OrderBy(c => c));
+        Assert.Equal(1500, lineas.First(l => l.Sku == cod1).SubtotalMinor);
+        Assert.Null(lineas.First(l => l.Sku == cod2).SubtotalMinor);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class WpfRecepcionesResumenTests
     {
         using var e = await Entorno.CrearAsync();
         var prov = await e.CrearProveedorAsync("Prov VM");
-        var (v1, _) = await e.CrearVariantesConStockAsync("CVM", 6, 6);
+        var (v1, _, _, _) = await e.CrearVariantesConStockAsync("CVM", 6, 6);
         await e.ConfirmarAsync(prov, new[] { new LineaRecepcion(v1, 6, 700, "ARS") }, "C-VM");
         var vm = new RecepcionesConsultaViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
         await vm.CargarAsync();
@@ -110,11 +110,11 @@ public sealed class WpfRecepcionesResumenTests
     {
         using var e = await Entorno.CrearAsync();
         var prov = await e.CrearProveedorAsync("Prov Entrada");
-        var (v1, _) = await e.CrearVariantesConStockAsync("ENT", 10, 10);
+        var (v1, _, cod1, _) = await e.CrearVariantesConStockAsync("ENT", 10, 10);
         var rec = new RecepcionViewModel(e.Servicios, () => e.Sesion);
         await rec.CargarProveedoresAsync();
         rec.ProveedorSeleccionado = rec.Proveedores.First(p => p.Id == prov);
-        rec.Filas[0].Sku = "ENT-01";
+        rec.Filas[0].Sku = cod1;
         rec.Filas[0].CantidadTexto = "4";
         rec.Filas[0].CostoTexto = "100,00";
         await rec.VerificarAsyncPublic();
@@ -171,14 +171,16 @@ public sealed class WpfRecepcionesResumenTests
         public Task<string> CrearProveedorAsync(string nombre)
             => Servicios.CasoCrearProveedor.EjecutarAsync(new NuevoProveedor(nombre), Sesion);
 
-        public async Task<(string, string)> CrearVariantesConStockAsync(string prefijo, long s1, long s2)
+        public async Task<(string V1, string V2, string Cod1, string Cod2)> CrearVariantesConStockAsync(string prefijo, long s1, long s2)
         {
-            var pid = await Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto($"Prod-{prefijo}", null, null), Sesion);
-            var v1 = await Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, $"{prefijo}-01", "M", null), Sesion);
-            var v2 = await Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, $"{prefijo}-02", null, null), Sesion);
+            var pid = await Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto($"Prod-{prefijo}", null, "cat-otr"), Sesion);
+            var v1 = await Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, "M", null), Sesion);
+            var v2 = await Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), Sesion);
             await Servicios.CasoCargarExistenciaInicial.EjecutarAsync(
                 new[] { new FilaCargaInicial(v1, s1), new FilaCargaInicial(v2, s2) }, Guid.NewGuid().ToString("N"), Sesion);
-            return (v1, v2);
+            var cod1 = (await Servicios.ConsultasCatalogo.ObtenerVarianteAsync(v1, Sesion))!.CodigoInterno;
+            var cod2 = (await Servicios.ConsultasCatalogo.ObtenerVarianteAsync(v2, Sesion))!.CodigoInterno;
+            return (v1, v2, cod1, cod2);
         }
 
         public async Task<string> ConfirmarAsync(string prov, IReadOnlyList<LineaRecepcion> lineas, string? comprobante)

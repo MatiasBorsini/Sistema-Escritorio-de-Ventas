@@ -20,7 +20,7 @@ public sealed class WpfCatalogoFichaTests
     public async Task Abrir_ficha_edicion_registra_id()
     {
         using var e = await Entorno.CrearAsync();
-        var pid = await e.CrearProductoAsync("Remera Ficha");
+        var pid = await e.CrearProductoAsync("Remera Ficha", "cat-rem");
         var vm = new CatalogoViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
         await vm.BuscarAsyncPublic();
         Assert.NotEmpty(vm.Filas);
@@ -76,6 +76,14 @@ public sealed class WpfCatalogoFichaTests
 
         ficha.Nombre = "Buzo Nuevo";
         await ficha.GuardarDatosAsyncPublic();
+        Assert.Equal("Seleccioná una categoría.", ficha.Error);
+        Assert.Null(ficha.ProductoId);
+
+        // "Otros" no se asigna solo: la elección es explícita.
+        await ficha.CargarCategoriasAsync();
+        Assert.Null(ficha.CategoriaSeleccionada);
+        ficha.CategoriaSeleccionada = ficha.Categorias.First(c => c.Id == "cat-buz");
+        await ficha.GuardarDatosAsyncPublic();
         Assert.Null(ficha.Error);
         Assert.NotNull(ficha.ProductoId);
         Assert.False(ficha.EsCreacion);
@@ -83,17 +91,17 @@ public sealed class WpfCatalogoFichaTests
         Assert.Equal("Variantes", ficha.Solapa);
         Assert.Contains("agregar variantes", ficha.MensajeVariantes ?? "");
 
-        await ficha.CrearVarianteAsyncPublic();
-        Assert.Contains("SKU", ficha.ErrorVariantes ?? "");
+        // Código interno automático: crear sin escribir código funciona.
         ficha.SolicitarAltaCommand.Execute(null);
         Assert.True(ficha.MostrarFormularioAlta);
-        ficha.NuevoVarianteSku = "FICHA-001";
         await ficha.CrearVarianteAsyncPublic();
         Assert.Null(ficha.ErrorVariantes);
         Assert.False(ficha.MostrarFormularioAlta);
         Assert.NotNull(ficha.Ficha);
-        Assert.Contains(ficha.Ficha!.Variantes, v => v.Sku == "FICHA-001");
-        Assert.Equal("FICHA-001", ficha.SkuSeleccionado);
+        var creada = Assert.Single(ficha.Ficha!.Variantes);
+        Assert.False(string.IsNullOrWhiteSpace(creada.CodigoInterno));
+        Assert.Equal(creada.CodigoInterno, ficha.SkuSeleccionado);
+        Assert.NotNull(ficha.UltimoCodigoVarianteCreado);
 
         ficha.PrecioTexto = "100,00";
         await ficha.FijarPrecioAsyncPublic();
@@ -105,7 +113,7 @@ public sealed class WpfCatalogoFichaTests
     public async Task Ficha_seleccion_precarga_edicion_y_errores_van_a_seccion()
     {
         using var e = await Entorno.CrearAsync();
-        var pid = await e.CrearProductoAsync("Remera Sel");
+        var pid = await e.CrearProductoAsync("Remera Sel", "cat-rem");
         var ficha = new FichaProductoViewModel(e.Servicios, () => e.Sesion, pid);
         await ficha.InicializarAsyncPublic();
         Assert.False(ficha.HayVarianteSeleccionada);
@@ -115,11 +123,11 @@ public sealed class WpfCatalogoFichaTests
         Assert.Null(ficha.Error);
 
         ficha.SolicitarAltaCommand.Execute(null);
-        ficha.NuevoVarianteSku = "SEL-01";
         ficha.NuevoVarianteTalle = "M";
         ficha.NuevoVarianteColor = "Rojo";
         await ficha.CrearVarianteAsyncPublic();
-        Assert.Equal("SEL-01", ficha.SkuSeleccionado);
+        Assert.False(string.IsNullOrWhiteSpace(ficha.SkuSeleccionado));
+        Assert.NotEqual("—", ficha.SkuSeleccionado);
         Assert.Equal("M · Rojo", ficha.TalleColorSeleccionado);
         Assert.Equal("Activa", ficha.EstadoSeleccionado);
         Assert.Equal("M", ficha.EditarTalle);
@@ -130,7 +138,7 @@ public sealed class WpfCatalogoFichaTests
     public async Task Ficha_edicion_guarda_y_desactiva()
     {
         using var e = await Entorno.CrearAsync();
-        var pid = await e.CrearProductoAsync("Remera Edit");
+        var pid = await e.CrearProductoAsync("Remera Edit", "cat-rem");
         var ficha = new FichaProductoViewModel(e.Servicios, () => e.Sesion, pid);
         await ficha.InicializarAsyncPublic();
         Assert.NotNull(ficha.Ficha);
@@ -172,8 +180,8 @@ public sealed class WpfCatalogoFichaTests
     {
         using var e = await Entorno.CrearAsync();
         var pid = await e.CrearProductoAsync("Agregado");
-        var v1 = await e.Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, "AG-1", "M", null), e.Sesion);
-        var v2 = await e.Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, "AG-2", null, null), e.Sesion);
+        var v1 = await e.Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, "M", null), e.Sesion);
+        var v2 = await e.Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.Sesion);
         await e.Servicios.CasoCargarExistenciaInicial.EjecutarAsync(
             new[] { new FilaCargaInicial(v1, 5), new FilaCargaInicial(v2, 7) }, Guid.NewGuid().ToString("N"), e.Sesion);
         var vm = new CatalogoViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
@@ -203,6 +211,8 @@ public sealed class WpfCatalogoFichaTests
         Assert.Equal(1, ficha.PasoCreacion);
 
         ficha.Nombre = "Wizard Uno";
+        await ficha.CargarCategoriasAsync();
+        ficha.CategoriaSeleccionada = ficha.Categorias.First(c => c.Id == "cat-otr");
         await ficha.GuardarDatosAsyncPublic();
         Assert.Equal(2, ficha.PasoCreacion);
         Assert.True(ficha.MostrarNavVariantes);
@@ -220,7 +230,6 @@ public sealed class WpfCatalogoFichaTests
         Assert.False(cerro);
 
         // Con una variante ya no requiere confirmación.
-        ficha.NuevoVarianteSku = "WIZ-01";
         await ficha.CrearVarianteAsyncPublic();
         Assert.False(ficha.RequiereConfirmacionCierre);
         Assert.True(ficha.AlIntentarCerrar());
@@ -242,16 +251,16 @@ public sealed class WpfCatalogoFichaTests
     }
 
     [Fact]
-    public async Task Establecer_stock_inicial_sin_reingresar_sku()
+    public async Task Establecer_stock_inicial_sin_reingresar_codigo()
     {
         using var e = await Entorno.CrearAsync();
-        var pid = await e.CrearProductoAsync("Remera Stock");
+        var pid = await e.CrearProductoAsync("Remera Stock", "cat-rem");
         var ficha = new FichaProductoViewModel(e.Servicios, () => e.Sesion, pid);
         await ficha.InicializarAsyncPublic();
         ficha.SolicitarAltaCommand.Execute(null);
-        ficha.NuevoVarianteSku = "STK-01";
         await ficha.CrearVarianteAsyncPublic();
-        Assert.Equal("STK-01", ficha.SkuSeleccionado);
+        var codigo = ficha.SkuSeleccionado;
+        Assert.False(string.IsNullOrWhiteSpace(codigo));
 
         await ficha.EstablecerStockInicialAsyncPublic();
         Assert.Contains("Cantidad", ficha.ErrorVariantes ?? "");
@@ -260,7 +269,7 @@ public sealed class WpfCatalogoFichaTests
         await ficha.EstablecerStockInicialAsyncPublic();
         Assert.Null(ficha.ErrorVariantes);
         Assert.Contains("establecida", (ficha.MensajeVariantes ?? "").ToLowerInvariant());
-        Assert.Equal(7, ficha.Ficha!.Variantes.First(v => v.Sku == "STK-01").Existencias);
+        Assert.Equal(7, ficha.Ficha!.Variantes.First(v => v.CodigoInterno == codigo).Existencias);
         Assert.Equal("", ficha.CantidadInicialTexto);
     }
 
@@ -327,8 +336,8 @@ public sealed class WpfCatalogoFichaTests
             Sesion = sesion;
         }
 
-        public Task<string> CrearProductoAsync(string nombre)
-            => Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto(nombre, null, null), Sesion);
+        public Task<string> CrearProductoAsync(string nombre, string categoriaId = "cat-otr")
+            => Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto(nombre, null, categoriaId), Sesion);
 
         public static async Task<Entorno> CrearAsync()
         {

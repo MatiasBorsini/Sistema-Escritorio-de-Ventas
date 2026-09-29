@@ -60,7 +60,7 @@ public sealed class WpfStocktakeRecoveryTests
         await vm.VerificarPendienteAsync();
         Assert.Contains("Pendiente incierto", vm.Mensaje ?? "");
         Assert.Equal(op, vm.OperacionId);
-        var sku = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v1).Sku;
+        var sku = (await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Variantes.First(x => x.Id == v1).CodigoInterno;
         vm.ProveedorSeleccionado = vm.Proveedores.First(p => p.Id == prov);
         vm.Filas.Clear();
         vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = sku, CantidadTexto = "2" });
@@ -97,9 +97,9 @@ public sealed class WpfStocktakeRecoveryTests
     public async Task Conteo_parcial_no_afecta_omitidas_y_borrador_recuperable()
     {
         using var e = await EntornoConteo.CrearAsync();
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-1", "M", null), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-2", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", null), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 10), new FilaCargaInicial(v2, 5) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         var conteoId = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 7) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         var informe = await e.ConsultasConteos.InformeAsync(conteoId, e.SesionDuena);
@@ -114,9 +114,9 @@ public sealed class WpfStocktakeRecoveryTests
     public async Task Conteo_correccion_y_aprobacion_diferencias()
     {
         using var e = await EntornoConteo.CrearAsync();
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-1", null, null), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-2", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "6", null), e.SesionDuena);
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 10), new FilaCargaInicial(v2, 10) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         var cid = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 12), new FilaConteo(v2, 8) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         await e.CorregirConteo.EjecutarAsync(cid, new[] { new FilaConteo(v1, 15), new FilaConteo(v2, 8) }, e.SesionDuena);
@@ -135,8 +135,8 @@ public sealed class WpfStocktakeRecoveryTests
     public async Task Conteo_foto_vieja_y_doble_aprobacion()
     {
         using var e = await EntornoConteo.CrearAsync();
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-1", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 10) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         var cid = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 12) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         await e.AjustarInventario.EjecutarAsync(v1, 2, "ajuste", Guid.NewGuid().ToString("N"), e.SesionDuena);
@@ -156,13 +156,14 @@ public sealed class WpfStocktakeRecoveryTests
     public async Task ViewModel_conteo_comandos_reales()
     {
         using var e = await EntornoConteo.CrearAsync();
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdVM", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-VM", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdVM", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
+        var cod = (await e.ConsultasCatalogo.ObtenerVarianteAsync(v1, e.SesionDuena))!.CodigoInterno;
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 10) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
         var ses = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
         var vm = new LocalInfantil.Wpf.ViewModels.ConteoViewModel(svc, () => ses.IdSesion);
-        vm.FilasSeleccion.First().Sku = "SKU-VM";
+        vm.FilasSeleccion.First().Sku = cod;
         vm.FilasSeleccion.First().CantidadTexto = "12";
         await vm.CrearAsyncPublic();
         Assert.Null(vm.Error);
@@ -178,7 +179,7 @@ public sealed class WpfStocktakeRecoveryTests
         Assert.Null(vm.Error);
         // Logout debe impedir
         await svc.CasoCerrarSesion.EjecutarAsync(ses.IdSesion);
-        vm.FilasSeleccion.First().Sku = "SKU-VM";
+        vm.FilasSeleccion.First().Sku = cod;
         vm.FilasSeleccion.First().CantidadTexto = "10";
         await vm.CrearAsyncPublic();
         Assert.Contains("Sesión inválida", vm.Error ?? "");
@@ -188,8 +189,9 @@ public sealed class WpfStocktakeRecoveryTests
     public async Task Conteo_paginacion_25_recorre_y_recupera_borrador()
     {
         using var e = await EntornoConteo.CrearAsync();
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdPag", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-PAG", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdPag", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
+        var cod = (await e.ConsultasCatalogo.ObtenerVarianteAsync(v1, e.SesionDuena))!.CodigoInterno;
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 50) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         for (var i = 0; i < 25; i++)
             await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, i + 1) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
@@ -208,16 +210,16 @@ public sealed class WpfStocktakeRecoveryTests
         vm.Seleccionado = borrador;
         for (var t = 0; t < 50 && vm.Informe.Count == 0; t++) await Task.Delay(100);
         Assert.Single(vm.Informe);
-        Assert.Equal("SKU-PAG", vm.Informe[0].Sku);
+        Assert.Equal(cod, vm.Informe[0].Sku);
     }
 
     private async Task<(string prod, string v1, string v2)> CrearCatalogoAsync(Entorno e)
     {
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), "M", "Rojo"), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", "Rojo"), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
         return (prod, v1, v2);
     }
 
@@ -263,7 +265,7 @@ public sealed class WpfStocktakeRecoveryTests
             var recepRepo = new RepositorioRecepciones(ids);
             var crearProv = new CrearProveedor(provRepo, autorizador, fabrica, auditoria, ids, reloj);
             var cprov = new ConsultasProveedores(provRepo, sesiones, fabrica);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var consultasCat = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var confirmarRec = new ConfirmarRecepcion(recepRepo, provRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);
@@ -330,7 +332,7 @@ public sealed class WpfStocktakeRecoveryTests
             var varRepo = new RepositorioVariantes(ids);
             var movRepo = new RepositorioMovimientos(ids);
             var conteoRepo = new RepositorioConteos(ids);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var apartRepo = new RepositorioApartados(ids);
             var crearConteo = new CrearConteo(conteoRepo, varRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);

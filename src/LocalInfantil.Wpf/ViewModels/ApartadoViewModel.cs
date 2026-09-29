@@ -24,6 +24,18 @@ public sealed class ApartadoViewModel : ViewModelBase
         _idSesion = idSesion;
         Historial = new ObservableCollection<ApartadoHistorial>();
         BuscarCommand = new AsyncRelayCommand(BuscarAsync);
+        MotorSugerencias = new MotorSugerencias<SugerenciaVariante>((t, ct) =>
+            _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct));
+        MotorSugerencias.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MotorSugerencias<SugerenciaVariante>.Texto)
+                && MotorSugerencias.Texto != _skuBusqueda)
+            {
+                _skuBusqueda = MotorSugerencias.Texto;
+                OnPropertyChanged(nameof(SkuBusqueda));
+            }
+        };
+        SeleccionarSugerenciaCommand = new AsyncRelayCommand(p => SeleccionarSugerenciaAsync(p as SugerenciaVariante));
         SeleccionarAccionCommand = new RelayCommand(SeleccionarAccion);
         ApartarCommand = new AsyncRelayCommand(ApartarAsync);
         ReincorporarCommand = new AsyncRelayCommand(ReincorporarAsync);
@@ -33,7 +45,20 @@ public sealed class ApartadoViewModel : ViewModelBase
     }
 
     public ObservableCollection<ApartadoHistorial> Historial { get; }
-    public string SkuBusqueda { get => _skuBusqueda; set => SetProperty(ref _skuBusqueda, value); }
+    /// <summary>
+    /// Texto de búsqueda (código interno exacto o parcial). Sincronizado con
+    /// el motor del buscador: Enter sin sugerencia usa este texto tal cual,
+    /// sin obligar a elegir (ingreso rápido / lector de código de barras).
+    /// </summary>
+    public string SkuBusqueda
+    {
+        get => _skuBusqueda;
+        set
+        {
+            if (SetProperty(ref _skuBusqueda, value) && MotorSugerencias is not null && MotorSugerencias.Texto != value)
+                MotorSugerencias.EstablecerTexto(value);
+        }
+    }
     public string CantidadTexto { get => _cantidadTexto; set => SetProperty(ref _cantidadTexto, value); }
     public string Motivo { get => _motivo; set => SetProperty(ref _motivo, value); }
     public ExistenciaClasificada? Existencia { get => _existencia; set => SetProperty(ref _existencia, value); }
@@ -79,6 +104,24 @@ public sealed class ApartadoViewModel : ViewModelBase
     }
 
     public AsyncRelayCommand BuscarCommand { get; }
+
+    /// <summary>Buscador asistido de variantes (código o nombre).</summary>
+    public MotorSugerencias<SugerenciaVariante> MotorSugerencias { get; }
+    public AsyncRelayCommand SeleccionarSugerenciaCommand { get; }
+
+    public Task SeleccionarSugerenciaAsyncPublic(SugerenciaVariante? s) => SeleccionarSugerenciaAsync(s);
+
+    /// <summary>
+    /// Salto desde sugerencia: completa el código real y carga la variante con
+    /// el flujo existente (sin segundo Buscar manual).
+    /// </summary>
+    private async Task SeleccionarSugerenciaAsync(SugerenciaVariante? sugerencia)
+    {
+        if (sugerencia is null) return;
+        if (Ocupado) return;
+        SkuBusqueda = sugerencia.CodigoInterno;
+        await BuscarAsync();
+    }
     public RelayCommand SeleccionarAccionCommand { get; }
     public AsyncRelayCommand ApartarCommand { get; }
     public AsyncRelayCommand ReincorporarCommand { get; }
@@ -90,12 +133,12 @@ public sealed class ApartadoViewModel : ViewModelBase
     {
         if (Ocupado) return;
         Error = null; Mensaje = null;
-        if (string.IsNullOrWhiteSpace(SkuBusqueda)) { Error = "Ingresá un SKU."; return; }
+        if (string.IsNullOrWhiteSpace(SkuBusqueda)) { Error = "Ingresá un código interno."; return; }
         Ocupado = true;
         try
         {
             var ex = await _servicios.ConsultasInventario.ObtenerClasificadaAsync(SkuBusqueda.Trim(), _idSesion());
-            if (ex is null) { Error = "SKU no encontrado."; return; }
+            if (ex is null) { Error = "Código interno no encontrado."; return; }
             Existencia = ex;
             Historial.Clear();
             foreach (var h in await _servicios.ConsultasInventario.HistorialApartadosPorSkuAsync(SkuBusqueda.Trim(), 20, 0, _idSesion()))
@@ -123,7 +166,7 @@ public sealed class ApartadoViewModel : ViewModelBase
     private bool ValidarFormulario(out long cantidad)
     {
         cantidad = 0;
-        if (Existencia is null) { Error = "Buscá una variante por SKU primero."; return false; }
+        if (Existencia is null) { Error = "Buscá una variante por código primero."; return false; }
         if (!long.TryParse(CantidadTexto.Trim(), out cantidad) || cantidad <= 0) { Error = "Cantidad inválida: entero mayor a cero."; return false; }
         if (string.IsNullOrWhiteSpace(Motivo)) { Error = "El motivo es obligatorio."; return false; }
         return true;
@@ -163,7 +206,7 @@ public sealed class ApartadoViewModel : ViewModelBase
 
     private Task SolicitarBajaAsync()
     {
-        if (Existencia is null) { Error = "Buscá una variante por SKU primero."; return Task.CompletedTask; }
+        if (Existencia is null) { Error = "Buscá una variante por código primero."; return Task.CompletedTask; }
         if (!long.TryParse(CantidadTexto.Trim(), out var cantidad) || cantidad <= 0) { Error = "Cantidad inválida: entero mayor a cero."; return Task.CompletedTask; }
         if (string.IsNullOrWhiteSpace(Motivo)) { Error = "El motivo es obligatorio."; return Task.CompletedTask; }
         Error = null; Mensaje = null;
