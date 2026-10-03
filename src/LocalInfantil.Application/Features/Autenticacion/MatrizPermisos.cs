@@ -1,9 +1,12 @@
+using LocalInfantil.Application.Features.Ventas;
+
 namespace LocalInfantil.Application.Features.Autenticacion;
 
 /// <summary>
 /// Matriz rol→permiso configurable. Niega por defecto todo lo no concedido
 /// explícitamente. Solo trae precargados los permisos comerciales confirmados;
 /// la matriz completa pertenece a D-03.
+/// Ventas: confirmar habilitado para Dueña y Empleada; anular solo Dueña.
 /// </summary>
 public sealed class MatrizPermisos
 {
@@ -18,6 +21,9 @@ public sealed class MatrizPermisos
         matriz.Permitir(RolesLocal.Empleada, PermisosComerciales.ReintegroAutorizar);
         matriz.Permitir(RolesLocal.Duena, PermisosComerciales.ReintegroMedioExcepcional);
         matriz.Permitir(RolesLocal.Duena, PermisosAdministracion.UsuariosAdministrar);
+        matriz.Permitir(RolesLocal.Duena, PermisosVentas.VentasConfirmar);
+        matriz.Permitir(RolesLocal.Empleada, PermisosVentas.VentasConfirmar);
+        matriz.Permitir(RolesLocal.Duena, PermisosVentas.VentasAnular);
         return matriz;
     }
 

@@ -252,7 +252,7 @@ public sealed class PreciosBusquedaCargaTests
                 }
             }
 
-            Assert.Equal(new[] { 4, 5, 6, 7, 8, 9 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 4, 5, 6, 7, 8, 9, 10 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             await using var lectura = await fabrica.IniciarLecturaAsync();

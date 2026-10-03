@@ -62,6 +62,12 @@
         <DataTemplate DataType="{x:Type viewModels:PortadaViewModel}">
             <views:PortadaView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:PosViewModel}">
+            <views:PosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:VentasConsultaViewModel}">
+            <views:VentasConsultaView />
+        </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

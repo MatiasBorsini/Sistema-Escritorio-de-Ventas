@@ -275,3 +275,24 @@ No se tomaron decisiones sobre facturaciÃ³n, permisos, cuentas corrientes, promo
 - Fuente: decisión de la persona usuaria (aún no dispone de la PC definitiva del local).
 - Regla: F00-T02 y F00-T06 permanecen PENDIENTES de validación real y NO se marcan completadas ("Pendiente — validación en hardware definitivo antes de producción"). Dejan de ser bloqueantes para DESARROLLO: se puede continuar con F04 y fases posteriores usando el entorno actual y DB ficticias. Pasan a ser bloqueantes para instalación definitiva, puesta en producción y entrega al local. Antes de producción será obligatorio validar en la PC definitiva: Windows/arquitectura, publicación, arranque, persistencia, permisos de archivos, DPI/resolución, rendimiento, impresora cuando corresponda y funcionamiento interactivo general. No cambia ningún otro estado de F00/F01/F02/F03.
 - Alcance: solo planificación (PLAN.md: F00-T02, F00-T06, aceptación de F00 y registro de avance); sin cambios de código, sin F04 en esta tarea, sin commit ni push.
+
+## D-37 — Cierre F04: POS con venta Disponible, snapshots y anulación total
+
+- Estado: implementado en el árbol de trabajo `feat/f04-pos` (sin commit); pendiente de revisión.
+- Fecha: 2026-10-03.
+- Fuente: diseño F04 aprobado e instrucciones de implementación de la persona usuaria.
+- Decisiones efectivamente adoptadas:
+  1. POS sin persistir carrito (solo VM; cancelar limpia con confirmación si hay líneas; sin venta en espera).
+  2. La venta consume Disponible (físico - apartado), revalidado dentro del `BEGIN IMMEDIATE`; sin reservas.
+  3. Precio revalidado al confirmar: si cambió, aborta sin escribir, actualiza el carrito y pide revisión humana; el snapshot persistido es el vigente aceptado.
+  4. Snapshots históricos por línea (código, nombre, talle, color, precio); la venta histórica no depende del catálogo posterior.
+  5. `T-000001` como número interno visible (secuencia transaccional); `operacion_id` técnico para idempotencia.
+  6. Pagos manuales (efectivo, transferencia, débito, crédito, billetera); importe imputado con S == total; `recibido` solo efectivo con `recibido >= importe`; vuelto derivable no persistido.
+  7. Pagos combinados como N filas de pago.
+  8. Mercado Pago fuera de alcance (sin API, terminal, QR, OAuth, webhooks).
+  9. F04 no escribe tablas `caja_*` (conciliación en F05).
+  10. Ticket interno no fiscal con leyenda "COMPROBANTE INTERNO — NO FISCAL", reconstruible desde snapshots, reimpresión inmutable; impresora física pendiente para producción.
+  11. Anulación total compensatoria (conserva venta/líneas/pagos, `reversion_venta`, ingresos compensatorios, motivo obligatorio, anti-doble, auditoría en la misma tx); devoluciones parciales diferidas.
+  12. Permisos `ventas.confirmar` (Dueña y Empleada) y `ventas.anular` (solo Dueña), deny-by-default.
+  13. Idempotencia por `venta.operacion_id` UNIQUE con mensaje humano (sin exponer duplicación cruda).
+- Alcance: sin F05, sin commit ni push; V10 `ventas-pos`; suite 330/330; capturas reales 80–89 fuera del árbol git; fixture ficticia con ventas de prueba anuladas (stock restituido).

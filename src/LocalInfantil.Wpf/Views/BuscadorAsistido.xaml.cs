@@ -144,6 +144,9 @@ public partial class BuscadorAsistido : UserControl
         }
     }
 
+    /// <summary>Devuelve el foco al cuadro de búsqueda (p. ej. tras agregar).</summary>
+    public void EnfocarBuscador() => Caja.Focus();
+
     private void Confirmar(SugerenciaVariante? item)
     {
         if (item is null || SeleccionCommand is null) return;

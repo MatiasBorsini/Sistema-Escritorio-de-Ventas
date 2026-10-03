@@ -17,6 +17,10 @@
                 <Menu Margin="16,0,0,0" Background="Transparent" VerticalAlignment="Center">
                     <MenuItem Header="_Inicio" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Portada}"/>
                     <MenuItem Header="_Catálogo" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Catalogo}"/>
+                    <MenuItem Header="_Ventas" Foreground="{StaticResource Color.CanvasBrush}">
+                        <MenuItem Header="Punto de venta" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Pos}"/>
+                        <MenuItem Header="Consulta de ventas" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Ventas}"/>
+                    </MenuItem>
                     <MenuItem Header="Co_mpras" Foreground="{StaticResource Color.CanvasBrush}">
                         <MenuItem Header="PROVEEDORES" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Proveedores" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Proveedores}"/>

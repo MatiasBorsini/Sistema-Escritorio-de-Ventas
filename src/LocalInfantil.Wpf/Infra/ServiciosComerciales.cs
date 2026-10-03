@@ -5,6 +5,7 @@ using LocalInfantil.Application.Features.Catalogo;
 using LocalInfantil.Application.Features.Compras;
 using LocalInfantil.Application.Features.Inventario;
 using LocalInfantil.Application.Features.Inicio;
+using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
@@ -67,6 +68,12 @@ public sealed class ServiciosComerciales
     public ApartarStock CasoApartarStock { get; }
     public ReincorporarStock CasoReincorporarStock { get; }
     public BajaDefinitivaApartado CasoBajaDefinitiva { get; }
+    public IRepositorioVentas RepoVentas { get; }
+    public IRepositorioPagos RepoPagos { get; }
+    public ConfirmarVenta CasoConfirmarVenta { get; }
+    public AnularVenta CasoAnularVenta { get; }
+    public ConsultasVentas ConsultasVentas { get; }
+    public GenerarTicketVenta CasoGenerarTicket { get; }
 
     public ServiciosComerciales(string rutaBaseDatos)
     {
@@ -122,6 +129,12 @@ public sealed class ServiciosComerciales
         CasoApartarStock = new ApartarStock(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoReincorporarStock = new ReincorporarStock(RepoApartados, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoBajaDefinitiva = new BajaDefinitivaApartado(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
+        RepoVentas = new RepositorioVentas(GeneradorIds);
+        RepoPagos = new RepositorioPagos(GeneradorIds);
+        CasoConfirmarVenta = new ConfirmarVenta(RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoPagos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoAnularVenta = new AnularVenta(RepoVentas, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        ConsultasVentas = new ConsultasVentas(RepoVentas, RepoPagos, Gestor, Fabrica);
+        CasoGenerarTicket = new GenerarTicketVenta(ConsultasVentas);
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =
@@ -140,5 +153,7 @@ public sealed class ServiciosComerciales
         "inventario.conteo_aprobar",
         "inventario.no_vendible.gestionar",
         "inventario.baja_definitiva.autorizar",
+        PermisosVentas.VentasConfirmar,
+        PermisosVentas.VentasAnular,
     ];
 }

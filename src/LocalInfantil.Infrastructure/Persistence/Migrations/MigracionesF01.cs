@@ -8,7 +8,8 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// recepciones (F03-T05). V8: stock apartado/no vendible y foto de
 /// clasificación para conteos (F03-T04, D-33). V9: categorías controladas,
 /// código interno automático de producto y variante, y unicidad Talle+Color.
-/// Ver docs/ESQUEMA.md.
+/// V10: ventas POS (número e idempotencia en venta, snapshots en línea,
+/// recibido en pago, secuencia y reversión de venta). Ver docs/ESQUEMA.md.
 /// </summary>
 public static class MigracionesF01
 {
@@ -23,6 +24,7 @@ public static class MigracionesF01
         new(7, "conteo-reversion-f03", SqlV7),
         new(8, "stock-no-vendible-f03", SqlV8),
         new(9, "categorias-codigos-internos", SqlV9),
+        new(10, "ventas-pos", SqlV10),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -369,5 +371,52 @@ public static class MigracionesF01
             producto_id TEXT PRIMARY KEY REFERENCES producto(id) ON DELETE RESTRICT,
             ultimo_numero INTEGER NOT NULL DEFAULT 0
         );
+        """;
+
+    private const string SqlV10 = """
+        -- Venta: número visible estable + idempotencia + autor. Sin ventas
+        -- reales en ninguna base (F04 no implementado hasta esta versión).
+        ALTER TABLE venta ADD COLUMN numero TEXT NOT NULL DEFAULT '';
+        ALTER TABLE venta ADD COLUMN operacion_id TEXT NOT NULL DEFAULT '';
+        ALTER TABLE venta ADD COLUMN creado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT;
+        UPDATE venta SET numero = 'MIG-' || substr(id, 1, 8) WHERE numero = '';
+        UPDATE venta SET operacion_id = 'MIG-' || substr(id, 1, 8) WHERE operacion_id = '';
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_venta_numero ON venta(numero);
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_venta_operacion ON venta(operacion_id);
+        CREATE INDEX IF NOT EXISTS ix_venta_estado ON venta(estado);
+
+        -- Correlativo visible T-000001 (patrón secuencias V9, clave fija).
+        CREATE TABLE IF NOT EXISTS secuencia_venta (
+            id TEXT PRIMARY KEY CHECK (id = 'venta'),
+            ultimo_numero INTEGER NOT NULL DEFAULT 0
+        );
+        INSERT OR IGNORE INTO secuencia_venta (id, ultimo_numero) VALUES ('venta', 0);
+
+        -- Snapshots históricos en línea: la venta sigue comprensible aunque
+        -- cambien nombre/código/talle/color/precio. variante_id queda como
+        -- referencia técnica adicional.
+        ALTER TABLE venta_linea ADD COLUMN codigo_interno TEXT NOT NULL DEFAULT '';
+        ALTER TABLE venta_linea ADD COLUMN nombre_producto TEXT NOT NULL DEFAULT '';
+        ALTER TABLE venta_linea ADD COLUMN talle TEXT NULL;
+        ALTER TABLE venta_linea ADD COLUMN color TEXT NULL;
+
+        -- Efectivo distingue imputado (importe, suma == total) de entregado
+        -- (recibido, solo efectivo, >= importe; vuelto derivable). Sin ventas
+        -- reales, ninguna fila heredada puede violar el CHECK.
+        ALTER TABLE pago ADD COLUMN recibido_minor INTEGER NULL CHECK (
+            (medio = 'efectivo' AND recibido_minor IS NOT NULL AND recibido_minor >= importe_minor)
+            OR (medio <> 'efectivo' AND recibido_minor IS NULL));
+
+        -- Reversión total auditada (espejo de reversion_recepcion V7).
+        CREATE TABLE IF NOT EXISTS reversion_venta (
+            id TEXT PRIMARY KEY,
+            venta_id TEXT NOT NULL UNIQUE REFERENCES venta(id) ON DELETE RESTRICT,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (operacion_id <> ''),
+            motivo TEXT NOT NULL CHECK (motivo <> ''),
+            creado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_reversion_venta_venta ON reversion_venta(venta_id);
         """;
 }

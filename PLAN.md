@@ -187,14 +187,14 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Objetivo:** completar una venta real de punta a punta, inicialmente con datos de prueba.
 
-- [ ] **F04-T01.** Pantalla POS optimizada para teclado: buscar, seleccionar variante, carrito, cantidades, totales, validación de stock; venta en espera si se valida la necesidad.
-- [ ] **F04-T02.** Registrar medios de pago confirmados y pagos combinados como movimientos separados; validar suma, saldo, vuelto y estado de cobranza.
-- [ ] **F04-T03.** Confirmar venta en transacción atómica con líneas, importes históricos, pagos y salidas de stock. Proteger contra doble clic/confirmación duplicada.
-- [ ] **F04-T04.** Ticket **interno no fiscal** imprimible/reimprimible; número estable y enlace opcional a referencia fiscal externa. Procedimiento fiscal real pendiente de D-01.
-- [ ] **F04-T05.** Correcciones/anulaciones mediante reversos auditados; no eliminar ventas. No activar funciones cuya autorización aún no está definida.
-- [ ] **F04-T06.** Tests: último artículo, pago combinado, vuelto, pago insuficiente, error al persistir, impresión fallida y venta duplicada.
+- [x] **F04-T01.** Pantalla POS optimizada para teclado (`PosView`/`PosViewModel` en rama `feat/f04-pos`): buscador asistido reutilizado (código/nombre, Enter agrega directo, foco vuelve solo), carrito dominante sin filas duplicadas, cantidades +/−, totales, validación de Disponible al agregar; sin venta en espera (diferida explícitamente, no persiste borradores).
+- [x] **F04-T02.** Medios manuales efectivo/transferencia/débito/crédito/billetera como pagos separados; suma imputada == total, vuelto derivable (`recibido − importe`, solo efectivo, CHECK en V10); sin Mercado Pago ni integraciones.
+- [x] **F04-T03.** `ConfirmarVenta` atómica (sesión `BEGIN IMMEDIATE`): revalida Disponible y precio vigente dentro de la tx, aborta con `PrecioCambiado` sin escribir si cambió, idempotencia por `venta.operacion_id` UNIQUE + botón deshabilitado en curso.
+- [x] **F04-T04.** Ticket **interno no fiscal** (`DocumentoTicketVenta` desde snapshots + renderer + `TicketVentaWindow` con vista previa/impresión, leyenda "COMPROBANTE INTERNO — NO FISCAL"); número estable `T-000001`; reimpresión inmutable. Procedimiento fiscal real pendiente de D-01; renderer/vista previa implementados, prueba de impresora física pendiente para producción.
+- [x] **F04-T05.** Solo anulación TOTAL auditada (`AnularVenta` + `reversion_venta` + ingresos compensatorios + motivo obligatorio + anti-doble); sin parciales (diferidas), sin borrar. Autorización definida: `ventas.anular` solo Dueña.
+- [x] **F04-T06.** Tests cubriendo último artículo, pago combinado, vuelto, pago insuficiente/mayor, recibido inválido, error al persistir (rollback total, secuencia no avanza), venta duplicada por `operacion_id`, precio cambiado, histórico inmutable, restitución y doble anulación, permisos por rol, migración V9→V10, VMs POS/consulta/ticket y parseo de miles.
 
-**Aceptación:** venta completada modifica stock una sola vez, cobros coinciden con pagos, ticket reimpreso no altera registros y una falla intermedia revierte toda la confirmación. **Prohibido uso productivo si D-01 y estrategia de respaldos remotos siguen abiertos.**
+**Aceptación:** venta completada modifica stock una sola vez, cobros coinciden con pagos, ticket reimpreso no altera registros y una falla intermedia revierte toda la confirmación. **Prohibido uso productivo si D-01 y estrategia de respaldos remotos siguen abiertos.** No se declara D-01 resuelta, ni PC real validada, ni impresora física validada.
 
 ### F05 — Caja y conciliación básica
 

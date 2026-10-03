@@ -1,0 +1,30 @@
+<Window x:Class="LocalInfantil.Wpf.Views.TicketVentaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Titulo, Mode=OneWay}"
+        Width="840"
+        Height="700"
+        MinWidth="640"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Color.SurfaceBrush}">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <DocumentViewer x:Name="VistaDocumento" Grid.Row="0" />
+        <TextBlock x:Name="MensajeEstado"
+                   Grid.Row="1"
+                   Margin="0,10,0,0"
+                   Foreground="{StaticResource Color.TextSecondaryBrush}"
+                   TextWrapping="Wrap" />
+        <StackPanel Grid.Row="2"
+                    Margin="0,12,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+            <Button Style="{StaticResource EstiloBotonSecundario}" Padding="14,7" Click="Imprimir_Click" Content="Imprimir…"/>
+        </StackPanel>
+    </Grid>
+</Window>

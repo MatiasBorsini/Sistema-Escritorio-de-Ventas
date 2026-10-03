@@ -217,7 +217,7 @@ public sealed class ConteoReversionTests
             var catalogoV6 = MigracionesF01.Todas.Where(m => m.Version <= 6).ToList();
             Assert.Equal(new[] { 1, 2, 3, 4, 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV6, null));
             await SembrarRecepcionSoloAsync(ruta);
-            Assert.Equal(new[] { 7, 8, 9 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 7, 8, 9, 10 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             var respaldo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(respaldo, "PRAGMA integrity_check;"));
             Assert.True(await TablaExisteAsync(ruta, "conteo"));

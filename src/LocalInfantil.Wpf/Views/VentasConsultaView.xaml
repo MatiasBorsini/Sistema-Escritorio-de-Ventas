@@ -1,0 +1,94 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.VentasConsultaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Background="{StaticResource Color.CanvasBrush}">
+        <StackPanel DockPanel.Dock="Top" Margin="20,12,20,0">
+            <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Ventas" Margin="0,0,0,0"/>
+            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Historial de ventas confirmadas y anuladas. El ticket se reconstruye desde datos guardados." Margin="0,0,0,2"/>
+            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
+            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,2,0,4">
+                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="200" Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}" ToolTip="Número de venta"/>
+                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Buscar" Command="{Binding CargarCommand}"/>
+                <ComboBox Style="{StaticResource EstiloCombo}" Width="140" ItemsSource="{Binding FiltrosEstado}" SelectedItem="{Binding FiltroEstado}" Margin="8,0,0,0"/>
+                <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorCommand}" IsEnabled="{Binding HayAnterior}" Margin="8,0,0,0"/>
+                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteCommand}" IsEnabled="{Binding HaySiguiente}"/>
+            </StackPanel>
+        </StackPanel>
+        <Grid Margin="20,2,20,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*"/>
+                <ColumnDefinition Width="5*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,12,0" Padding="{StaticResource RellenoPanel}">
+                <ListBox Style="{StaticResource EstiloLista}" ItemsSource="{Binding Historial}" SelectedItem="{Binding FilaSeleccionada}" BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Resumen.Numero}"/>
+                                <TextBlock Grid.Column="1" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding FechaTexto}"/>
+                                <TextBlock Grid.Column="2" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TotalTexto}" TextAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding EstadoTexto}" TextAlignment="Right"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0" Padding="{StaticResource RellenoPanel}" VerticalAlignment="Top">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="DETALLE"/>
+                        <TextBlock Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Ficha.Venta.Numero, FallbackValue=Sin selección}"/>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Ficha.Venta.Estado, FallbackValue=—, StringFormat=Estado: {0}}"/>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Ficha.Venta.CreadoPorNombre, FallbackValue=—, StringFormat=Vendido por: {0}}"/>
+                        <ItemsControl ItemsSource="{Binding Ficha.Lineas}" Margin="0,8,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CodigoInterno}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Cantidad, StringFormat=×{0}}" Margin="8,0"/>
+                                        <TextBlock Grid.Column="2" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding SubtotalMinor, Converter={StaticResource MinorToArs}}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Margin="0,6,0,0" FontSize="14" FontWeight="Bold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Ficha.Venta.TotalMinor, Converter={StaticResource MinorToArs}, FallbackValue=—, StringFormat=Total {0}}" TextAlignment="Right"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Margin="0,8,0,2" Text="Pagos"/>
+                        <ItemsControl ItemsSource="{Binding Ficha.Pagos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Medio}" Width="110"/>
+                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}"/>
+                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding VueltoMinor, Converter={StaticResource MinorToArs}, StringFormat= (vuelto {0})}" Visibility="{Binding VueltoMinor, Converter={StaticResource NullToVisibility}, FallbackValue=Collapsed}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.ErrorTextBrush}" Text="{Binding Ficha.Anulacion.Motivo, StringFormat=Motivo de anulación: {0}}" TextWrapping="Wrap" Visibility="{Binding Ficha.Anulacion, Converter={StaticResource NullToVisibility}, FallbackValue=Collapsed}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Ver comprobante" Command="{Binding VerTicketCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonDangerOutline}" Content="Anular venta" Command="{Binding SolicitarAnulacionCommand}" Margin="8,0,0,0" Visibility="{Binding PuedeAnular, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}"/>
+                        </StackPanel>
+                        <Border Margin="0,8,0,0" Padding="12" Background="{StaticResource Color.ErrorBgBrush}" BorderBrush="{StaticResource Color.ErrorTextBrush}" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionVisible, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap" Text="¿Anular toda la venta? Se restituye el stock y queda registrada. No se puede deshacer."/>
+                                <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo obligatorio" Margin="0,8,0,0"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Style="{StaticResource EstiloBotonDestructivo}" Content="Confirmar anulación" Command="{Binding ConfirmarAnulacionCommand}"/>
+                                    <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarAnulacionCommand}" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>
