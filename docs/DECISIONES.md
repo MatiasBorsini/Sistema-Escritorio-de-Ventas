@@ -260,42 +260,42 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Verificación de cierre: `dotnet build` Debug 0 advertencias 0 errores; suite 263/263; `git diff --check` limpio; sin `.db`, capturas, harnesses, binarios ni artefactos de build en el árbol git (`bin/`/`obj/`/`artifacts/` excluidos del scan; `docs/ui-reference/` son 4 archivos de trabajo HTML/md que quedan sin trackear y fuera del commit propuesto).
 - Alcance: sin F04 (ninguna tarea iniciada), sin cambios de reglas comerciales, permisos ni migraciones nuevas; `LocalInfantil.sln`, `AssemblyInfo.cs`, `MainWindow.xaml(.cs)` solo presentan normalización de fin de línea, sin cambio de contenido.
 
-## D-35 � Categor�as controladas, c�digos internos autom�ticos y unicidad Talle+Color
+## D-35 — Categorías controladas, códigos internos automáticos y unicidad Talle+Color
 
-- Estado: implementado en el �rbol de trabajo (sin commit); pendiente de revisi�n.
+- Estado: implementado en el árbol de trabajo (sin commit); pendiente de revisión.
 - Fecha: 2026-09-29.
-- Fuente: instrucci�n de la persona usuaria (cierra D-11 Identificaci�n en lo relativo a c�digos; etiquetas f�sicas siguen pendientes).
-- Regla: categor�as controladas en tabla `categoria` (12 del seed con prefijo �nico; "Otros" existe pero solo como elecci�n expl�cita); producto nuevo exige `CategoriaId` activa v�lida ("Seleccion� una categor�a.", sin default autom�tico); columna texto libre `producto.categoria` eliminada en V9 (fin de la doble fuente; `CategoriaId` �nica fuente); c�digo interno autom�tico e inmutable Producto `{PREFIJO}-{NNN}` (ej REM-001) / Variante `{CODIGO_PRODUCTO}-{NN}` (ej REM-001-01), generado en la misma sesi�n BEGIN IMMEDIATE del alta con secuencias por categor�a y por producto, sin talle/color en el c�digo, sin edici�n manual, estable ante renombre/reclasificaci�n; texto visible "C�digo interno" (Sku solo como nombre interno heredado); unicidad Talle+Color por producto con normalizaci�n centralizada `NormalizacionVariante` (trim, FormC, UpperInvariant; NULL = vac�o) aplicada igual en caso de uso (mensaje humano "Ya existe una variante con ese talle y color.") y en persistencia (columnas `talle_norm`/`color_norm` + UNIQUE); typeahead por c�digo o nombre con resoluci�n exacta sin sugerencia obligatoria (ingreso r�pido/lector); V9 `categorias-codigos-internos` (sin referencia a F04); `producto.categoria_id` NOT NULL con FK (heredados van a OTR solo como fallback de migraci�n); `categoria.prefijo` NOT NULL UNIQUE y `categoria.nombre` UNIQUE binario (sin escritor de categor�as en la app: solo seed; un futuro editor deber� normalizar con la misma funci�n); creaci�n m�ltiple de variantes diferida a un caso batch transaccional (sin altas independientes desde UI).
-- Alcance: sin F04, sin commit ni push; fixture ficticia `LocalInfantil-fase1/fase1.db` reseteada y resembrada (3 productos, 6 variantes, precios, stock); `docs/ESQUEMA.md` no se toca (documento hist�rico: no describe el esquema actual).
+- Fuente: instrucción de la persona usuaria (cierra D-11 Identificación en lo relativo a códigos; etiquetas físicas siguen pendientes).
+- Regla: categorías controladas en tabla `categoria` (12 del seed con prefijo único; "Otros" existe pero solo como elección explícita); producto nuevo exige `CategoriaId` activa válida ("Seleccioná una categoría.", sin default automático); columna texto libre `producto.categoria` eliminada en V9 (fin de la doble fuente; `CategoriaId` única fuente); código interno automático e inmutable Producto `{PREFIJO}-{NNN}` (ej REM-001) / Variante `{CODIGO_PRODUCTO}-{NN}` (ej REM-001-01), generado en la misma sesión BEGIN IMMEDIATE del alta con secuencias por categoría y por producto, sin talle/color en el código, sin edición manual, estable ante renombre/reclasificación; texto visible "Código interno" (Sku solo como nombre interno heredado); unicidad Talle+Color por producto con normalización centralizada `NormalizacionVariante` (trim, FormC, UpperInvariant; NULL = vacío) aplicada igual en caso de uso (mensaje humano "Ya existe una variante con ese talle y color.") y en persistencia (columnas `talle_norm`/`color_norm` + UNIQUE); typeahead por código o nombre con resolución exacta sin sugerencia obligatoria (ingreso rápido/lector); V9 `categorias-codigos-internos` (sin referencia a F04); `producto.categoria_id` NOT NULL con FK (heredados van a OTR solo como fallback de migración); `categoria.prefijo` NOT NULL UNIQUE y `categoria.nombre` UNIQUE binario (sin escritor de categorías en la app: solo seed; un futuro editor deberá normalizar con la misma función); creación múltiple de variantes diferida a un caso batch transaccional (sin altas independientes desde UI).
+- Alcance: sin F04, sin commit ni push; fixture ficticia `LocalInfantil-fase1/fase1.db` reseteada y resembrada (3 productos, 6 variantes, precios, stock); `docs/ESQUEMA.md` no se toca (documento histórico: no describe el esquema actual).
 
-## D-36 � F00-T02/F00-T06: no bloquean desarrollo; bloquean producci�n/entrega
+## D-36 — F00-T02/F00-T06: no bloquean desarrollo; bloquean producción/entrega
 
-- Estado: criterio de planificaci�n vigente; sin commit.
+- Estado: criterio de planificación vigente; sin commit.
 - Fecha: 2026-09-29.
-- Fuente: decisi�n de la persona usuaria (a�n no dispone de la PC definitiva del local).
-- Regla: F00-T02 y F00-T06 permanecen PENDIENTES de validaci�n real y NO se marcan completadas ("Pendiente � validaci�n en hardware definitivo antes de producci�n"). Dejan de ser bloqueantes para DESARROLLO: se puede continuar con F04 y fases posteriores usando el entorno actual y DB ficticias. Pasan a ser bloqueantes para instalaci�n definitiva, puesta en producci�n y entrega al local. Antes de producci�n ser� obligatorio validar en la PC definitiva: Windows/arquitectura, publicaci�n, arranque, persistencia, permisos de archivos, DPI/resoluci�n, rendimiento, impresora cuando corresponda y funcionamiento interactivo general. No cambia ning�n otro estado de F00/F01/F02/F03.
-- Alcance: solo planificaci�n (PLAN.md: F00-T02, F00-T06, aceptaci�n de F00 y registro de avance); sin cambios de c�digo, sin F04 en esta tarea, sin commit ni push.
+- Fuente: decisión de la persona usuaria (aún no dispone de la PC definitiva del local).
+- Regla: F00-T02 y F00-T06 permanecen PENDIENTES de validación real y NO se marcan completadas ("Pendiente — validación en hardware definitivo antes de producción"). Dejan de ser bloqueantes para DESARROLLO: se puede continuar con F04 y fases posteriores usando el entorno actual y DB ficticias. Pasan a ser bloqueantes para instalación definitiva, puesta en producción y entrega al local. Antes de producción será obligatorio validar en la PC definitiva: Windows/arquitectura, publicación, arranque, persistencia, permisos de archivos, DPI/resolución, rendimiento, impresora cuando corresponda y funcionamiento interactivo general. No cambia ningún otro estado de F00/F01/F02/F03.
+- Alcance: solo planificación (PLAN.md: F00-T02, F00-T06, aceptación de F00 y registro de avance); sin cambios de código, sin F04 en esta tarea, sin commit ni push.
 
-## D-37 � Cierre F04: POS con venta Disponible, snapshots y anulaci�n total
+## D-37 — Cierre F04: POS con venta Disponible, snapshots y anulación total
 
-- Estado: implementado en el �rbol de trabajo `feat/f04-pos` (sin commit); pendiente de revisi�n.
+- Estado: implementado en el árbol de trabajo `feat/f04-pos` (sin commit); pendiente de revisión.
 - Fecha: 2026-10-03.
-- Fuente: dise�o F04 aprobado e instrucciones de implementaci�n de la persona usuaria.
+- Fuente: diseño F04 aprobado e instrucciones de implementación de la persona usuaria.
 - Decisiones efectivamente adoptadas:
-  1. POS sin persistir carrito (solo VM; cancelar limpia con confirmaci�n si hay l�neas; sin venta en espera).
-  2. La venta consume Disponible (f�sico - apartado), revalidado dentro del `BEGIN IMMEDIATE`; sin reservas.
-  3. Precio revalidado al confirmar: si cambi�, aborta sin escribir, actualiza el carrito y pide revisi�n humana; el snapshot persistido es el vigente aceptado.
-  4. Snapshots hist�ricos por l�nea (c�digo, nombre, talle, color, precio); la venta hist�rica no depende del cat�logo posterior.
-  5. `T-000001` como n�mero interno visible (secuencia transaccional); `operacion_id` t�cnico para idempotencia.
-  6. Pagos manuales (efectivo, transferencia, d�bito, cr�dito, billetera); importe imputado con S == total; `recibido` solo efectivo con `recibido >= importe`; vuelto derivable no persistido.
+  1. POS sin persistir carrito (solo VM; cancelar limpia con confirmación si hay líneas; sin venta en espera).
+  2. La venta consume Disponible (físico - apartado), revalidado dentro del `BEGIN IMMEDIATE`; sin reservas.
+  3. Precio revalidado al confirmar: si cambió, aborta sin escribir, actualiza el carrito y pide revisión humana; el snapshot persistido es el vigente aceptado.
+  4. Snapshots históricos por línea (código, nombre, talle, color, precio); la venta histórica no depende del catálogo posterior.
+  5. `T-000001` como número interno visible (secuencia transaccional); `operacion_id` técnico para idempotencia.
+  6. Pagos manuales (efectivo, transferencia, débito, crédito, billetera); importe imputado con S == total; `recibido` solo efectivo con `recibido >= importe`; vuelto derivable no persistido.
   7. Pagos combinados como N filas de pago.
   8. Mercado Pago fuera de alcance (sin API, terminal, QR, OAuth, webhooks).
-  9. F04 no escribe tablas `caja_*` (conciliaci�n en F05).
-  10. Ticket interno no fiscal con leyenda "COMPROBANTE INTERNO � NO FISCAL", reconstruible desde snapshots, reimpresi�n inmutable; impresora f�sica pendiente para producci�n.
-  11. Anulaci�n total compensatoria (conserva venta/l�neas/pagos, `reversion_venta`, ingresos compensatorios, motivo obligatorio, anti-doble, auditor�a en la misma tx); devoluciones parciales diferidas.
-  12. Permisos `ventas.confirmar` (Due�a y Empleada) y `ventas.anular` (solo Due�a), deny-by-default.
-  13. Idempotencia por `venta.operacion_id` UNIQUE con mensaje humano (sin exponer duplicaci�n cruda).
-- Alcance: sin F05, sin commit ni push; V10 `ventas-pos`; suite 330/330; capturas reales 80�89 fuera del �rbol git; fixture ficticia con ventas de prueba anuladas (stock restituido).
+  9. F04 no escribe tablas `caja_*` (conciliación en F05).
+  10. Ticket interno no fiscal con leyenda "COMPROBANTE INTERNO — NO FISCAL", reconstruible desde snapshots, reimpresión inmutable; impresora física pendiente para producción.
+  11. Anulación total compensatoria (conserva venta/líneas/pagos, `reversion_venta`, ingresos compensatorios, motivo obligatorio, anti-doble, auditoría en la misma tx); devoluciones parciales diferidas.
+  12. Permisos `ventas.confirmar` (Dueña y Empleada) y `ventas.anular` (solo Dueña), deny-by-default.
+  13. Idempotencia por `venta.operacion_id` UNIQUE con mensaje humano (sin exponer duplicación cruda).
+- Alcance: sin F05, sin commit ni push; V10 `ventas-pos`; suite 330/330; capturas reales 80–89 fuera del árbol git; fixture ficticia con ventas de prueba anuladas (stock restituido).
 
 ## D-38 — F05: caja única, arqueo ciego y movimientos compensatorios
 
@@ -318,3 +318,25 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 - Alcance: exclusivamente F05; sin F06, commit, push ni cambios en `main`.
 - Verificación técnica final (2026-10-03): `dotnet build` Debug 0 advertencias/0 errores; suite completa 356/356; filtro F05 25/25; filtro de migración/respaldos 26/26; `git diff --check` sin errores. Capturas 90–100 siguen pendientes de validación visual interactiva.
 - Estado F05: implementación técnica completa y validación automatizada completa; validación visual/manual WPF (capturas 90–100) pendiente; validación en la PC real pendiente; producción NO habilitada.
+
+## D-39 — F06: cambios/devoluciones genéricos y liquidación local
+
+- Estado: núcleo local implementado en `feat/f06-cambios-devoluciones`, sin commit ni push. Build Debug: 0 advertencias/0 errores; suite focalizada de Cambios: 15/15; suite completa: 369/369. Capturas manuales 101–110 pendientes porque la sesión de automatización no expone ventanas WPF (`apps: []`). F06-T05 permanece bloqueada por D-05; D-01 continúa pendiente para procedimiento fiscal externo y producción.
+- Fecha: 2026-10-03.
+- Fuente: diseño y autorización de implementación F06 de la persona usuaria.
+- Decisiones implementadas:
+  1. Una sola operación genérica `C-*` contiene N entradas de la venta original y M salidas nuevas; número separado de T-* y `operacion_id` único para idempotencia. Las operaciones y sus líneas/liquidaciones son históricas e inmutables; no existe anulación de C-*.
+  2. Crédito de entrada = cantidad devuelta × precio unitario snapshot de `venta_linea`; la salida usa variante activa, stock Disponible y precio vigente aceptado. El precio se vuelve a consultar dentro de la transacción. Si cambió, no se persiste nada: el resultado específico entrega nombre y precios esperado/vigente, la UI actualiza el valor y exige una nueva confirmación.
+  3. Disponible para devolver se revalida dentro de `BEGIN IMMEDIATE`; V12 agrega trigger que impide que las entradas acumuladas superen la cantidad vendida, además de unicidad por operación/línea. Ventas anuladas no admiten cambios.
+  4. Diferencia = total nuevo − crédito original. Diferencia cero no exige caja ni registra liquidación/movimiento; toda diferencia distinta de cero exige caja abierta. Cobros positivos admiten los cinco medios F04 y combinación exacta; efectivo conserva recibido/vuelto. No se crea una venta ficticia.
+  5. Reintegro negativo por defecto en efectivo con permiso efectivo existente. Medio excepcional exige autorización efectiva de Dueña, directa con sesión de Dueña o credencial presencial secundaria de una Dueña activa desde sesión Empleada; no cambia la sesión ni persiste la contraseña. Se registra el usuario autorizante.
+  6. Prenda apta: movimiento de ingreso a Disponible. No apta: ingreso físico más movimiento Apartado con motivo; no aumenta Disponible ni reactiva variantes inactivas.
+  7. La búsqueda admite T-* o coincidencias por código/nombre con fechas opcionales y devuelve una lista para selección manual (sin elegir automáticamente si hay varias). No exige ni inventa identidad de cliente.
+  8. V12 es aditiva; V1–V11 permanecen intactas. Añade `cambio`, `cambio_entrada`, `cambio_salida`, `cambio_pago`, secuencia C-* y vínculo coherente a `caja_movimiento`; conserva movimientos/operaciones/caja históricos y respalda la migración según política existente.
+  9. El comprobante C-* muestra snapshots, importes, medios, autorización si aplica y leyenda «COMPROBANTE INTERNO — NO FISCAL». Consultar/reimprimir no modifica datos. Búsqueda e histórico usan referencias humanas.
+  10. `AnularVenta` consulta cambios confirmados dentro de su transacción y rechaza la anulación total si la venta tiene cualquiera; preserva el historial F04/F06.
+  11. `cambios.registrar` y `cambios.consultar` se agregan a la misma matriz de autorización efectiva para Dueña/Empleada; se mantienen denegaciones individuales prevalentes y deny-by-default. Autorización sensible puede evaluarse usando la sesión de escritura, sin duplicar reglas.
+  12. F06-T05 no se implementa: D-05 y F04 carecen de fuente de verdad para promociones. No se infiere promoción por precio, nombre, cantidad ni proximidad de líneas.
+  13. No existe una cantidad de días aprobada. Se muestra fecha y antigüedad meramente informativa cuando resulta pertinente; no se afirma «vencido/fuera de término» ni se bloquea por antigüedad.
+  14. D-01 sigue pendiente: la aplicación no emite, anula ni revierte comprobantes fiscales. La función local/ticket interno no constituye autorización de producción.
+- Alcance: solo F06 core; sin F07, sin cambios en `main`, sin commit ni push. Migración y pruebas usan bases temporales; no se alteraron datos reales.

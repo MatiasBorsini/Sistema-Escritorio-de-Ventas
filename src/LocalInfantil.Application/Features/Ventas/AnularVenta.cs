@@ -8,8 +8,7 @@ namespace LocalInfantil.Application.Features.Ventas;
 /// Anula TOTALMENTE una venta confirmada: registra la reversión auditada,
 /// crea movimientos de ingreso compensatorios que restituyen el Disponible y
 /// marca la venta como anulada, sin borrar ni editar venta, líneas, pagos,
-/// movimientos ni auditoría originales. Sin anulación parcial, sin
-/// devolución parcial, sin asientos contables. Toda la operación comparte
+/// movimientos ni auditoría originales. Sin anulación parcial ni asientos contables. Toda la operación comparte
 /// transacción y auditoría: si algo falla, no persiste nada.
 /// </summary>
 public sealed class AnularVenta
@@ -22,6 +21,7 @@ public sealed class AnularVenta
     private readonly IRepositorioAuditoria _auditoria;
     private readonly IGeneradorIds _ids;
     private readonly IReloj _reloj;
+    private readonly IRepositorioCambios? _cambios;
 
     public AnularVenta(
         IRepositorioVentas ventas,
@@ -32,6 +32,18 @@ public sealed class AnularVenta
         IRepositorioAuditoria auditoria,
         IGeneradorIds ids,
         IReloj reloj)
+        : this(ventas, movimientos, caja, autorizador, fabrica, auditoria, ids, reloj, null) { }
+
+    public AnularVenta(
+        IRepositorioVentas ventas,
+        IRepositorioMovimientos movimientos,
+        IRepositorioCaja caja,
+        IAutorizador autorizador,
+        IFabricaSesionesPersistencia fabrica,
+        IRepositorioAuditoria auditoria,
+        IGeneradorIds ids,
+        IReloj reloj,
+        IRepositorioCambios? cambios)
     {
         _ventas = ventas;
         _movimientos = movimientos;
@@ -41,6 +53,7 @@ public sealed class AnularVenta
         _auditoria = auditoria;
         _ids = ids;
         _reloj = reloj;
+        _cambios = cambios;
     }
 
     public async Task EjecutarAsync(string ventaId, string motivo, string operacionId, string? idSesion, CancellationToken cancellationToken = default)
@@ -78,6 +91,9 @@ public sealed class AnularVenta
         {
             throw new InvalidOperationException("Solo se puede anular una venta confirmada.");
         }
+
+        if (_cambios is not null && await _cambios.ExistePorVentaAsync(sesion, ventaId, cancellationToken))
+            throw new InvalidOperationException("No se puede anular una venta que ya tiene cambios o devoluciones registrados.");
 
         var lineas = await _ventas.ListarLineasAsync(sesion, ventaId, cancellationToken);
         if (lineas.Count == 0)

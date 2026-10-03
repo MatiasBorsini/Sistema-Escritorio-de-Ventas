@@ -444,7 +444,7 @@ public sealed class CajaTests
             var v10 = MigracionesF01.Todas.Take(10).ToArray();
             Assert.Equal(Enumerable.Range(1, 10), await new MigradorBaseDatos(ruta).MigrarAsync(v10));
             var respaldo = Path.Combine(dir, "respaldos");
-            Assert.Equal(new[] { 11 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldo));
+            Assert.Equal(new[] { 11 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas.Take(11).ToArray(), respaldo));
             await using var db = await AbrirAsync(ruta);
             Assert.Equal(11L, await ScalarLongAsync(db, "SELECT MAX(version) FROM schema_migrations"));
             Assert.Equal(0L, await ScalarLongAsync(db, "SELECT COUNT(*) FROM venta"));
@@ -470,7 +470,7 @@ public sealed class CajaTests
                 await ExecAsync(db, "INSERT INTO pago (id,venta_id,medio,importe_minor,creado_en,recibido_minor) VALUES ('p-mig','v-mig','efectivo',12345,'2026-10-03T09:00:00Z',13000);");
             }
             var respaldos = Path.Combine(dir, "respaldos");
-            Assert.Equal(new[] { 11 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 11 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas.Take(11).ToArray(), respaldos));
             await using var migrada = await AbrirAsync(ruta);
             Assert.Equal(1L, await ScalarLongAsync(migrada, "SELECT COUNT(*) FROM venta WHERE id='v-mig' AND total_minor=12345 AND numero='T-000001' AND estado='confirmada'"));
             Assert.Equal(1L, await ScalarLongAsync(migrada, "SELECT COUNT(*) FROM pago WHERE id='p-mig' AND medio='efectivo' AND importe_minor=12345 AND recibido_minor=13000"));

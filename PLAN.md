@@ -217,15 +217,17 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Objetivo:** una operación genérica para devolver N artículos y entregar M artículos, en lugar de programar cada combinación por separado.
 
-- [ ] **F06-T01.** Recuperar venta original y unidades todavía disponibles para devolución; evitar devolver la misma unidad dos veces.
-- [ ] **F06-T02.** Registrar múltiples artículos de entrada y salida, reconocer importes originalmente pagados y calcular diferencias.
-- [ ] **F06-T03.** Diferencia positiva → cobrar; negativa → permitir agregar artículos o reintegrar resto. El reintegro habitual es efectivo; otro medio requiere decisión/autorización de dueña.
-- [ ] **F06-T04.** Clasificar prendas devueltas aptas/no aptas; solo aptas ingresan a stock vendible.
-- [ ] **F06-T05.** Promoción específica de dos artículos: mostrar vínculo y advertir devolución parcial voluntaria; permitir cambio de talle que conserva condiciones; excepción comercial explícita/auditada, sin bloquear derechos legales.
-- [ ] **F06-T06.** Fechas y plazo visibles, **sin bloqueo rígido por vencimiento**; ajustes comerciales explícitos con permisos a definir.
-- [ ] **F06-T07.** Reintegros en caja, reversos fiscales externos según procedimiento D-01 y auditoría. Probar cambios sin diferencia, con diferencia en ambos sentidos, devolución completa, parcial e intento duplicado.
+- [x] **F06-T01.** Recuperar venta original y unidades todavía disponibles para devolución; evitar devolver la misma unidad dos veces. Validación Application dentro de `BEGIN IMMEDIATE` y trigger acumulado en SQLite.
+- [x] **F06-T02.** Registrar múltiples artículos de entrada y salida, reconocer importes originalmente pagados y calcular diferencias mediante una única operación genérica N/M.
+- [x] **F06-T03.** Diferencia positiva → cobrar; negativa → reintegrar el remanente. Reintegro efectivo habitual; medio no efectivo con autorización puntual presencial de Dueña.
+- [x] **F06-T04.** Clasificar prendas devueltas aptas/no aptas; aptas vuelven a Disponible; no aptas aumentan Físico y Apartado con motivo obligatorio.
+- [!] **F06-T05.** Promoción específica de dos artículos: **BLOQUEADA por D-05**; F04 no registra ni permite reconstruir una promoción real. No inferir ni implementar reglas promocionales.
+- [x] **F06-T06.** Mostrar fecha/antigüedad informativa sin inventar un plazo aprobado ni bloquear por vencimiento; no se muestran estados «vencido/fuera de término».
+- [x] **F06-T07.** Liquidaciones locales en caja y auditoría; cambios C-* inmutables. Reversos fiscales externos no implementados: siguen sujetos a D-01 antes de producción.
 
-**Aceptación:** stock, importes, caja e historial quedan consistentes en todas las combinaciones probadas; no se edita el precio de la venta original; las excepciones no borran el historial.
+**Aceptación técnica del núcleo local:** stock, importes, caja e historial se confirman en una transacción; precio original se conserva; fallos/no idempotencia no producen parciales; ticket C-* interno/no fiscal reimprimible sin mutación; anulación F04 se rechaza tras cualquier cambio. F06-T05 sigue bloqueada por D-05. Capturas WPF 101–110 y validación en PC real siguen pendientes; D-01 impide habilitar producción por el aspecto fiscal externo.
+
+**Registro F06 (2026-10-03):** V12 aditiva; casos de uso, repositorios, autorización efectiva dentro de transacción, caja/stock/auditoría, búsqueda, histórico/ticket y UI implementados en `feat/f06-cambios-devoluciones`. `dotnet build` Debug: 0 advertencias/0 errores; suite focalizada de Cambios: 15/15; suite completa: 369/369. Capturas WPF 101–110 pendientes porque la automatización no expone ventanas (`apps: []`); ver D-39.
 
 ### F07 — Clientes y cuentas corrientes (activación condicionada)
 
@@ -384,5 +386,6 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 | 2026-09-21 | F03-T05 + Reversión | Integrado en `main` `8eae690`; F00-T02 bloqueada, F00-T06 en curso; F03-T04 sigue parcial por dañado | Conteo parcial, foto vieja, doble aprobación, reversión multilínea/duplicada/stock insuficiente + V6→V7 con respaldo y fallo atómico; restore/build 0/0 y 144/144 pruebas (12 del bloque + 132 previas); V1-V6 intactas hasta V7; base provisional intacta | Pantalla WPF conteo, F03-T04 dañado, D-07/D-09/PC real, recuperación Dueña |
 | 2026-09-26 | Rediseño UI WPF (etapa aprobada y cerrada) | Terminado y validado en `feat/wpf-ui-redesign-phase1`; F04 no iniciado | `LoginWindow` separada + shells por módulos + master/detail (Catálogo, Proveedores, Usuarios, Consultas) + `FichaProductoWindow`/`DetalleRecepcionWindow` + Conteo por pasos 1-4 + Inicio con datos reales (`ConsultasInicio`/`RepositorioInicio`); `dotnet build` Debug 0 advertencias 0 errores; 263/263 pruebas; `git diff --check` limpio; mínima 980×620 validada (`DevMainWindow` 1200×750, `MinWidth=980 MinHeight=620`, captura 64); sin `.db`/capturas/binarios en el árbol; ver D-34 | `docs/ui-reference/` queda fuera del commit (material de trabajo, 4 archivos); `ContentStringFormat` propagado en los 5 templates de `Button` (fix puntual de cierre); F00-T02 sigue bloqueada y F00-T06 sigue en curso |
 | 2026-09-29 | F00-T02/F00-T06 (criterio de planificación) | Pendientes de hardware definitivo; dejan de bloquear DESARROLLO | Decisión de la persona usuaria (ver D-36): F00-T02 y F00-T06 permanecen pendientes, no se marcan completadas; no bloquean el desarrollo de F04 ni fases posteriores (entorno actual + DB ficticias); pasan a bloquear instalación definitiva, puesta en producción y entrega al local | Validación obligatoria en PC definitiva antes de producción: Windows/arquitectura, publicación, arranque, persistencia, permisos de archivos, DPI/resolución, rendimiento, impresora cuando corresponda, funcionamiento interactivo general |
+| 2026-10-03 | F06 core | Núcleo local implementado; T01–T04/T06/T07 completadas técnicamente; T05 bloqueada por D-05 | V12 aditiva; build Debug 0 advertencias/0 errores; suite focalizada 15/15; suite completa 369/369; ver D-39 | Capturas WPF 101–110 pendientes (`apps: []`); D-01 procedimiento fiscal externo y validación PC real pendientes; no producción |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

@@ -74,7 +74,10 @@ public sealed class RepositorioCaja : IRepositorioCaja
         var id = _ids.NuevoId();
         try
         {
-            using var cmd = CrearComando(s, "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen);");
+            var conPagoCambio = movimiento.CambioPagoId is not null;
+            using var cmd = CrearComando(s, conPagoCambio
+                ? "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id, cambio_pago_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen, $cambioPago);"
+                : "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen);");
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$sesion", movimiento.SesionId);
             cmd.Parameters.AddWithValue("$tipo", movimiento.Tipo);
@@ -88,6 +91,7 @@ public sealed class RepositorioCaja : IRepositorioCaja
             cmd.Parameters.AddWithValue("$categoria", (object?)movimiento.Categoria ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$usuario", (object?)movimiento.UsuarioId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$origen", (object?)movimiento.MovimientoOrigenId ?? DBNull.Value);
+            if (conPagoCambio) cmd.Parameters.AddWithValue("$cambioPago", movimiento.CambioPagoId!);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
             return id;
         }

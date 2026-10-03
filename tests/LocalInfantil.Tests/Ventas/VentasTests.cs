@@ -374,7 +374,7 @@ public sealed class VentasTests
         Assert.Equal("anulada", ficha.Venta.Estado);
     }
 
-    private sealed class EntornoVentas : IDisposable
+    internal sealed class EntornoVentas : IDisposable
     {
         public ServiciosComerciales Servicios { get; }
         public string Sesion { get; }

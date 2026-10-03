@@ -137,7 +137,7 @@ public sealed class CajaViewModel : ViewModelBase
     public string CobrosEfectivoTexto => FormatearSuma(TiposMovimientoCaja.Venta, MediosCaja.Efectivo);
     public string IngresosTexto => FormatearImporte(Math.Max(0, Suma(TiposMovimientoCaja.Ingreso)));
     public string EgresosTexto => FormatearImporte(Math.Abs(Math.Min(0, Suma(TiposMovimientoCaja.Egreso))));
-    public string ReintegrosEfectivoTexto => FormatearImporte(Math.Abs(Math.Min(0, Suma(TiposMovimientoCaja.Reintegro, MediosCaja.Efectivo))));
+    public string ReintegrosEfectivoTexto => FormatearImporte(Math.Abs(Math.Min(0, Suma(TiposMovimientoCaja.Reintegro, MediosCaja.Efectivo) + Suma(TiposMovimientoCaja.CambioReintegro, MediosCaja.Efectivo))));
     public string CompensacionesEfectivoTexto => FormatearImporte(Suma(TiposMovimientoCaja.Correccion, MediosCaja.Efectivo));
     public string TransferenciaTexto => FormatearImporte(SumaMedio(MediosCaja.Transferencia));
     public string DebitoTexto => FormatearImporte(SumaMedio(MediosCaja.Debito));
@@ -396,6 +396,8 @@ public sealed class MovimientoCajaViewModel
 
     private static string Describir(MovimientoCajaRegistrado m)
     {
+        if (m.Tipo == TiposMovimientoCaja.CambioCobro) return "Diferencia de cambio · Cobro";
+        if (m.Tipo == TiposMovimientoCaja.CambioReintegro) return "Diferencia de cambio · Reintegro";
         if (m.Tipo == TiposMovimientoCaja.Venta) return $"Venta {m.NumeroVenta ?? string.Empty}";
         if (m.Tipo == TiposMovimientoCaja.Reintegro) return $"Reintegro · Venta {m.NumeroVenta ?? string.Empty}";
         if (m.Tipo == TiposMovimientoCaja.Correccion) return $"Corrección de medio · Venta {m.NumeroVenta ?? string.Empty}";

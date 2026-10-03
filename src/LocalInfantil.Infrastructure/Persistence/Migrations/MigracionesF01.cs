@@ -8,9 +8,7 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// recepciones (F03-T05). V8: stock apartado/no vendible y foto de
 /// clasificación para conteos (F03-T04, D-33). V9: categorías controladas,
 /// código interno automático de producto y variante, y unicidad Talle+Color.
-/// V10: ventas POS (número e idempotencia en venta, snapshots en línea,
-/// recibido en pago, secuencia y reversión de venta). V11: caja y
-/// conciliación de medios, movimientos compensatorios y arqueo. Ver docs/ESQUEMA.md.
+/// V10: ventas POS. V11: caja y conciliación. V12: cambios/devoluciones F06.
 /// </summary>
 public static class MigracionesF01
 {
@@ -27,6 +25,7 @@ public static class MigracionesF01
         new(9, "categorias-codigos-internos", SqlV9),
         new(10, "ventas-pos", SqlV10),
         new(11, "caja-conciliacion-f05", SqlV11),
+        new(12, "cambios-devoluciones-f06", SqlV12),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -589,5 +588,148 @@ public static class MigracionesF01
         BEFORE UPDATE ON pago BEGIN SELECT RAISE(ABORT, 'el pago de venta es inmutable'); END;
         CREATE TRIGGER trg_pago_no_borrar
         BEFORE DELETE ON pago BEGIN SELECT RAISE(ABORT, 'el pago de venta es histórico'); END;
+        """;
+
+    private const string SqlV12 = """
+        PRAGMA defer_foreign_keys = ON;
+        CREATE TABLE cambio (
+            id TEXT PRIMARY KEY,
+            numero TEXT NOT NULL UNIQUE,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (trim(operacion_id) <> ''),
+            venta_id TEXT NOT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            usuario_id TEXT NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            autorizado_reintegro_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL,
+            importe_entradas_minor INTEGER NOT NULL CHECK (importe_entradas_minor >= 0),
+            importe_salidas_minor INTEGER NOT NULL CHECK (importe_salidas_minor >= 0),
+            diferencia_minor INTEGER NOT NULL CHECK (diferencia_minor = importe_salidas_minor - importe_entradas_minor),
+            medio_reintegro TEXT NULL CHECK (medio_reintegro IS NULL OR medio_reintegro IN ('efectivo','transferencia','debito','credito','billetera')),
+            motivo TEXT NULL
+        );
+        CREATE INDEX ix_cambio_venta_fecha ON cambio(venta_id, creado_en DESC);
+        CREATE TABLE cambio_entrada (
+            id TEXT PRIMARY KEY,
+            cambio_id TEXT NOT NULL REFERENCES cambio(id) ON DELETE RESTRICT,
+            venta_linea_id TEXT NOT NULL REFERENCES venta_linea(id) ON DELETE RESTRICT,
+            variante_id TEXT NOT NULL REFERENCES variante(id) ON DELETE RESTRICT,
+            cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+            precio_unitario_minor INTEGER NOT NULL CHECK (precio_unitario_minor >= 0),
+            apta INTEGER NOT NULL CHECK (apta IN (0,1)),
+            motivo_no_apta TEXT NULL,
+            codigo_interno TEXT NOT NULL,
+            nombre_producto TEXT NOT NULL,
+            talle TEXT NULL,
+            color TEXT NULL,
+            UNIQUE(cambio_id, venta_linea_id),
+            CHECK ((apta = 1 AND motivo_no_apta IS NULL) OR (apta = 0 AND trim(COALESCE(motivo_no_apta,'')) <> ''))
+        );
+        CREATE TABLE cambio_salida (
+            id TEXT PRIMARY KEY,
+            cambio_id TEXT NOT NULL REFERENCES cambio(id) ON DELETE RESTRICT,
+            variante_id TEXT NOT NULL REFERENCES variante(id) ON DELETE RESTRICT,
+            cantidad INTEGER NOT NULL CHECK (cantidad > 0),
+            precio_unitario_minor INTEGER NOT NULL CHECK (precio_unitario_minor >= 0),
+            codigo_interno TEXT NOT NULL,
+            nombre_producto TEXT NOT NULL,
+            talle TEXT NULL,
+            color TEXT NULL,
+            UNIQUE(cambio_id, variante_id)
+        );
+        CREATE TABLE cambio_pago (
+            id TEXT PRIMARY KEY,
+            cambio_id TEXT NOT NULL REFERENCES cambio(id) ON DELETE RESTRICT,
+            direccion TEXT NOT NULL CHECK (direccion IN ('cobro','reintegro')),
+            medio TEXT NOT NULL CHECK (medio IN ('efectivo','transferencia','debito','credito','billetera')),
+            importe_minor INTEGER NOT NULL CHECK (importe_minor > 0),
+            recibido_minor INTEGER NULL CHECK (recibido_minor IS NULL OR recibido_minor >= importe_minor),
+            UNIQUE(cambio_id, direccion, medio)
+        );
+        CREATE TABLE secuencia_cambio (id INTEGER PRIMARY KEY CHECK(id=1), siguiente_numero INTEGER NOT NULL CHECK(siguiente_numero>0));
+        INSERT INTO secuencia_cambio(id,siguiente_numero) VALUES(1,1);
+        CREATE INDEX ix_cambio_entrada_linea ON cambio_entrada(venta_linea_id);
+
+        CREATE TRIGGER trg_cambio_requiere_venta_confirmada
+        BEFORE INSERT ON cambio
+        WHEN NOT EXISTS (SELECT 1 FROM venta v WHERE v.id = NEW.venta_id AND v.estado = 'confirmada')
+        BEGIN SELECT RAISE(ABORT, 'el cambio requiere venta confirmada'); END;
+        CREATE TRIGGER trg_cambio_entrada_limite_vendido
+        BEFORE INSERT ON cambio_entrada
+        BEGIN
+          SELECT CASE WHEN NOT EXISTS (
+            SELECT 1 FROM cambio c JOIN venta_linea l ON l.id = NEW.venta_linea_id
+            WHERE c.id = NEW.cambio_id AND c.venta_id = l.venta_id AND l.variante_id = NEW.variante_id
+              AND NEW.cantidad + COALESCE((SELECT SUM(e.cantidad) FROM cambio_entrada e WHERE e.venta_linea_id = l.id),0) <= l.cantidad
+          ) THEN RAISE(ABORT, 'la cantidad supera unidades vendidas disponibles') END;
+        END;
+        CREATE TRIGGER trg_cambio_no_editar BEFORE UPDATE ON cambio BEGIN SELECT RAISE(ABORT, 'el cambio es inmutable'); END;
+        CREATE TRIGGER trg_cambio_no_borrar BEFORE DELETE ON cambio BEGIN SELECT RAISE(ABORT, 'el cambio es histórico'); END;
+        CREATE TRIGGER trg_cambio_entrada_no_editar BEFORE UPDATE ON cambio_entrada BEGIN SELECT RAISE(ABORT, 'la entrada del cambio es inmutable'); END;
+        CREATE TRIGGER trg_cambio_entrada_no_borrar BEFORE DELETE ON cambio_entrada BEGIN SELECT RAISE(ABORT, 'la entrada del cambio es histórica'); END;
+        CREATE TRIGGER trg_cambio_salida_no_editar BEFORE UPDATE ON cambio_salida BEGIN SELECT RAISE(ABORT, 'la salida del cambio es inmutable'); END;
+        CREATE TRIGGER trg_cambio_salida_no_borrar BEFORE DELETE ON cambio_salida BEGIN SELECT RAISE(ABORT, 'la salida del cambio es histórica'); END;
+        CREATE TRIGGER trg_cambio_pago_no_editar BEFORE UPDATE ON cambio_pago BEGIN SELECT RAISE(ABORT, 'el pago del cambio es inmutable'); END;
+        CREATE TRIGGER trg_cambio_pago_no_borrar BEFORE DELETE ON cambio_pago BEGIN SELECT RAISE(ABORT, 'el pago del cambio es histórico'); END;
+
+        -- Amplía los tipos sin alterar V11 ni reescribir históricos.
+        DROP TRIGGER trg_caja_movimiento_sesion_abierta;
+        DROP TRIGGER trg_caja_movimiento_datos_coherentes;
+        DROP TRIGGER trg_caja_movimiento_operacion_coherente;
+        DROP TRIGGER trg_caja_movimiento_no_editar;
+        DROP TRIGGER trg_caja_movimiento_no_borrar;
+        CREATE TABLE caja_movimiento_nueva (
+            id TEXT PRIMARY KEY, sesion_id TEXT NOT NULL REFERENCES caja_sesion(id) ON DELETE RESTRICT,
+            tipo TEXT NOT NULL CHECK (tipo IN ('venta','ingreso','egreso','reintegro','correccion','cambio_cobro','cambio_reintegro')),
+            importe_minor INTEGER NOT NULL CHECK (importe_minor <> 0),
+            venta_id TEXT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            motivo TEXT NULL, creado_en TEXT NOT NULL,
+            caja_operacion_id TEXT NULL REFERENCES caja_operacion(id) ON DELETE RESTRICT,
+            pago_id TEXT NULL REFERENCES pago(id) ON DELETE RESTRICT,
+            medio TEXT NULL CHECK (medio IS NULL OR medio IN ('efectivo','transferencia','debito','credito','billetera')),
+            categoria TEXT NULL, usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            movimiento_origen_id TEXT NULL REFERENCES caja_movimiento_nueva(id) ON DELETE RESTRICT,
+            cambio_pago_id TEXT NULL REFERENCES cambio_pago(id) ON DELETE RESTRICT,
+            CHECK (tipo <> 'venta' OR venta_id IS NOT NULL),
+            CHECK ((tipo = 'cambio_cobro' AND importe_minor > 0 AND cambio_pago_id IS NOT NULL) OR tipo <> 'cambio_cobro'),
+            CHECK ((tipo = 'cambio_reintegro' AND importe_minor < 0 AND cambio_pago_id IS NOT NULL) OR tipo <> 'cambio_reintegro')
+        );
+        INSERT INTO caja_movimiento_nueva (id,sesion_id,tipo,importe_minor,venta_id,motivo,creado_en,caja_operacion_id,pago_id,medio,categoria,usuario_id,movimiento_origen_id)
+          SELECT id,sesion_id,tipo,importe_minor,venta_id,motivo,creado_en,caja_operacion_id,pago_id,medio,categoria,usuario_id,movimiento_origen_id FROM caja_movimiento;
+        DROP TABLE caja_movimiento;
+        ALTER TABLE caja_movimiento_nueva RENAME TO caja_movimiento;
+        CREATE INDEX ix_caja_movimiento_sesion ON caja_movimiento(sesion_id);
+        CREATE INDEX ix_caja_movimiento_sesion_fecha ON caja_movimiento(sesion_id, creado_en DESC, id DESC);
+        CREATE INDEX ix_caja_movimiento_venta ON caja_movimiento(venta_id) WHERE venta_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_pago ON caja_movimiento(pago_id) WHERE pago_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_operacion ON caja_movimiento(caja_operacion_id) WHERE caja_operacion_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_cambio_pago ON caja_movimiento(cambio_pago_id) WHERE cambio_pago_id IS NOT NULL;
+        CREATE UNIQUE INDEX ux_caja_movimiento_cambio_pago ON caja_movimiento(cambio_pago_id) WHERE cambio_pago_id IS NOT NULL;
+        CREATE UNIQUE INDEX ux_caja_movimiento_pago_efecto ON caja_movimiento(caja_operacion_id,pago_id,tipo,medio) WHERE caja_operacion_id IS NOT NULL AND pago_id IS NOT NULL;
+        CREATE UNIQUE INDEX ux_caja_movimiento_pago_venta ON caja_movimiento(pago_id) WHERE pago_id IS NOT NULL AND tipo='venta';
+
+        CREATE TRIGGER trg_caja_movimiento_sesion_abierta BEFORE INSERT ON caja_movimiento
+        WHEN NOT EXISTS (SELECT 1 FROM caja_sesion s WHERE s.id=NEW.sesion_id AND s.estado='abierta')
+        BEGIN SELECT RAISE(ABORT,'la sesión de caja está cerrada'); END;
+        CREATE TRIGGER trg_caja_movimiento_operacion_coherente BEFORE INSERT ON caja_movimiento
+        WHEN NEW.caja_operacion_id IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM caja_operacion o WHERE o.id=NEW.caja_operacion_id AND o.sesion_id=NEW.sesion_id
+          AND ((NEW.tipo='venta' AND o.tipo='venta') OR (NEW.tipo IN ('ingreso','egreso') AND o.tipo='movimiento_manual')
+          OR (NEW.tipo='reintegro' AND o.tipo IN ('anulacion','reintegro')) OR (NEW.tipo='correccion' AND o.tipo='correccion_medio')
+          OR (NEW.tipo='cambio_cobro' AND o.tipo='movimiento_manual')
+          OR (NEW.tipo='cambio_reintegro' AND o.tipo='reintegro')))
+        BEGIN SELECT RAISE(ABORT,'el movimiento no corresponde a la operación o sesión de caja'); END;
+        CREATE TRIGGER trg_caja_movimiento_datos_coherentes BEFORE INSERT ON caja_movimiento
+        WHEN (NEW.tipo='venta' AND (NEW.pago_id IS NULL OR NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.categoria IS NOT NULL OR NEW.importe_minor<=0
+          OR NOT EXISTS(SELECT 1 FROM pago p WHERE p.id=NEW.pago_id AND p.venta_id=NEW.venta_id AND p.medio=NEW.medio AND p.importe_minor=NEW.importe_minor)))
+          OR (NEW.tipo='ingreso' AND (COALESCE(NEW.categoria,'') NOT IN ('cambio_fondo','otro_ingreso') OR NEW.importe_minor<=0 OR NEW.medio<>'efectivo' OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.venta_id IS NOT NULL OR NEW.pago_id IS NOT NULL OR trim(COALESCE(NEW.motivo,''))=''))
+          OR (NEW.tipo='egreso' AND (COALESCE(NEW.categoria,'') NOT IN ('gasto','retiro_propietario','otro_egreso') OR NEW.importe_minor>=0 OR NEW.medio<>'efectivo' OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.venta_id IS NOT NULL OR NEW.pago_id IS NOT NULL OR trim(COALESCE(NEW.motivo,''))=''))
+          OR (NEW.tipo='reintegro' AND (NEW.pago_id IS NULL OR NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.importe_minor>=0 OR trim(COALESCE(NEW.motivo,''))='' OR NOT EXISTS(SELECT 1 FROM pago p WHERE p.id=NEW.pago_id AND p.venta_id=NEW.venta_id)
+             OR COALESCE(-NEW.importe_minor,0)+COALESCE((SELECT -SUM(m.importe_minor) FROM caja_movimiento m WHERE m.pago_id=NEW.pago_id AND m.tipo='reintegro'),0)>COALESCE((SELECT p.importe_minor FROM pago p WHERE p.id=NEW.pago_id),0)))
+          OR (NEW.tipo='correccion' AND (NEW.pago_id IS NULL OR NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR trim(COALESCE(NEW.motivo,''))='' OR NOT EXISTS(SELECT 1 FROM pago_correccion pc WHERE pc.pago_id=NEW.pago_id AND pc.caja_operacion_id=NEW.caja_operacion_id AND ((NEW.medio=pc.medio_anterior AND NEW.importe_minor=-pc.importe_minor) OR (NEW.medio=pc.medio_nuevo AND NEW.importe_minor=pc.importe_minor)))))
+          OR (NEW.tipo IN ('cambio_cobro','cambio_reintegro') AND (NEW.cambio_pago_id IS NULL OR NEW.medio IS NULL OR NEW.usuario_id IS NULL OR NEW.caja_operacion_id IS NULL
+          OR NOT EXISTS(SELECT 1 FROM cambio_pago p WHERE p.id=NEW.cambio_pago_id AND p.medio=NEW.medio AND p.importe_minor=abs(NEW.importe_minor)
+          AND ((NEW.tipo='cambio_cobro' AND p.direccion='cobro') OR (NEW.tipo='cambio_reintegro' AND p.direccion='reintegro')))))
+        BEGIN SELECT RAISE(ABORT,'los datos del movimiento de caja no son coherentes'); END;
+        CREATE TRIGGER trg_caja_movimiento_no_editar BEFORE UPDATE ON caja_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de caja es inmutable'); END;
+        CREATE TRIGGER trg_caja_movimiento_no_borrar BEFORE DELETE ON caja_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de caja es histórico'); END;
         """;
 }
