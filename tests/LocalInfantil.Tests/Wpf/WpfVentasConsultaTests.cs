@@ -112,6 +112,8 @@ public sealed class WpfVentasConsultaTests
                 await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, permiso, true, sesion.IdSesion);
             }
 
+            await servicios.CasoAbrirCaja.EjecutarAsync(0, $"op-apertura-test-{Guid.NewGuid():N}", sesion.IdSesion);
+
             return new EntornoVentasUi(dir, servicios, sesion.IdSesion);
         }
 

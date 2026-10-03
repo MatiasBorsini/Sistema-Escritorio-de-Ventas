@@ -116,16 +116,18 @@ public sealed class AppRootViewModel : ViewModelBase
         var dialogosVentas = new DialogosVentasWpf(_servicios, () => Sesion.IdSesion);
         var pos = new PosViewModel(_servicios, () => Sesion.IdSesion, dialogosVentas);
         var ventas = new VentasConsultaViewModel(_servicios, () => Sesion.IdSesion, dialogosVentas);
+        var caja = new CajaViewModel(_servicios, () => Sesion.IdSesion);
+        await caja.CargarAsyncPublic();
         var resumenInicio = await _servicios.ConsultasInicio.ObtenerAsync(Sesion.IdSesion);
         if (Sesion.Rol == "duena")
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas);
+            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas);
+            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja);
         }
     }
 }
@@ -145,6 +147,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public ApartadoViewModel Apartado { get; }
     public PosViewModel? Pos { get; }
     public VentasConsultaViewModel? Ventas { get; }
+    public CajaViewModel? Caja { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
 
@@ -153,7 +156,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     {
     }
 
-    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null)
+    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null)
     {
         Sesion = sesion;
         Administracion = admin;
@@ -165,6 +168,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Apartado = apartado;
         Pos = pos;
         Ventas = ventas;
+        Caja = caja;
         Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
@@ -225,6 +229,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public ApartadoViewModel Apartado { get; }
     public PosViewModel? Pos { get; }
     public VentasConsultaViewModel? Ventas { get; }
+    public CajaViewModel? Caja { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
 
@@ -233,7 +238,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     {
     }
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null)
     {
         Sesion = sesion;
         Catalogo = catalogo;
@@ -244,6 +249,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         Apartado = apartado;
         Pos = pos;
         Ventas = ventas;
+        Caja = caja;
         Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;

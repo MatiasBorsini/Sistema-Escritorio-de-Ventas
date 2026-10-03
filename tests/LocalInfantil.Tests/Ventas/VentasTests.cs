@@ -387,7 +387,7 @@ public sealed class VentasTests
             Sesion = sesion;
         }
 
-        public static async Task<EntornoVentas> CrearAsync()
+        public static async Task<EntornoVentas> CrearAsync(bool abrirCaja = true)
         {
             var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
             var ruta = Path.Combine(dir, "ventas-f04.db");
@@ -408,6 +408,9 @@ public sealed class VentasTests
             {
                 await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, permiso, true, sesion.IdSesion);
             }
+
+            if (abrirCaja)
+                await servicios.CasoAbrirCaja.EjecutarAsync(0, $"op-apertura-test-{Guid.NewGuid():N}", sesion.IdSesion);
 
             return new EntornoVentas(dir, servicios, sesion.IdSesion);
         }

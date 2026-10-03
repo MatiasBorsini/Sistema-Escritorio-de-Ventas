@@ -200,14 +200,18 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Objetivo:** registrar dinero real sin confundirlo con ventas.
 
-- [ ] **F05-T01.** Apertura, fondo inicial y sesión de caja vinculada al usuario.
-- [ ] **F05-T02.** Cobros automáticos de ventas y egresos/ingresos manuales clasificados; retiros del propietario separados de gastos.
-- [ ] **F05-T03.** Arqueo ciego de efectivo, saldo teórico, diferencia y cierre registrado.
-- [ ] **F05-T04.** Desglose de medios electrónicos como cobros para conciliación, **sin tratarlos como efectivo contado**.
-- [ ] **F05-T05.** Reintegros, anulaciones y correcciones de medio de pago reflejados correctamente en caja.
-- [ ] **F05-T06.** Tests: apertura, cobro mixto, egreso, devolución en efectivo, diferencia y cierre duplicado.
+- [x] **F05-T01.** Apertura, fondo inicial y sesión de caja vinculada al usuario; una sola sesión abierta, apertura auditada y sin movimiento ficticio de apertura (V11).
+- [x] **F05-T02.** Cobros de ventas dentro de la transacción de venta; ingresos/egresos manuales clasificados y justificados; retiro de Dueña separado de gasto y restringido por permiso.
+- [x] **F05-T03.** Arqueo ciego: primero se ingresa el efectivo contado, luego se revela esperado/diferencia; cierre inmutable con responsables y observación obligatoria si hay diferencia. El valor se recalcula bajo transacción para evitar cierre sobre saldo desactualizado.
+- [x] **F05-T04.** Desglose de efectivo, transferencia, débito, crédito y billetera para conciliación; solo efectivo integra el efectivo esperado/contado.
+- [x] **F05-T05.** Anulación total compensatoria en la sesión abierta actual y corrección de medio mediante movimientos compensatorios, preservando venta, pago original y sesiones cerradas.
+- [x] **F05-T06.** Tests automatizados para apertura, pagos simples/mixtos, movimientos manuales, permisos, fallos atómicos, anulaciones, correcciones, arqueo/diferencias, cierre, concurrencia y migración V10→V11.
 
-**Aceptación:** caja esperada se reconcilia con movimientos; el cierre no modifica ni reescribe ventas; existe rastro de quién abrió/cerró.
+**Aceptación:** caja esperada se reconcilia con movimientos; el cierre no modifica ni reescribe ventas; existe rastro de quién abrió/cerró. Verificado mediante suite automatizada y migración temporal V10→V11 con preservación de venta/pago e integridad SQLite. **Pendiente de revisión visual manual de las capturas 90–100**; no se presentan como capturadas.
+
+**Registro F05 (2026-10-03):** migración aditiva V11, casos de uso, repositorio, permisos, navegación e interfaz implementados en `feat/f05-caja`. `dotnet build` Debug: 0 advertencias/0 errores; suite completa: 356/356; tests F05: 25/25; pruebas de migración/respaldos: 26/26; `git diff --check`: sin errores. Capturas visuales reales 90–100 quedan pendientes de una sesión interactiva autenticada; no se alteró ninguna base histórica ni se generaron capturas sintéticas.
+
+**Estado F05:** implementación técnica completa y validación automatizada completa; validación visual/manual WPF (capturas 90–100) pendiente; validación en la PC real pendiente; **producción NO habilitada**.
 
 ### F06 — Cambios, devoluciones y reglas comerciales flexibles
 

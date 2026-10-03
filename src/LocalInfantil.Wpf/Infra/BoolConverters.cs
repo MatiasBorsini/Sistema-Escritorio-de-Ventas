@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using LocalInfantil.Application.Contracts;
 
 namespace LocalInfantil.Wpf.Infra;
 
@@ -76,4 +77,31 @@ public sealed class MinorToArsConverter : IValueConverter
         return "—";
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+public sealed class CajaTextoHumanoConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not string texto) return value ?? string.Empty;
+        return texto switch
+        {
+            MediosCaja.Efectivo => "Efectivo",
+            MediosCaja.Transferencia => "Transferencia",
+            MediosCaja.Debito => "Débito",
+            MediosCaja.Credito => "Crédito",
+            MediosCaja.Billetera => "Billetera virtual",
+            "abierta" => "Abierta",
+            "cerrada" => "Cerrada",
+            "venta" => "Venta",
+            "ingreso" => "Ingreso",
+            "egreso" => "Egreso",
+            "reintegro" => "Reintegro",
+            "correccion" => "Corrección de medio",
+            _ => texto,
+        };
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
 }

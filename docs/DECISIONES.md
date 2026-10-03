@@ -296,3 +296,25 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
   12. Permisos `ventas.confirmar` (Due�a y Empleada) y `ventas.anular` (solo Due�a), deny-by-default.
   13. Idempotencia por `venta.operacion_id` UNIQUE con mensaje humano (sin exponer duplicaci�n cruda).
 - Alcance: sin F05, sin commit ni push; V10 `ventas-pos`; suite 330/330; capturas reales 80�89 fuera del �rbol git; fixture ficticia con ventas de prueba anuladas (stock restituido).
+
+## D-38 — F05: caja única, arqueo ciego y movimientos compensatorios
+
+- Estado: implementado en `feat/f05-caja`; sin commit ni push.
+- Fecha: 2026-10-03.
+- Fuente: diseño F05 aprobado por la persona usuaria.
+- Decisiones efectivamente adoptadas:
+  1. V11 `caja-conciliacion-f05` es aditiva respecto de V10. No vuelve a escribir pagos/ventas F04 ni asigna sesiones/movimientos retroactivos a ventas previas; la migración V10→V11 se prueba con base temporal, respaldo e integridad.
+  2. Hay una sola sesión de caja abierta global. La apertura registra fondo inicial, responsable, operación idempotente y auditoría; el fondo no se duplica como ingreso.
+  3. Confirmar una venta requiere caja abierta. Pago, venta, consumo de Disponible, movimientos de caja y auditoría comparten la transacción `BEGIN IMMEDIATE`; se genera un efecto de caja por pago.
+  4. El efectivo esperado solo considera apertura, pagos en efectivo, movimientos manuales en efectivo y compensaciones en efectivo. Medios no efectivos permanecen desglosados para conciliación y no se tratan como billetes contados.
+  5. Los movimientos manuales exigen importe positivo, categoría y motivo. Ingreso, gasto y retiro de Dueña tienen categorías/tipos diferentes; retiro requiere permiso específico.
+  6. El arqueo es ciego: el valor esperado no se presenta antes de ingresar el conteo. La previsualización calcula diferencia; el cierre vuelve a calcular esperado dentro de su transacción y exige revisión/reconfirmación si cambió. Diferencia distinta de cero exige observación, se conserva como snapshot y no crea un movimiento artificial de ajuste.
+  7. Anular una venta conserva sus snapshots y pagos; cada reintegro compensa el importe no compensado del pago original en la sesión abierta actual, respetando el medio efectivo vigente. La operación revierte venta, stock, caja y auditoría en conjunto. No muta cierres anteriores.
+  8. Corregir un medio es solo para Dueña, una vez por pago y en sesión abierta. El pago original queda intacto; se registra corrección inmutable y dos movimientos compensatorios (salida del medio anterior/entrada al nuevo), con motivo y auditoría.
+  9. Dueña recibe los permisos de caja previstos por la matriz efectiva; Empleada puede abrir, consultar, mover (según categorías permitidas) y cerrar, pero no retirar fondos de Dueña ni corregir medios. Las denegaciones individuales prevalecen y el backend sigue siendo autoridad.
+  10. La interfaz Caja permite apertura, consulta de sesión/movimientos, ingreso/egreso manual, corrección de medio, conciliación no efectiva, arqueo ciego y consulta paginada del histórico; el histórico muestra snapshots, no permite editar cierres.
+- Verificación automatizada: tests F05 sobre bases temporales aisladas, incluidos rollback de venta/anulación si falla caja, pagos mixtos, permisos, correcciones, arqueo/cierre, concurrencia secuencial y migración V10→V11 preservando venta y pago históricos.
+- Pendiente de evidencia: capturas visuales reales 90–100, que requieren iniciar sesión en una instancia interactiva. No se generaron capturas sintéticas ni se modificaron bases históricas.
+- Alcance: exclusivamente F05; sin F06, commit, push ni cambios en `main`.
+- Verificación técnica final (2026-10-03): `dotnet build` Debug 0 advertencias/0 errores; suite completa 356/356; filtro F05 25/25; filtro de migración/respaldos 26/26; `git diff --check` sin errores. Capturas 90–100 siguen pendientes de validación visual interactiva.
+- Estado F05: implementación técnica completa y validación automatizada completa; validación visual/manual WPF (capturas 90–100) pendiente; validación en la PC real pendiente; producción NO habilitada.

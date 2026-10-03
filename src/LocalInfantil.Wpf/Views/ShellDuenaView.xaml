@@ -21,6 +21,7 @@
                         <MenuItem Header="Punto de venta" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Pos}"/>
                         <MenuItem Header="Consulta de ventas" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Ventas}"/>
                     </MenuItem>
+                    <MenuItem Header="_Caja" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Caja.PuedeVer, Converter={StaticResource BoolToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Caja}"/>
                     <MenuItem Header="Co_mpras" Foreground="{StaticResource Color.CanvasBrush}">
                         <MenuItem Header="PROVEEDORES" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Proveedores" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Proveedores}"/>

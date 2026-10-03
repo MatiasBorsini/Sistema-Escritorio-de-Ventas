@@ -1,5 +1,6 @@
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Application.Features.Caja;
 
 namespace LocalInfantil.Application.Features.Ventas;
 
@@ -15,6 +16,7 @@ public sealed class AnularVenta
 {
     private readonly IRepositorioVentas _ventas;
     private readonly IRepositorioMovimientos _movimientos;
+    private readonly IRepositorioCaja _caja;
     private readonly IAutorizador _autorizador;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly IRepositorioAuditoria _auditoria;
@@ -24,6 +26,7 @@ public sealed class AnularVenta
     public AnularVenta(
         IRepositorioVentas ventas,
         IRepositorioMovimientos movimientos,
+        IRepositorioCaja caja,
         IAutorizador autorizador,
         IFabricaSesionesPersistencia fabrica,
         IRepositorioAuditoria auditoria,
@@ -32,6 +35,7 @@ public sealed class AnularVenta
     {
         _ventas = ventas;
         _movimientos = movimientos;
+        _caja = caja;
         _autorizador = autorizador;
         _fabrica = fabrica;
         _auditoria = auditoria;
@@ -81,8 +85,30 @@ public sealed class AnularVenta
             throw new InvalidOperationException("La venta no tiene líneas.");
         }
 
+        var cajaAbierta = await _caja.ObtenerAbiertaAsync(sesion, cancellationToken)
+            ?? throw new InvalidOperationException("No hay una caja abierta para registrar el reintegro.");
+        var pagos = await _caja.ListarPagosActualesPorVentaAsync(sesion, ventaId, cancellationToken);
+        if (pagos.Count == 0)
+            throw new InvalidOperationException("La venta no tiene pagos para compensar en caja.");
+
         var fecha = _reloj.UtcNow().ToString("o");
+        var cajaOperacionId = await _caja.InsertarOperacionAsync(
+            sesion,
+            new NuevaOperacionCaja(operacionId, cajaAbierta.Id, TiposOperacionCaja.Anulacion, actor.Id, fecha),
+            cancellationToken);
         await _ventas.InsertarReversionAsync(sesion, ventaId, operacionId, motivo.Trim(), actor.Id, fecha, cancellationToken);
+        foreach (var pago in pagos)
+        {
+            var reintegrado = await _caja.SumarReintegrosPorPagoAsync(sesion, pago.PagoId, cancellationToken);
+            var pendiente = pago.ImporteMinor - reintegrado;
+            if (pendiente > 0)
+            {
+                await _caja.InsertarMovimientoAsync(
+                    sesion,
+                    new NuevoMovimientoCaja(cajaAbierta.Id, cajaOperacionId, TiposMovimientoCaja.Reintegro, -pendiente, ventaId, pago.PagoId, pago.MedioActual, null, motivo.Trim(), actor.Id, pago.MovimientoOriginalId, fecha),
+                    cancellationToken);
+            }
+        }
         foreach (var linea in lineas)
         {
             await _movimientos.RegistrarAsync(

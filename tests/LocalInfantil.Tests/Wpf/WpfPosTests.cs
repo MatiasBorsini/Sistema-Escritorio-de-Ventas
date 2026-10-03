@@ -210,6 +210,8 @@ public sealed class WpfPosTests
                 await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, permiso, true, sesion.IdSesion);
             }
 
+            await servicios.CasoAbrirCaja.EjecutarAsync(0, $"op-apertura-test-{Guid.NewGuid():N}", sesion.IdSesion);
+
             var prod = await servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Remera POS", null, "cat-rem"), sesion.IdSesion);
             var v1 = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", null), sesion.IdSesion);
             var v2 = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "S", null), sesion.IdSesion);

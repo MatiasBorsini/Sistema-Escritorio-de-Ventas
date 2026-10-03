@@ -121,6 +121,8 @@ public sealed class TicketVentaTests
                 await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, permiso, true, sesion.IdSesion);
             }
 
+            await servicios.CasoAbrirCaja.EjecutarAsync(0, $"op-apertura-test-{Guid.NewGuid():N}", sesion.IdSesion);
+
             return new EntornoTicket(dir, servicios, sesion.IdSesion);
         }
 

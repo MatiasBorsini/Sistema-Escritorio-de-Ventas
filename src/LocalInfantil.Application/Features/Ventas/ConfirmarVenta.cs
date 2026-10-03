@@ -1,5 +1,6 @@
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Application.Features.Caja;
 
 namespace LocalInfantil.Application.Features.Ventas;
 
@@ -9,7 +10,8 @@ namespace LocalInfantil.Application.Features.Ventas;
 /// llamador y se acepta una sola vez, incluso tras reaperturas. El precio se
 /// revalida dentro de la confirmación: si cambió respecto al carrito, aborta
 /// sin cambios y devuelve el detalle (nunca confirma silenciosamente con el
-/// precio viejo). Sin descuentos, sin fiado, sin caja (F05).
+/// precio viejo). Sin descuentos ni fiado. Desde F05, sesión de caja, pagos,
+/// movimientos, stock y auditoría se confirman atómicamente con la venta.
 /// </summary>
 public sealed class ConfirmarVenta
 {
@@ -23,6 +25,7 @@ public sealed class ConfirmarVenta
     private readonly IAutorizador _autorizador;
     private readonly IFabricaSesionesPersistencia _fabrica;
     private readonly IRepositorioAuditoria _auditoria;
+    private readonly IRepositorioCaja _caja;
     private readonly IGeneradorIds _ids;
     private readonly IReloj _reloj;
 
@@ -37,6 +40,7 @@ public sealed class ConfirmarVenta
         IAutorizador autorizador,
         IFabricaSesionesPersistencia fabrica,
         IRepositorioAuditoria auditoria,
+        IRepositorioCaja caja,
         IGeneradorIds ids,
         IReloj reloj)
     {
@@ -50,6 +54,7 @@ public sealed class ConfirmarVenta
         _autorizador = autorizador;
         _fabrica = fabrica;
         _auditoria = auditoria;
+        _caja = caja;
         _ids = ids;
         _reloj = reloj;
     }
@@ -135,6 +140,9 @@ public sealed class ConfirmarVenta
             throw new InvalidOperationException("Esta venta ya fue confirmada.");
         }
 
+        var cajaAbierta = await _caja.ObtenerAbiertaAsync(sesion, cancellationToken)
+            ?? throw new InvalidOperationException("No hay una caja abierta. Abrí la caja antes de registrar una venta.");
+
         var fecha = _reloj.UtcNow().ToString("o");
         var preciosVigentes = new List<(string VarianteId, string CodigoInterno, string NombreProducto, string? Talle, string? Color, long Cantidad, long PrecioMinor)>();
         var cambios = new List<DetallePrecioCambiado>();
@@ -204,9 +212,17 @@ public sealed class ConfirmarVenta
                 cancellationToken);
         }
 
+        var cajaOperacionId = await _caja.InsertarOperacionAsync(
+            sesion,
+            new NuevaOperacionCaja(operacionId, cajaAbierta.Id, TiposOperacionCaja.Venta, actor.Id, fecha),
+            cancellationToken);
         foreach (var pago in pagos)
         {
-            await _pagos.InsertarAsync(sesion, id, pago.Medio, pago.ImporteMinor, pago.RecibidoMinor, fecha, cancellationToken);
+            var pagoId = await _pagos.InsertarAsync(sesion, id, pago.Medio, pago.ImporteMinor, pago.RecibidoMinor, fecha, cancellationToken);
+            await _caja.InsertarMovimientoAsync(
+                sesion,
+                new NuevoMovimientoCaja(cajaAbierta.Id, cajaOperacionId, TiposMovimientoCaja.Venta, pago.ImporteMinor, id, pagoId, pago.Medio, null, null, actor.Id, null, fecha),
+                cancellationToken);
         }
 
         await _auditoria.RegistrarAsync(

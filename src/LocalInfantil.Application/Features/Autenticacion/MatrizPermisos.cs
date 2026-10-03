@@ -1,4 +1,5 @@
 using LocalInfantil.Application.Features.Ventas;
+using LocalInfantil.Application.Features.Caja;
 
 namespace LocalInfantil.Application.Features.Autenticacion;
 
@@ -24,6 +25,12 @@ public sealed class MatrizPermisos
         matriz.Permitir(RolesLocal.Duena, PermisosVentas.VentasConfirmar);
         matriz.Permitir(RolesLocal.Empleada, PermisosVentas.VentasConfirmar);
         matriz.Permitir(RolesLocal.Duena, PermisosVentas.VentasAnular);
+        foreach (var permiso in PermisosCaja.Todos)
+            matriz.Permitir(RolesLocal.Duena, permiso);
+        foreach (var permiso in new[] { PermisosCaja.Abrir, PermisosCaja.Consultar, PermisosCaja.Movimiento, PermisosCaja.Cerrar })
+            matriz.Permitir(RolesLocal.Empleada, permiso);
+        matriz.Denegar(RolesLocal.Empleada, PermisosCaja.RetiroPropietario);
+        matriz.Denegar(RolesLocal.Empleada, PermisosCaja.CorregirMedio);
         return matriz;
     }
 

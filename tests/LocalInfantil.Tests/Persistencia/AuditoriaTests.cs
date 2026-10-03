@@ -220,7 +220,7 @@ public sealed class AuditoriaTests
                 await comando.ExecuteNonQueryAsync();
             }
 
-            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivosRespaldo = Directory.GetFiles(respaldos, "*.db");
             Assert.Single(archivosRespaldo);

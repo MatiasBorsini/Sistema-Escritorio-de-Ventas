@@ -17,6 +17,7 @@
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
         <infra:MinorToArsConverter x:Key="MinorToArs"/>
         <infra:CeroVisibleConverter x:Key="CeroVisible"/>
+        <infra:CajaTextoHumanoConverter x:Key="CajaTextoHumano"/>
         <DataTemplate DataType="{x:Type viewModels:InicioViewModel}">
             <views:InicioView />
         </DataTemplate>
@@ -67,6 +68,12 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:VentasConsultaViewModel}">
             <views:VentasConsultaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:CajaViewModel}">
+            <views:CajaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ArqueoCiegoViewModel}">
+            <views:ArqueoCajaView />
         </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
