@@ -47,7 +47,11 @@ public sealed record VentaRegistrada(
     string? ReferenciaFiscal,
     string CreadaEn,
     string? ConfirmadaEn,
-    string? CreadoPorNombre);
+    string? CreadoPorNombre,
+    string? ClienteId = null,
+    string? ClienteNombreSnapshot = null,
+    long? ImporteCuentaCorrienteMinor = null,
+    string? VencimientoCuentaCorriente = null);
 
 public sealed record LineaVentaRegistrada(
     string Id,

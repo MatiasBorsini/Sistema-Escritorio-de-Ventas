@@ -1,6 +1,8 @@
 using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Application.Features.Caja;
 using LocalInfantil.Application.Features.Cambios;
+using LocalInfantil.Application.Features.Clientes;
+using LocalInfantil.Application.Features.CuentaCorriente;
 
 namespace LocalInfantil.Application.Features.Autenticacion;
 
@@ -23,6 +25,20 @@ public sealed class MatrizPermisos
         matriz.Permitir(RolesLocal.Empleada, PermisosComerciales.ReintegroAutorizar);
         matriz.Permitir(RolesLocal.Duena, PermisosComerciales.ReintegroMedioExcepcional);
         matriz.Permitir(RolesLocal.Duena, PermisosAdministracion.UsuariosAdministrar);
+        matriz.Permitir(RolesLocal.Duena, PermisosClientes.Consultar);
+        matriz.Permitir(RolesLocal.Empleada, PermisosClientes.Consultar);
+        matriz.Permitir(RolesLocal.Duena, PermisosClientes.Administrar);
+        matriz.Denegar(RolesLocal.Empleada, PermisosClientes.Administrar);
+        matriz.Permitir(RolesLocal.Duena, PermisosCuentaCorriente.Consultar);
+        matriz.Permitir(RolesLocal.Empleada, PermisosCuentaCorriente.Consultar);
+        matriz.Permitir(RolesLocal.Duena, PermisosCuentaCorriente.VenderFiado);
+        matriz.Denegar(RolesLocal.Empleada, PermisosCuentaCorriente.VenderFiado);
+        matriz.Permitir(RolesLocal.Duena, PermisosCuentaCorriente.Abonar);
+        matriz.Permitir(RolesLocal.Empleada, PermisosCuentaCorriente.Abonar);
+        matriz.Permitir(RolesLocal.Duena, PermisosCuentaCorriente.Ajustar);
+        matriz.Denegar(RolesLocal.Empleada, PermisosCuentaCorriente.Ajustar);
+        matriz.Permitir(RolesLocal.Duena, PermisosCuentaCorriente.ConfigurarLimite);
+        matriz.Denegar(RolesLocal.Empleada, PermisosCuentaCorriente.ConfigurarLimite);
         matriz.Permitir(RolesLocal.Duena, PermisosVentas.VentasConfirmar);
         matriz.Permitir(RolesLocal.Empleada, PermisosVentas.VentasConfirmar);
         matriz.Permitir(RolesLocal.Duena, PermisosVentas.VentasAnular);

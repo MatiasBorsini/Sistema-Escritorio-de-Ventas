@@ -42,6 +42,10 @@ public sealed class GenerarTicketVenta
                 p.ImporteMinor,
                 p.RecibidoMinor,
                 p.VueltoMinor)).ToList(),
-            ficha.Anulacion?.Motivo);
+            ficha.Anulacion?.Motivo,
+            ficha.Venta.ClienteNombreSnapshot,
+            ficha.Pagos.Sum(p => p.ImporteMinor),
+            ficha.Venta.ImporteCuentaCorrienteMinor ?? 0,
+            ficha.Venta.VencimientoCuentaCorriente);
     }
 }

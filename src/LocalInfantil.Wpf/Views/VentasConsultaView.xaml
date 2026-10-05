@@ -43,6 +43,7 @@
                         <TextBlock Margin="0,6,0,0" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Ficha.Venta.Numero, FallbackValue=Sin selección}"/>
                         <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Ficha.Venta.Estado, FallbackValue=—, StringFormat=Estado: {0}}"/>
                         <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Ficha.Venta.CreadoPorNombre, FallbackValue=—, StringFormat=Vendido por: {0}}"/>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Ficha.Venta.ClienteNombreSnapshot, StringFormat=Cliente: {0}}" Visibility="{Binding Ficha.Venta.ClienteNombreSnapshot, Converter={StaticResource NullToVisibility}, FallbackValue=Collapsed}"/>
                         <ItemsControl ItemsSource="{Binding Ficha.Lineas}" Margin="0,8,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

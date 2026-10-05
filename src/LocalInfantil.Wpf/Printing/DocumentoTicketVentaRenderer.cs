@@ -49,6 +49,15 @@ public sealed class DocumentoTicketVentaRenderer
                 Foreground = Brushes.DimGray,
             });
         }
+        if (!string.IsNullOrWhiteSpace(documento.ClienteNombre))
+        {
+            contenido.Children.Add(new TextBlock
+            {
+                Margin = new Thickness(0, 4, 0, 0),
+                Text = $"Cliente: {documento.ClienteNombre}",
+                Foreground = Brushes.DimGray,
+            });
+        }
 
         if (documento.Estado == "anulada")
         {
@@ -82,6 +91,14 @@ public sealed class DocumentoTicketVentaRenderer
                 TextAlignment = TextAlignment.Right,
             },
         });
+
+        if (documento.ImporteCuentaCorrienteMinor > 0)
+        {
+            contenido.Children.Add(new TextBlock { Margin = new Thickness(0, 4, 0, 0), Text = $"Pagado hoy: {Formatear(documento.ImportePagadoMinor)}" });
+            contenido.Children.Add(new TextBlock { Text = $"A cuenta corriente: {Formatear(documento.ImporteCuentaCorrienteMinor)}", FontWeight = FontWeights.SemiBold });
+            if (DateOnly.TryParse(documento.VencimientoCuentaCorriente, out var vence))
+                contenido.Children.Add(new TextBlock { Text = $"Vencimiento: {vence:dd/MM/yyyy}" });
+        }
 
         contenido.Children.Add(new TextBlock { Margin = new Thickness(0, 12, 0, 2), Text = "Pagos", FontWeight = FontWeights.Bold });
         foreach (var pago in documento.Pagos)

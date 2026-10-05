@@ -8,6 +8,8 @@ using LocalInfantil.Application.Features.Inventario;
 using LocalInfantil.Application.Features.Inicio;
 using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Application.Features.Cambios;
+using LocalInfantil.Application.Features.Clientes;
+using LocalInfantil.Application.Features.CuentaCorriente;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
@@ -87,6 +89,17 @@ public sealed class ServiciosComerciales
     public RegistrarCambio CasoRegistrarCambio { get; }
     public ConsultasCambios ConsultasCambios { get; }
     public GenerarTicketCambio CasoGenerarTicketCambio { get; }
+    public IRepositorioClientes RepoClientes { get; }
+    public CrearCliente CasoCrearCliente { get; }
+    public EditarCliente CasoEditarCliente { get; }
+    public DesactivarCliente CasoDesactivarCliente { get; }
+    public ConsultasClientes ConsultasClientes { get; }
+    public IRepositorioCuentaCorriente RepoCuentaCorriente { get; }
+    public ConsultasCuentaCorriente ConsultasCuentaCorriente { get; }
+    public ConfigurarLimiteCredito CasoConfigurarLimiteCredito { get; }
+    public RegistrarAbono CasoRegistrarAbono { get; }
+    public AjustarCuentaCorriente CasoAjustarCuentaCorriente { get; }
+    public GenerarTicketAbono CasoGenerarTicketAbono { get; }
 
     public ServiciosComerciales(string rutaBaseDatos)
     {
@@ -147,16 +160,27 @@ public sealed class ServiciosComerciales
         RepoPagos = new RepositorioPagos(GeneradorIds);
         RepoCaja = new RepositorioCaja(GeneradorIds);
         RepoCambios = new RepositorioCambios(GeneradorIds);
+        RepoClientes = new RepositorioClientes(GeneradorIds);
+        RepoCuentaCorriente = new RepositorioCuentaCorriente(GeneradorIds);
+        CasoCrearCliente = new CrearCliente(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoEditarCliente = new EditarCliente(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoDesactivarCliente = new DesactivarCliente(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        ConsultasClientes = new ConsultasClientes(Autorizador, Fabrica, RepoClientes);
+        ConsultasCuentaCorriente = new ConsultasCuentaCorriente(Autorizador, Fabrica, RepoCuentaCorriente, RepoClientes);
+        CasoConfigurarLimiteCredito = new ConfigurarLimiteCredito(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoRegistrarAbono = new RegistrarAbono(RepoCuentaCorriente, RepoClientes, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj);
+        CasoAjustarCuentaCorriente = new AjustarCuentaCorriente(RepoCuentaCorriente, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj);
+        CasoGenerarTicketAbono = new GenerarTicketAbono(Autorizador, Fabrica, RepoCuentaCorriente);
         CasoAbrirCaja = new AbrirCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoRegistrarMovimientoCaja = new RegistrarMovimientoCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoCerrarCaja = new CerrarCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         ConsultasCaja = new ConsultasCaja(RepoCaja, Autorizador, Fabrica);
         CasoCorregirMedioPago = new CorregirMedioPago(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
-        CasoConfirmarVenta = new ConfirmarVenta(RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoPagos, Autorizador, Fabrica, RepoAuditoria, RepoCaja, GeneradorIds, Reloj);
-        CasoAnularVenta = new AnularVenta(RepoVentas, RepoMovimientos, RepoCaja, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj, RepoCambios);
+        CasoConfirmarVenta = new ConfirmarVenta(RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoPagos, Autorizador, Fabrica, RepoAuditoria, RepoCaja, GeneradorIds, Reloj, RepoClientes, RepoCuentaCorriente, AutorizadorEnSesion);
+        CasoAnularVenta = new AnularVenta(RepoVentas, RepoMovimientos, RepoCaja, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj, RepoCambios, RepoCuentaCorriente);
         ConsultasVentas = new ConsultasVentas(RepoVentas, RepoPagos, Gestor, Fabrica);
         CasoGenerarTicket = new GenerarTicketVenta(ConsultasVentas);
-        CasoRegistrarCambio = new RegistrarCambio(RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj);
+        CasoRegistrarCambio = new RegistrarCambio(RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj, RepoCuentaCorriente);
         ConsultasCambios = new ConsultasCambios(Autorizador, Fabrica, RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, Reloj);
         CasoGenerarTicketCambio = new GenerarTicketCambio(Autorizador, Fabrica, RepoCambios);
     }
@@ -179,6 +203,8 @@ public sealed class ServiciosComerciales
         "inventario.baja_definitiva.autorizar",
         PermisosVentas.VentasConfirmar,
         PermisosVentas.VentasAnular,
+        .. PermisosClientes.Todos,
+        .. PermisosCuentaCorriente.Todos,
         .. PermisosCambios.Todos,
         .. PermisosCaja.Todos,
     ];

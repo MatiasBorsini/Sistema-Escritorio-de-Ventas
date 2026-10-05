@@ -9,6 +9,8 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// clasificación para conteos (F03-T04, D-33). V9: categorías controladas,
 /// código interno automático de producto y variante, y unicidad Talle+Color.
 /// V10: ventas POS. V11: caja y conciliación. V12: cambios/devoluciones F06.
+/// V13: clientes opcionales e instantánea de nombre en ventas F07-T01.
+/// V14: libro de cuenta corriente, límites, abonos, asignaciones y vínculo de reintegros.
 /// </summary>
 public static class MigracionesF01
 {
@@ -26,6 +28,8 @@ public static class MigracionesF01
         new(10, "ventas-pos", SqlV10),
         new(11, "caja-conciliacion-f05", SqlV11),
         new(12, "cambios-devoluciones-f06", SqlV12),
+        new(13, "clientes-ventas-opcionales-f07", SqlV13),
+        new(14, "cuenta-corriente-clientes-f07", SqlV14),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -731,5 +735,198 @@ public static class MigracionesF01
         BEGIN SELECT RAISE(ABORT,'los datos del movimiento de caja no son coherentes'); END;
         CREATE TRIGGER trg_caja_movimiento_no_editar BEFORE UPDATE ON caja_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de caja es inmutable'); END;
         CREATE TRIGGER trg_caja_movimiento_no_borrar BEFORE DELETE ON caja_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de caja es histórico'); END;
+        """;
+
+    private const string SqlV13 = """
+        CREATE TABLE cliente (
+            id TEXT PRIMARY KEY,
+            nombre_completo TEXT NOT NULL CHECK (trim(nombre_completo) <> ''),
+            telefono TEXT NULL,
+            observacion TEXT NULL,
+            activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT NOT NULL
+        );
+        CREATE INDEX ix_cliente_nombre ON cliente(nombre_completo COLLATE NOCASE, id);
+        CREATE INDEX ix_cliente_activo_nombre ON cliente(activo, nombre_completo COLLATE NOCASE, id);
+        CREATE INDEX ix_cliente_telefono ON cliente(telefono COLLATE NOCASE, id);
+
+        ALTER TABLE venta ADD COLUMN cliente_id TEXT NULL REFERENCES cliente(id) ON DELETE RESTRICT;
+        ALTER TABLE venta ADD COLUMN cliente_nombre_snapshot TEXT NULL;
+        CREATE INDEX ix_venta_cliente_fecha ON venta(cliente_id, creada_en DESC, id DESC) WHERE cliente_id IS NOT NULL;
+        """;
+
+    private const string SqlV14 = """
+        ALTER TABLE cliente ADD COLUMN limite_credito_minor INTEGER NULL CHECK (limite_credito_minor IS NULL OR limite_credito_minor >= 0);
+        ALTER TABLE cambio ADD COLUMN decision_cuenta TEXT NULL CHECK (decision_cuenta IS NULL OR decision_cuenta IN ('aplicar_a_deuda','reintegrar'));
+        ALTER TABLE cambio ADD COLUMN deuda_antes_minor INTEGER NULL CHECK (deuda_antes_minor IS NULL OR deuda_antes_minor >= 0);
+        ALTER TABLE cambio ADD COLUMN importe_aplicado_deuda_minor INTEGER NOT NULL DEFAULT 0 CHECK (importe_aplicado_deuda_minor >= 0);
+        ALTER TABLE cambio ADD COLUMN deuda_despues_minor INTEGER NULL CHECK (deuda_despues_minor IS NULL OR deuda_despues_minor >= 0);
+
+        CREATE TABLE cuenta_corriente_abono (
+            id TEXT PRIMARY KEY,
+            numero TEXT NOT NULL UNIQUE CHECK (numero GLOB 'A-[0-9][0-9][0-9][0-9][0-9][0-9]'),
+            cliente_id TEXT NOT NULL REFERENCES cliente(id) ON DELETE RESTRICT,
+            importe_minor INTEGER NOT NULL CHECK (importe_minor > 0),
+            saldo_anterior_minor INTEGER NOT NULL CHECK (saldo_anterior_minor >= importe_minor),
+            saldo_posterior_minor INTEGER NOT NULL CHECK (saldo_posterior_minor = saldo_anterior_minor-importe_minor),
+            operacion_id TEXT NOT NULL UNIQUE CHECK (trim(operacion_id) <> ''),
+            usuario_id TEXT NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+        CREATE INDEX ix_cc_abono_cliente_fecha ON cuenta_corriente_abono(cliente_id, creado_en DESC, id DESC);
+
+        CREATE TABLE cuenta_corriente_abono_componente (
+            id TEXT PRIMARY KEY,
+            abono_id TEXT NOT NULL REFERENCES cuenta_corriente_abono(id) ON DELETE RESTRICT,
+            medio TEXT NOT NULL CHECK (medio IN ('efectivo','transferencia','debito','credito','billetera')),
+            importe_minor INTEGER NOT NULL CHECK (importe_minor > 0),
+            recibido_minor INTEGER NULL,
+            CHECK ((medio='efectivo' AND recibido_minor IS NOT NULL AND recibido_minor>=importe_minor)
+                OR (medio<>'efectivo' AND recibido_minor IS NULL))
+        );
+        CREATE INDEX ix_cc_abono_componente_abono ON cuenta_corriente_abono_componente(abono_id,id);
+
+        CREATE TABLE cuenta_corriente_movimiento (
+            id TEXT PRIMARY KEY,
+            cliente_id TEXT NOT NULL REFERENCES cliente(id) ON DELETE RESTRICT,
+            tipo TEXT NOT NULL CHECK (tipo IN ('cargo_venta','abono','ajuste_positivo','ajuste_negativo','credito_devolucion','cancelacion_deuda')),
+            importe_minor INTEGER NOT NULL CHECK (importe_minor <> 0),
+            venta_id TEXT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            cambio_id TEXT NULL REFERENCES cambio(id) ON DELETE RESTRICT,
+            abono_id TEXT NULL REFERENCES cuenta_corriente_abono(id) ON DELETE RESTRICT,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (trim(operacion_id) <> ''),
+            vencimiento TEXT NULL,
+            motivo TEXT NULL,
+            usuario_id TEXT NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL,
+            CHECK ((tipo='cargo_venta' AND importe_minor>0 AND venta_id IS NOT NULL AND cambio_id IS NULL AND abono_id IS NULL)
+                OR (tipo='abono' AND importe_minor<0 AND venta_id IS NULL AND cambio_id IS NULL AND abono_id IS NOT NULL)
+                OR (tipo='ajuste_positivo' AND importe_minor>0 AND venta_id IS NULL AND cambio_id IS NULL AND abono_id IS NULL AND trim(COALESCE(motivo,''))<>'')
+                OR (tipo='ajuste_negativo' AND importe_minor<0 AND venta_id IS NULL AND cambio_id IS NULL AND abono_id IS NULL AND trim(COALESCE(motivo,''))<>'')
+                OR (tipo='credito_devolucion' AND importe_minor<0 AND venta_id IS NOT NULL AND cambio_id IS NOT NULL AND abono_id IS NULL)
+                OR (tipo='cancelacion_deuda' AND importe_minor<0 AND venta_id IS NOT NULL AND cambio_id IS NULL AND abono_id IS NULL))
+        );
+        CREATE UNIQUE INDEX ux_cc_cargo_venta ON cuenta_corriente_movimiento(venta_id) WHERE tipo='cargo_venta';
+        CREATE INDEX ix_cc_mov_cliente_fecha ON cuenta_corriente_movimiento(cliente_id, creado_en DESC, id DESC);
+        CREATE INDEX ix_cc_mov_venta ON cuenta_corriente_movimiento(venta_id) WHERE venta_id IS NOT NULL;
+        CREATE INDEX ix_cc_mov_cambio ON cuenta_corriente_movimiento(cambio_id) WHERE cambio_id IS NOT NULL;
+
+        CREATE TABLE cuenta_corriente_aplicacion (
+            id TEXT PRIMARY KEY,
+            movimiento_reductor_id TEXT NOT NULL REFERENCES cuenta_corriente_movimiento(id) ON DELETE RESTRICT,
+            movimiento_cargo_id TEXT NOT NULL REFERENCES cuenta_corriente_movimiento(id) ON DELETE RESTRICT,
+            abono_componente_id TEXT NULL REFERENCES cuenta_corriente_abono_componente(id) ON DELETE RESTRICT,
+            importe_minor INTEGER NOT NULL CHECK (importe_minor > 0),
+            saldo_cargo_posterior_minor INTEGER NULL CHECK (saldo_cargo_posterior_minor IS NULL OR saldo_cargo_posterior_minor >= 0),
+            creado_en TEXT NOT NULL,
+            UNIQUE (movimiento_reductor_id,movimiento_cargo_id,abono_componente_id)
+        );
+        CREATE INDEX ix_cc_aplicacion_cargo ON cuenta_corriente_aplicacion(movimiento_cargo_id);
+        CREATE INDEX ix_cc_aplicacion_reductor ON cuenta_corriente_aplicacion(movimiento_reductor_id);
+        CREATE INDEX ix_cc_aplicacion_componente ON cuenta_corriente_aplicacion(abono_componente_id) WHERE abono_componente_id IS NOT NULL;
+
+        CREATE TABLE secuencia_abono (
+            id INTEGER PRIMARY KEY CHECK (id=1),
+            ultimo_numero INTEGER NOT NULL CHECK (ultimo_numero>=0)
+        );
+        INSERT INTO secuencia_abono(id,ultimo_numero) VALUES (1,0);
+
+        -- Se amplía la tabla sin tocar movimientos existentes. El self-FK de
+        -- movimiento_origen se vuelve a declarar apuntando a la tabla nueva.
+        DROP TRIGGER trg_caja_movimiento_sesion_abierta;
+        DROP TRIGGER trg_caja_movimiento_datos_coherentes;
+        DROP TRIGGER trg_caja_movimiento_operacion_coherente;
+        DROP TRIGGER trg_caja_movimiento_no_editar;
+        DROP TRIGGER trg_caja_movimiento_no_borrar;
+        CREATE TABLE caja_movimiento_nueva (
+            id TEXT PRIMARY KEY, sesion_id TEXT NOT NULL REFERENCES caja_sesion(id) ON DELETE RESTRICT,
+            tipo TEXT NOT NULL CHECK (tipo IN ('venta','ingreso','egreso','reintegro','correccion','cambio_cobro','cambio_reintegro','abono')),
+            importe_minor INTEGER NOT NULL CHECK (importe_minor <> 0),
+            venta_id TEXT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            motivo TEXT NULL, creado_en TEXT NOT NULL,
+            caja_operacion_id TEXT NULL REFERENCES caja_operacion(id) ON DELETE RESTRICT,
+            pago_id TEXT NULL REFERENCES pago(id) ON DELETE RESTRICT,
+            medio TEXT NULL CHECK (medio IS NULL OR medio IN ('efectivo','transferencia','debito','credito','billetera')),
+            categoria TEXT NULL, usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            movimiento_origen_id TEXT NULL REFERENCES caja_movimiento_nueva(id) ON DELETE RESTRICT,
+            cambio_pago_id TEXT NULL REFERENCES cambio_pago(id) ON DELETE RESTRICT,
+            abono_componente_id TEXT NULL REFERENCES cuenta_corriente_abono_componente(id) ON DELETE RESTRICT,
+            CHECK (tipo <> 'venta' OR venta_id IS NOT NULL),
+            CHECK ((tipo = 'cambio_cobro' AND importe_minor > 0 AND cambio_pago_id IS NOT NULL) OR tipo <> 'cambio_cobro'),
+            CHECK ((tipo = 'cambio_reintegro' AND importe_minor < 0 AND cambio_pago_id IS NOT NULL) OR tipo <> 'cambio_reintegro'),
+            CHECK ((tipo = 'abono' AND importe_minor > 0 AND abono_componente_id IS NOT NULL) OR tipo <> 'abono')
+        );
+        INSERT INTO caja_movimiento_nueva (id,sesion_id,tipo,importe_minor,venta_id,motivo,creado_en,caja_operacion_id,pago_id,medio,categoria,usuario_id,movimiento_origen_id,cambio_pago_id)
+            SELECT id,sesion_id,tipo,importe_minor,venta_id,motivo,creado_en,caja_operacion_id,pago_id,medio,categoria,usuario_id,movimiento_origen_id,cambio_pago_id FROM caja_movimiento;
+        DROP TABLE caja_movimiento;
+        ALTER TABLE caja_movimiento_nueva RENAME TO caja_movimiento;
+        CREATE INDEX ix_caja_movimiento_sesion ON caja_movimiento(sesion_id);
+        CREATE INDEX ix_caja_movimiento_sesion_fecha ON caja_movimiento(sesion_id,creado_en DESC,id DESC);
+        CREATE INDEX ix_caja_movimiento_venta ON caja_movimiento(venta_id) WHERE venta_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_pago ON caja_movimiento(pago_id) WHERE pago_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_operacion ON caja_movimiento(caja_operacion_id) WHERE caja_operacion_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_cambio_pago ON caja_movimiento(cambio_pago_id) WHERE cambio_pago_id IS NOT NULL;
+        CREATE INDEX ix_caja_movimiento_abono_componente ON caja_movimiento(abono_componente_id) WHERE abono_componente_id IS NOT NULL;
+        CREATE UNIQUE INDEX ux_caja_movimiento_cambio_pago ON caja_movimiento(cambio_pago_id) WHERE cambio_pago_id IS NOT NULL;
+        CREATE UNIQUE INDEX ux_caja_movimiento_pago_efecto ON caja_movimiento(caja_operacion_id,pago_id,tipo,medio) WHERE caja_operacion_id IS NOT NULL AND pago_id IS NOT NULL;
+        CREATE UNIQUE INDEX ux_caja_movimiento_pago_venta ON caja_movimiento(pago_id) WHERE pago_id IS NOT NULL AND tipo='venta';
+        CREATE UNIQUE INDEX ux_caja_movimiento_abono_componente ON caja_movimiento(caja_operacion_id,abono_componente_id) WHERE tipo='abono';
+
+        CREATE TRIGGER trg_caja_movimiento_sesion_abierta BEFORE INSERT ON caja_movimiento
+        WHEN NOT EXISTS (SELECT 1 FROM caja_sesion s WHERE s.id=NEW.sesion_id AND s.estado='abierta')
+        BEGIN SELECT RAISE(ABORT,'la sesión de caja está cerrada'); END;
+        CREATE TRIGGER trg_caja_movimiento_operacion_coherente BEFORE INSERT ON caja_movimiento
+        WHEN NEW.caja_operacion_id IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM caja_operacion o WHERE o.id=NEW.caja_operacion_id AND o.sesion_id=NEW.sesion_id
+          AND ((NEW.tipo='venta' AND o.tipo='venta') OR (NEW.tipo IN ('ingreso','egreso','abono') AND o.tipo='movimiento_manual')
+          OR (NEW.tipo='reintegro' AND o.tipo IN ('anulacion','reintegro')) OR (NEW.tipo='correccion' AND o.tipo='correccion_medio')
+          OR (NEW.tipo='cambio_cobro' AND o.tipo='movimiento_manual') OR (NEW.tipo='cambio_reintegro' AND o.tipo='reintegro')))
+        BEGIN SELECT RAISE(ABORT,'el movimiento no corresponde a la operación o sesión de caja'); END;
+        CREATE TRIGGER trg_caja_movimiento_datos_coherentes BEFORE INSERT ON caja_movimiento
+        WHEN (NEW.tipo='venta' AND (NEW.pago_id IS NULL OR NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.categoria IS NOT NULL OR NEW.importe_minor<=0
+          OR NOT EXISTS(SELECT 1 FROM pago p WHERE p.id=NEW.pago_id AND p.venta_id=NEW.venta_id AND p.medio=NEW.medio AND p.importe_minor=NEW.importe_minor)))
+          OR (NEW.tipo='ingreso' AND (COALESCE(NEW.categoria,'') NOT IN ('cambio_fondo','otro_ingreso') OR NEW.importe_minor<=0 OR NEW.medio<>'efectivo' OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.venta_id IS NOT NULL OR NEW.pago_id IS NOT NULL OR trim(COALESCE(NEW.motivo,''))=''))
+          OR (NEW.tipo='egreso' AND (COALESCE(NEW.categoria,'') NOT IN ('gasto','retiro_propietario','otro_egreso') OR NEW.importe_minor>=0 OR NEW.medio<>'efectivo' OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.venta_id IS NOT NULL OR NEW.pago_id IS NOT NULL OR trim(COALESCE(NEW.motivo,''))=''))
+          OR (NEW.tipo='reintegro' AND (NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NEW.importe_minor>=0 OR trim(COALESCE(NEW.motivo,''))=''
+             OR NOT ((NEW.pago_id IS NOT NULL AND NEW.abono_componente_id IS NULL AND EXISTS(SELECT 1 FROM pago p WHERE p.id=NEW.pago_id AND p.venta_id=NEW.venta_id)
+                 AND COALESCE(-NEW.importe_minor,0)+COALESCE((SELECT -SUM(m.importe_minor) FROM caja_movimiento m WHERE m.pago_id=NEW.pago_id AND m.tipo='reintegro'),0)<=COALESCE((SELECT p.importe_minor FROM pago p WHERE p.id=NEW.pago_id),0))
+               OR (NEW.pago_id IS NULL AND NEW.abono_componente_id IS NOT NULL AND NEW.venta_id IS NOT NULL
+                 AND EXISTS(SELECT 1 FROM cuenta_corriente_abono_componente ac JOIN cuenta_corriente_aplicacion ap ON ap.abono_componente_id=ac.id JOIN cuenta_corriente_movimiento cargo ON cargo.id=ap.movimiento_cargo_id WHERE ac.id=NEW.abono_componente_id AND cargo.venta_id=NEW.venta_id AND ac.medio=NEW.medio)
+                 AND COALESCE(-NEW.importe_minor,0)+COALESCE((SELECT -SUM(m.importe_minor) FROM caja_movimiento m WHERE m.abono_componente_id=NEW.abono_componente_id AND m.tipo='reintegro'),0)<=COALESCE((SELECT ac.importe_minor FROM cuenta_corriente_abono_componente ac WHERE ac.id=NEW.abono_componente_id),0)))))
+          OR (NEW.tipo='correccion' AND (NEW.pago_id IS NULL OR NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR trim(COALESCE(NEW.motivo,''))='' OR NOT EXISTS(SELECT 1 FROM pago_correccion pc WHERE pc.pago_id=NEW.pago_id AND pc.caja_operacion_id=NEW.caja_operacion_id AND ((NEW.medio=pc.medio_anterior AND NEW.importe_minor=-pc.importe_minor) OR (NEW.medio=pc.medio_nuevo AND NEW.importe_minor=pc.importe_minor)))))
+          OR (NEW.tipo IN ('cambio_cobro','cambio_reintegro') AND (NEW.cambio_pago_id IS NULL OR NEW.medio IS NULL OR NEW.usuario_id IS NULL OR NEW.caja_operacion_id IS NULL OR NOT EXISTS(SELECT 1 FROM cambio_pago p WHERE p.id=NEW.cambio_pago_id AND p.medio=NEW.medio AND p.importe_minor=abs(NEW.importe_minor) AND ((NEW.tipo='cambio_cobro' AND p.direccion='cobro') OR (NEW.tipo='cambio_reintegro' AND p.direccion='reintegro')))))
+          OR (NEW.tipo='abono' AND (NEW.importe_minor<=0 OR NEW.venta_id IS NOT NULL OR NEW.pago_id IS NOT NULL OR NEW.cambio_pago_id IS NOT NULL OR NEW.categoria IS NOT NULL OR NEW.abono_componente_id IS NULL OR NEW.medio IS NULL OR NEW.caja_operacion_id IS NULL OR NEW.usuario_id IS NULL OR NOT EXISTS(SELECT 1 FROM cuenta_corriente_abono_componente c WHERE c.id=NEW.abono_componente_id AND c.medio=NEW.medio AND c.importe_minor=NEW.importe_minor)))
+        BEGIN SELECT RAISE(ABORT,'los datos del movimiento de caja no son coherentes'); END;
+        CREATE TRIGGER trg_caja_movimiento_no_editar BEFORE UPDATE ON caja_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de caja es inmutable'); END;
+        CREATE TRIGGER trg_caja_movimiento_no_borrar BEFORE DELETE ON caja_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de caja es histórico'); END;
+
+        CREATE TRIGGER trg_cc_movimiento_coherente BEFORE INSERT ON cuenta_corriente_movimiento
+        WHEN (NEW.tipo='cargo_venta' AND (NOT EXISTS(SELECT 1 FROM venta v WHERE v.id=NEW.venta_id AND v.cliente_id=NEW.cliente_id AND v.estado='confirmada')
+              OR NEW.importe_minor != COALESCE((SELECT v.total_minor-COALESCE((SELECT SUM(p.importe_minor) FROM pago p WHERE p.venta_id=v.id),0) FROM venta v WHERE v.id=NEW.venta_id),-1)))
+          OR (NEW.tipo='abono' AND (NEW.importe_minor != -(SELECT a.importe_minor FROM cuenta_corriente_abono a WHERE a.id=NEW.abono_id AND a.cliente_id=NEW.cliente_id)
+              OR (SELECT COALESCE(SUM(c.importe_minor),0) FROM cuenta_corriente_abono_componente c WHERE c.abono_id=NEW.abono_id) != -NEW.importe_minor))
+          OR (NEW.tipo='credito_devolucion' AND (NOT EXISTS(SELECT 1 FROM cambio c JOIN venta v ON v.id=c.venta_id WHERE c.id=NEW.cambio_id AND c.venta_id=NEW.venta_id AND v.cliente_id=NEW.cliente_id)
+              OR NEW.importe_minor >= 0))
+          OR (NEW.tipo IN ('cancelacion_deuda','credito_devolucion') AND NEW.venta_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM venta v WHERE v.id=NEW.venta_id AND v.cliente_id=NEW.cliente_id))
+        BEGIN SELECT RAISE(ABORT,'el movimiento de cuenta corriente no coincide con sus referencias'); END;
+
+        CREATE TRIGGER trg_cc_aplicacion_coherente BEFORE INSERT ON cuenta_corriente_aplicacion
+        WHEN NOT EXISTS(SELECT 1 FROM cuenta_corriente_movimiento red JOIN cuenta_corriente_movimiento cargo ON cargo.id=NEW.movimiento_cargo_id
+             WHERE red.id=NEW.movimiento_reductor_id AND red.importe_minor<0 AND cargo.tipo IN ('cargo_venta','ajuste_positivo') AND cargo.importe_minor>0 AND red.cliente_id=cargo.cliente_id)
+          OR (NEW.abono_componente_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM cuenta_corriente_abono_componente c JOIN cuenta_corriente_movimiento red ON red.abono_id=c.abono_id WHERE c.id=NEW.abono_componente_id AND red.id=NEW.movimiento_reductor_id AND red.tipo='abono'))
+          OR COALESCE((SELECT SUM(importe_minor) FROM cuenta_corriente_aplicacion WHERE movimiento_reductor_id=NEW.movimiento_reductor_id),0)+NEW.importe_minor > -(SELECT importe_minor FROM cuenta_corriente_movimiento WHERE id=NEW.movimiento_reductor_id)
+          OR COALESCE((SELECT SUM(importe_minor) FROM cuenta_corriente_aplicacion WHERE movimiento_cargo_id=NEW.movimiento_cargo_id),0)+NEW.importe_minor > (SELECT importe_minor FROM cuenta_corriente_movimiento WHERE id=NEW.movimiento_cargo_id)
+          OR (NEW.abono_componente_id IS NOT NULL AND COALESCE((SELECT SUM(importe_minor) FROM cuenta_corriente_aplicacion WHERE abono_componente_id=NEW.abono_componente_id),0)+NEW.importe_minor > (SELECT importe_minor FROM cuenta_corriente_abono_componente WHERE id=NEW.abono_componente_id))
+        BEGIN SELECT RAISE(ABORT,'la asignación supera el reductor o el saldo del cargo'); END;
+
+        CREATE TRIGGER trg_cc_movimiento_no_editar BEFORE UPDATE ON cuenta_corriente_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de cuenta corriente es inmutable'); END;
+        CREATE TRIGGER trg_cc_movimiento_no_borrar BEFORE DELETE ON cuenta_corriente_movimiento BEGIN SELECT RAISE(ABORT,'el movimiento de cuenta corriente es histórico'); END;
+        CREATE TRIGGER trg_cc_abono_no_editar BEFORE UPDATE ON cuenta_corriente_abono BEGIN SELECT RAISE(ABORT,'el recibo de abono es inmutable'); END;
+        CREATE TRIGGER trg_cc_abono_no_borrar BEFORE DELETE ON cuenta_corriente_abono BEGIN SELECT RAISE(ABORT,'el recibo de abono es histórico'); END;
+        CREATE TRIGGER trg_cc_componente_no_editar BEFORE UPDATE ON cuenta_corriente_abono_componente BEGIN SELECT RAISE(ABORT,'el componente del abono es inmutable'); END;
+        CREATE TRIGGER trg_cc_componente_no_borrar BEFORE DELETE ON cuenta_corriente_abono_componente BEGIN SELECT RAISE(ABORT,'el componente del abono es histórico'); END;
+        CREATE TRIGGER trg_cc_aplicacion_no_editar BEFORE UPDATE ON cuenta_corriente_aplicacion BEGIN SELECT RAISE(ABORT,'la aplicación de cuenta corriente es inmutable'); END;
+        CREATE TRIGGER trg_cc_aplicacion_no_borrar BEFORE DELETE ON cuenta_corriente_aplicacion BEGIN SELECT RAISE(ABORT,'la aplicación de cuenta corriente es histórica'); END;
         """;
 }

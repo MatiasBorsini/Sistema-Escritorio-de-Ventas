@@ -1,6 +1,6 @@
 # LocalInfantil
 
-Estructura inicial para una aplicación de escritorio de un único local de ropa infantil. El alcance actual incluye la publicación de prueba de **F00-T06**: navegación de demostración, comprobación mínima de SQLite, prototipo de impresión y una carpeta self-contained para el equipo de desarrollo. No contiene flujos comerciales ni datos reales del comercio.
+Aplicación WPF de escritorio para un único local de ropa infantil. En la rama actual, F07 incluye clientes y cuenta corriente local con ventas fiadas, abonos, ajustes y decisiones explícitas para devoluciones. La implementación tiene validación automatizada; la revisión visual/manual WPF y la validación en la PC del local siguen pendientes. No está habilitada para producción ni contiene datos reales del comercio.
 
 ## Requisitos provisionales
 
@@ -13,11 +13,11 @@ Los proyectos usan `net10.0` / `net10.0-windows` como migración controlada y ve
 
 - `src/LocalInfantil.Domain`: reglas y tipos puros, sin dependencias de UI ni SQLite.
 - `src/LocalInfantil.Application`: casos de uso; depende de Domain.
-- `src/LocalInfantil.Infrastructure`: adaptador SQLite de la comprobación técnica e I/O futuro; depende de Application y Domain.
+- `src/LocalInfantil.Infrastructure`: persistencia SQLite, migraciones e I/O; depende de Application y Domain.
 - `src/LocalInfantil.Wpf`: único ejecutable WPF; depende de Application e Infrastructure.
-- `tests/LocalInfantil.Tests`: pruebas de Domain y de la navegación WPF del prototipo.
+- `tests/LocalInfantil.Tests`: pruebas de reglas, casos de uso, persistencia, migraciones y UI ViewModel.
 
-La ventana principal ofrece Inicio y Estado del prototipo mediante MVVM simple. En Estado se puede ejecutar una comprobación técnica SQLite y abrir una vista previa de impresión con datos ficticios. Solo desde esa vista se abre el diálogo nativo para seleccionar y confirmar una impresora; no se imprime automáticamente. No realiza operaciones comerciales ni conexiones a red.
+La aplicación utiliza navegación WPF/MVVM y opera localmente. Clientes permite asociar un cliente opcional a una venta común; la venta fiada requiere un cliente activo, límite explícito y permiso efectivo. La cuenta corriente registra sus movimientos y asignaciones sin backfill de ventas históricas. Los tickets usan snapshots históricos y permanecen marcados como comprobantes internos no fiscales.
 
 La base SQLite, sus archivos WAL/SHM, respaldos, logs y secretos se mantienen fuera del repositorio. Solo para el prototipo, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`; no es una decisión de producción. La ruta definitiva de datos depende de D-13 y se resolverá antes de guardar datos reales.
 
@@ -66,4 +66,4 @@ El procedimiento de prueba manual con datos ficticios aislados está en `docs/PR
 
 ## Estado
 
-Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F00-T02 queda bloqueada hasta validar la PC del local; F00-T06 sigue en curso: el instalador de prueba ya se genera y fue validado manualmente en una cuenta local estándar independiente, y resta la validación en ese equipo.
+Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F07-T01–T06 están implementadas y verificadas técnicamente en la rama de trabajo; F07-T02/D-02 se registra como aprobada en D-41 para este alcance. La validación visual/manual WPF 111–129 sigue pendiente porque la automatización no expone ventanas (`apps: []`). F00-T02 continúa bloqueada hasta validar la PC del local; F00-T06 sigue pendiente de validación en ese equipo. Producción NO habilitada.

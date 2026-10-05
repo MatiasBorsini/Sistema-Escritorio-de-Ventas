@@ -12,9 +12,30 @@ public partial class CambiosView : UserControl
     {
         if (DataContext is not CambiosViewModel vm) return;
         var cambioPrevio = vm.CambioIdReciente;
-        var password = vm.RequiereAutorizacionPresencial ? ContrasenaDuena.Password : null;
-        ContrasenaDuena.Clear();
-        await vm.ConfirmarAsync(password);
+        var passwordInicial = vm.RequiereAutorizacionPresencial ? ContrasenaDuena.Password : null;
+        var resultado = await vm.ConfirmarAsync(passwordInicial);
+        if (resultado is LocalInfantil.Application.Contracts.ResultadoCambio.DecisionCuentaRequerida deuda)
+        {
+            var decision = MessageBox.Show(Window.GetWindow(this),
+                $"La venta original todavía tiene una deuda pendiente de {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(deuda.DeudaVentaMinor)}.\nEl crédito de la devolución es {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(deuda.CreditoDevolucionMinor)}.\n\n¿Aplicar el crédito a la deuda? Elegí No para reintegrarlo.",
+                "Decisión de cuenta corriente", MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+            if (decision == MessageBoxResult.Cancel) return;
+            var aplicar = decision == MessageBoxResult.Yes;
+            var decisionCuenta = aplicar ? LocalInfantil.Application.Contracts.DecisionCuentaCorrienteCambio.AplicarADeuda : LocalInfantil.Application.Contracts.DecisionCuentaCorrienteCambio.Reintegrar;
+            resultado = await vm.ConfirmarAsync(decisionCuenta: decisionCuenta, deudaEsperadaMinor: deuda.DeudaVentaMinor);
+        }
+        if (resultado is LocalInfantil.Application.Contracts.ResultadoCambio.ConfirmacionCuenta preview)
+        {
+            var texto = $"Deuda de la venta antes: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.DeudaAnteriorMinor)}\nCrédito de la devolución: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.CreditoMinor)}\nAplicar a deuda: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.AplicarMinor)}\nDeuda posterior: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.DeudaPosteriorMinor)}\nReintegro en caja: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.ReintegrarMinor)}";
+            if (MessageBox.Show(Window.GetWindow(this), texto + "\n\n¿Confirmar esta decisión?", "Confirmar devolución", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+            var passwordFinal = preview.ReintegrarMinor > 0 && vm.RequiereAutorizacionPresencial ? ContrasenaDuena.Password : null;
+            ContrasenaDuena.Clear();
+            resultado = await vm.ConfirmarAsync(passwordFinal, preview.Decision, true, preview.DeudaAnteriorMinor);
+        }
+        else
+        {
+            ContrasenaDuena.Clear();
+        }
         if (!string.IsNullOrWhiteSpace(vm.CambioIdReciente) && vm.CambioIdReciente != cambioPrevio)
         {
             var documento = await vm.ObtenerTicketAsync(vm.CambioIdReciente);

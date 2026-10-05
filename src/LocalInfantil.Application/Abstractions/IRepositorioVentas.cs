@@ -13,6 +13,8 @@ public interface IRepositorioVentas
         string? creadoPorUsuarioId,
         string creadoEn,
         string confirmadaEn,
+        string? clienteId,
+        string? clienteNombreSnapshot,
         CancellationToken cancellationToken = default);
 
     Task InsertarLineaAsync(

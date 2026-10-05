@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Application.Features.Clientes;
+using LocalInfantil.Application.Features.CuentaCorriente;
 using LocalInfantil.Wpf.Infra;
 
 namespace LocalInfantil.Wpf.ViewModels;
@@ -187,12 +189,23 @@ public sealed class PosViewModel : ViewModelBase
     private bool _confirmacionCancelarVisible;
     private string? _ultimoNumero;
     private long? _ultimoTotal;
+    private SugerenciaCliente? _clienteSeleccionado;
+    private bool _esFiado;
+    private long? _saldoClienteMinor;
+    private long? _limiteClienteMinor;
+    private DateTime? _vencimiento;
+    public bool PuedeAsociarCliente { get; }
+    public bool PuedeVenderFiado { get; }
+    public bool PuedeConsultarCuenta { get; }
 
-    public PosViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null)
+    public PosViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null, bool puedeAsociarCliente = true, bool puedeVenderFiado = false, bool puedeConsultarCuenta = false)
     {
         _servicios = servicios;
         _idSesion = idSesion;
         _dialogos = dialogos;
+        PuedeAsociarCliente = puedeAsociarCliente;
+        PuedeVenderFiado = puedeVenderFiado;
+        PuedeConsultarCuenta = puedeConsultarCuenta;
         Filas = new ObservableCollection<FilaVentaViewModel>();
         Filas.CollectionChanged += FilasCambiadas;
         Pagos = new ObservableCollection<FilaPagoViewModel> { new FilaPagoViewModel() };
@@ -201,6 +214,10 @@ public sealed class PosViewModel : ViewModelBase
         _operacionId = servicios.GeneradorIds.NuevoId();
         MotorSugerencias = new MotorSugerencias<SugerenciaVariante>((t, ct) =>
             _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct));
+        MotorClientes = new MotorSugerencias<SugerenciaCliente>((t, ct) =>
+            _servicios.ConsultasClientes.BuscarSugerenciasAsync(t, 10, _idSesion(), ct));
+        SeleccionarClienteCommand = new RelayCommand(p => SeleccionarCliente(p as SugerenciaCliente));
+        LimpiarClienteCommand = new RelayCommand(_ => ClienteSeleccionado = null);
         SeleccionarSugerenciaCommand = new AsyncRelayCommand(p => AgregarSugerenciaAsync(p as SugerenciaVariante));
         BuscarDirectaCommand = new AsyncRelayCommand(() => AgregarDirectaAsync(MotorSugerencias.Texto));
         QuitarFilaCommand = new RelayCommand(p => { if (p is FilaVentaViewModel f) { Filas.Remove(f); } });
@@ -226,6 +243,23 @@ public sealed class PosViewModel : ViewModelBase
 
     /// <summary>Motor del buscador asistido (modo Variante). El VM es dueño.</summary>
     public MotorSugerencias<SugerenciaVariante> MotorSugerencias { get; }
+    public MotorSugerencias<SugerenciaCliente> MotorClientes { get; }
+    public SugerenciaCliente? ClienteSeleccionado
+    {
+        get => _clienteSeleccionado;
+        private set { if (SetProperty(ref _clienteSeleccionado, value)) { OnPropertyChanged(nameof(SinClienteSeleccionado)); OnPropertyChanged(nameof(MostrarOpcionesFiado)); _ = CargarResumenCuentaAsync(); NotificarTotales(); } }
+    }
+    public bool EsFiado { get => _esFiado; set { if (SetProperty(ref _esFiado, value)) NotificarTotales(); } }
+    public long? SaldoClienteMinor { get => _saldoClienteMinor; private set { if (SetProperty(ref _saldoClienteMinor, value)) NotificarTotales(); } }
+    public long? LimiteClienteMinor { get => _limiteClienteMinor; private set { if (SetProperty(ref _limiteClienteMinor, value)) NotificarTotales(); } }
+    public DateTime? Vencimiento { get => _vencimiento; set => SetProperty(ref _vencimiento, value); }
+    public long DeudaNuevaMinor => EsFiado ? Math.Max(0, Restante) : 0;
+    public long SaldoPosteriorMinor => (SaldoClienteMinor ?? 0) + DeudaNuevaMinor;
+    public long? DisponibleCreditoMinor => LimiteClienteMinor.HasValue ? Math.Max(0, LimiteClienteMinor.Value - (SaldoClienteMinor ?? 0)) : null;
+    public bool SinClienteSeleccionado => ClienteSeleccionado is null;
+    public bool MostrarOpcionesFiado => PuedeVenderFiado && PuedeConsultarCuenta && ClienteSeleccionado is not null;
+    public RelayCommand SeleccionarClienteCommand { get; }
+    public RelayCommand LimpiarClienteCommand { get; }
 
     public ObservableCollection<FilaVentaViewModel> Filas { get; }
     public ObservableCollection<FilaPagoViewModel> Pagos { get; }
@@ -256,13 +290,16 @@ public sealed class PosViewModel : ViewModelBase
         get
         {
             if (Filas.Count == 0 || Total <= 0) return false;
-            foreach (var p in Pagos)
+            var filasPago = Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)).ToArray();
+            foreach (var p in filasPago)
             {
                 if (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0) return false;
                 if (p.EsEfectivo && (!p.RecibidoMinor.HasValue || p.RecibidoMinor < p.ImporteMinor)) return false;
             }
 
-            return Pagado == Total;
+            if (!EsFiado) return Pagado == Total && filasPago.Length > 0;
+            return PuedeVenderFiado && PuedeConsultarCuenta && ClienteSeleccionado is not null
+                && LimiteClienteMinor.HasValue && Restante > 0 && Pagado < Total && SaldoPosteriorMinor <= LimiteClienteMinor.Value;
         }
     }
 
@@ -358,6 +395,9 @@ public sealed class PosViewModel : ViewModelBase
         OnPropertyChanged(nameof(Restante));
         OnPropertyChanged(nameof(VueltoTotal));
         OnPropertyChanged(nameof(PuedeConfirmar));
+        OnPropertyChanged(nameof(DeudaNuevaMinor));
+        OnPropertyChanged(nameof(SaldoPosteriorMinor));
+        OnPropertyChanged(nameof(DisponibleCreditoMinor));
     }
 
     /// <summary>
@@ -492,7 +532,7 @@ public sealed class PosViewModel : ViewModelBase
             lineas.Add(new NuevaLineaVenta(f.VarianteId, f.Cantidad, f.PrecioUnitarioMinor));
 
         var pagos = new List<NuevoPago>();
-        foreach (var p in Pagos)
+        foreach (var p in Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)))
         {
             if (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0) { Error = "Revisá los importes de los pagos."; return; }
             if (p.EsEfectivo && (!p.RecibidoMinor.HasValue || p.RecibidoMinor < p.ImporteMinor))
@@ -503,11 +543,18 @@ public sealed class PosViewModel : ViewModelBase
 
             pagos.Add(new NuevoPago(p.Medio, p.ImporteMinor.Value, p.EsEfectivo ? p.RecibidoMinor : null));
         }
+        if (!EsFiado && pagos.Count == 0) { Error = "Cargá al menos un medio de pago."; return; }
+        if (EsFiado && (!PuedeVenderFiado || !PuedeConsultarCuenta || ClienteSeleccionado is null || !LimiteClienteMinor.HasValue))
+        { Error = "La cuenta corriente requiere permiso, cliente seleccionado y un límite configurado."; return; }
+        if (Pagado > Total) { Error = "El importe de los pagos supera el total de la venta."; return; }
+        if (EsFiado && (Restante <= 0 || SaldoPosteriorMinor > LimiteClienteMinor!.Value))
+        { Error = "Esta operación supera el límite de cuenta corriente del cliente."; return; }
 
         Ocupado = true;
         try
         {
-            var resultado = await _servicios.CasoConfirmarVenta.EjecutarAsync(lineas, pagos, _operacionId, _idSesion());
+            var resultado = await _servicios.CasoConfirmarVenta.EjecutarAsync(lineas, pagos, _operacionId, _idSesion(), ClienteSeleccionado?.Id,
+                EsFiado ? Vencimiento?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null, EsFiado);
             switch (resultado)
             {
                 case ResultadoConfirmacionVenta.Confirmada ok:
@@ -542,11 +589,35 @@ public sealed class PosViewModel : ViewModelBase
     private void LimpiarVenta()
     {
         Filas.Clear();
+        ClienteSeleccionado = null;
+        EsFiado = false; Vencimiento = null; SaldoClienteMinor = null; LimiteClienteMinor = null;
+        MotorClientes.Limpiar();
         Pagos.Clear();
         Pagos.Add(new FilaPagoViewModel());
         Error = null;
         ConfirmacionCancelarVisible = false;
         NotificarTotales();
+    }
+
+    private void SeleccionarCliente(SugerenciaCliente? cliente)
+    {
+        if (cliente is null) return;
+        ClienteSeleccionado = cliente;
+        MotorClientes.Limpiar();
+    }
+
+    private async Task CargarResumenCuentaAsync()
+    {
+        SaldoClienteMinor = null; LimiteClienteMinor = null;
+        if (ClienteSeleccionado is null || !PuedeConsultarCuenta) return;
+        var clienteId = ClienteSeleccionado.Id;
+        try
+        {
+            var resumen = await _servicios.ConsultasCuentaCorriente.ObtenerAsync(clienteId, _idSesion());
+            if (ClienteSeleccionado?.Id != clienteId || resumen is null) return;
+            SaldoClienteMinor = resumen.SaldoMinor; LimiteClienteMinor = resumen.LimiteMinor;
+        }
+        catch { /* Falla cerrada: ConfirmarVenta vuelve a validar permiso, límite y saldo. */ }
     }
 
     private async Task VerTicketAsync()

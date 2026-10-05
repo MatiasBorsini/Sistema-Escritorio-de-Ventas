@@ -76,8 +76,8 @@ public sealed class RepositorioCaja : IRepositorioCaja
         {
             var conPagoCambio = movimiento.CambioPagoId is not null;
             using var cmd = CrearComando(s, conPagoCambio
-                ? "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id, cambio_pago_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen, $cambioPago);"
-                : "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen);");
+                ? "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id, cambio_pago_id, abono_componente_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen, $cambioPago, $componente);"
+                : "INSERT INTO caja_movimiento (id, sesion_id, tipo, importe_minor, venta_id, motivo, creado_en, caja_operacion_id, pago_id, medio, categoria, usuario_id, movimiento_origen_id, abono_componente_id) VALUES ($id, $sesion, $tipo, $importe, $venta, $motivo, $fecha, $op, $pago, $medio, $categoria, $usuario, $origen, $componente);");
             cmd.Parameters.AddWithValue("$id", id);
             cmd.Parameters.AddWithValue("$sesion", movimiento.SesionId);
             cmd.Parameters.AddWithValue("$tipo", movimiento.Tipo);
@@ -92,6 +92,7 @@ public sealed class RepositorioCaja : IRepositorioCaja
             cmd.Parameters.AddWithValue("$usuario", (object?)movimiento.UsuarioId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$origen", (object?)movimiento.MovimientoOrigenId ?? DBNull.Value);
             if (conPagoCambio) cmd.Parameters.AddWithValue("$cambioPago", movimiento.CambioPagoId!);
+            cmd.Parameters.AddWithValue("$componente", (object?)movimiento.AbonoComponenteId ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
             return id;
         }

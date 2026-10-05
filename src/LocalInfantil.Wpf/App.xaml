@@ -42,6 +42,12 @@
         <DataTemplate DataType="{x:Type viewModels:CatalogoViewModel}">
             <views:CatalogoView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ClientesViewModel}">
+            <views:ClientesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:CuentaCorrienteViewModel}">
+            <views:CuentaCorrienteView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:ProveedoresViewModel}">
             <views:ProveedoresView />
         </DataTemplate>

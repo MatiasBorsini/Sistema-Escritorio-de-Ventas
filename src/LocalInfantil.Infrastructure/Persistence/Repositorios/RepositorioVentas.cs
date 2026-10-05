@@ -23,6 +23,8 @@ public sealed class RepositorioVentas : IRepositorioVentas
         string? creadoPorUsuarioId,
         string creadoEn,
         string confirmadaEn,
+        string? clienteId,
+        string? clienteNombreSnapshot,
         CancellationToken cancellationToken = default)
     {
         var s = Sesion(sesion);
@@ -32,7 +34,7 @@ public sealed class RepositorioVentas : IRepositorioVentas
         {
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
-            comando.CommandText = "INSERT INTO venta (id, numero, operacion_id, estado, total_minor, moneda, creado_por_usuario_id, creada_en, confirmada_en) VALUES ($id, $numero, $operacion, 'confirmada', $total, $moneda, $usuario, $creadoEn, $confirmadaEn);";
+            comando.CommandText = "INSERT INTO venta (id, numero, operacion_id, estado, total_minor, moneda, creado_por_usuario_id, creada_en, confirmada_en, cliente_id, cliente_nombre_snapshot) VALUES ($id, $numero, $operacion, 'confirmada', $total, $moneda, $usuario, $creadoEn, $confirmadaEn, $clienteId, $clienteNombre);";
             comando.Parameters.AddWithValue("$id", id);
             comando.Parameters.AddWithValue("$numero", numero);
             comando.Parameters.AddWithValue("$operacion", operacionId);
@@ -41,6 +43,8 @@ public sealed class RepositorioVentas : IRepositorioVentas
             comando.Parameters.AddWithValue("$usuario", (object?)creadoPorUsuarioId ?? DBNull.Value);
             comando.Parameters.AddWithValue("$creadoEn", creadoEn);
             comando.Parameters.AddWithValue("$confirmadaEn", confirmadaEn);
+            comando.Parameters.AddWithValue("$clienteId", (object?)clienteId ?? DBNull.Value);
+            comando.Parameters.AddWithValue("$clienteNombre", (object?)clienteNombreSnapshot ?? DBNull.Value);
             await comando.ExecuteNonQueryAsync(cancellationToken);
             return id;
         }
@@ -112,7 +116,9 @@ public sealed class RepositorioVentas : IRepositorioVentas
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
             comando.CommandText = """
-                SELECT v.id, v.numero, v.operacion_id, v.estado, v.total_minor, v.moneda, v.referencia_fiscal, v.creada_en, v.confirmada_en, u.nombre
+                SELECT v.id, v.numero, v.operacion_id, v.estado, v.total_minor, v.moneda, v.referencia_fiscal, v.creada_en, v.confirmada_en, u.nombre, v.cliente_id, v.cliente_nombre_snapshot,
+                       (SELECT m.importe_minor FROM cuenta_corriente_movimiento m WHERE m.venta_id=v.id AND m.tipo='cargo_venta' LIMIT 1),
+                       (SELECT m.vencimiento FROM cuenta_corriente_movimiento m WHERE m.venta_id=v.id AND m.tipo='cargo_venta' LIMIT 1)
                 FROM venta v LEFT JOIN usuario u ON u.id = v.creado_por_usuario_id
                 WHERE v.operacion_id = $operacion;
                 """;
@@ -139,7 +145,9 @@ public sealed class RepositorioVentas : IRepositorioVentas
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
             comando.CommandText = """
-                SELECT v.id, v.numero, v.operacion_id, v.estado, v.total_minor, v.moneda, v.referencia_fiscal, v.creada_en, v.confirmada_en, u.nombre
+                SELECT v.id, v.numero, v.operacion_id, v.estado, v.total_minor, v.moneda, v.referencia_fiscal, v.creada_en, v.confirmada_en, u.nombre, v.cliente_id, v.cliente_nombre_snapshot,
+                       (SELECT m.importe_minor FROM cuenta_corriente_movimiento m WHERE m.venta_id=v.id AND m.tipo='cargo_venta' LIMIT 1),
+                       (SELECT m.vencimiento FROM cuenta_corriente_movimiento m WHERE m.venta_id=v.id AND m.tipo='cargo_venta' LIMIT 1)
                 FROM venta v LEFT JOIN usuario u ON u.id = v.creado_por_usuario_id
                 WHERE v.id = $id;
                 """;
@@ -171,7 +179,9 @@ public sealed class RepositorioVentas : IRepositorioVentas
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
             comando.CommandText = """
-                SELECT v.id, v.numero, v.operacion_id, v.estado, v.total_minor, v.moneda, v.referencia_fiscal, v.creada_en, v.confirmada_en, u.nombre
+                SELECT v.id, v.numero, v.operacion_id, v.estado, v.total_minor, v.moneda, v.referencia_fiscal, v.creada_en, v.confirmada_en, u.nombre, v.cliente_id, v.cliente_nombre_snapshot,
+                       (SELECT m.importe_minor FROM cuenta_corriente_movimiento m WHERE m.venta_id=v.id AND m.tipo='cargo_venta' LIMIT 1),
+                       (SELECT m.vencimiento FROM cuenta_corriente_movimiento m WHERE m.venta_id=v.id AND m.tipo='cargo_venta' LIMIT 1)
                 FROM venta v LEFT JOIN usuario u ON u.id = v.creado_por_usuario_id
                 WHERE v.numero = $numero;
                 """;
@@ -426,7 +436,11 @@ public sealed class RepositorioVentas : IRepositorioVentas
             lector.IsDBNull(6) ? null : lector.GetString(6),
             lector.GetString(7),
             lector.IsDBNull(8) ? null : lector.GetString(8),
-            lector.IsDBNull(9) ? null : lector.GetString(9));
+            lector.IsDBNull(9) ? null : lector.GetString(9),
+            lector.IsDBNull(10) ? null : lector.GetString(10),
+            lector.IsDBNull(11) ? null : lector.GetString(11),
+            lector.IsDBNull(12) ? null : lector.GetInt64(12),
+            lector.IsDBNull(13) ? null : lector.GetString(13));
     }
 
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)

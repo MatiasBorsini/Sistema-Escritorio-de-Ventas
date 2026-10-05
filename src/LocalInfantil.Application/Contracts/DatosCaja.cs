@@ -29,6 +29,7 @@ public static class TiposMovimientoCaja
     public const string Correccion = "correccion";
     public const string CambioCobro = "cambio_cobro";
     public const string CambioReintegro = "cambio_reintegro";
+    public const string Abono = "abono";
 }
 
 public static class CategoriasMovimientoCaja
@@ -58,7 +59,8 @@ public sealed record NuevoMovimientoCaja(
     string? UsuarioId,
     string? MovimientoOrigenId,
     string CreadoEn,
-    string? CambioPagoId = null);
+    string? CambioPagoId = null,
+    string? AbonoComponenteId = null);
 
 public sealed record SesionCajaRegistrada(
     string Id,

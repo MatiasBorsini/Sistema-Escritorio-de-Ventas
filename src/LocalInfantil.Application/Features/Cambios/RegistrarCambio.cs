@@ -12,7 +12,7 @@ public sealed class RegistrarCambio(
     IRepositorioProductos productos, IRepositorioPrecios precios, IRepositorioMovimientos movimientos,
     IRepositorioApartados apartados, IRepositorioCaja caja, IAutorizador autorizador,
     IAutorizadorEnSesion autorizadorTx, IFabricaSesionesPersistencia fabrica,
-    IRepositorioAuditoria auditoria, IReloj reloj)
+    IRepositorioAuditoria auditoria, IReloj reloj, IRepositorioCuentaCorriente? cuenta = null)
 {
     public async Task<ResultadoCambio> EjecutarAsync(DatosCambio datos, CancellationToken ct = default)
     {
@@ -64,6 +64,33 @@ public sealed class RegistrarCambio(
         if(datos.Entradas.Count==0) throw new ArgumentException("Agregá al menos una prenda de la venta original.");
 
         var diferencia=checked(importeSalidas-entradas);
+        var deudaVenta = 0L;
+        var importeAplicado = 0L;
+        var importeReintegro = Math.Max(0, -diferencia);
+        IReadOnlyList<CargoCuentaCorriente> cargosVenta = Array.Empty<CargoCuentaCorriente>();
+        if (diferencia < 0 && venta.ClienteId is not null && cuenta is not null)
+        {
+            cargosVenta = await cuenta.ListarCargosPendientesVentaAsync(tx, venta.Id, ct);
+            deudaVenta = cargosVenta.Sum(c => c.PendienteMinor);
+            if (deudaVenta > 0)
+            {
+                if (datos.DecisionCuenta is null)
+                    return new ResultadoCambio.DecisionCuentaRequerida(deudaVenta, -diferencia);
+                if (datos.DeudaCuentaEsperadaMinor != deudaVenta)
+                    throw new InvalidOperationException("La deuda de la venta cambió. Revisá nuevamente la decisión.");
+                importeAplicado = datos.DecisionCuenta == DecisionCuentaCorrienteCambio.AplicarADeuda
+                    ? Math.Min(deudaVenta, -diferencia)
+                    : 0;
+                importeReintegro = -diferencia - importeAplicado;
+                var preview = new ResultadoCambio.ConfirmacionCuenta(datos.DecisionCuenta.Value, deudaVenta, -diferencia,
+                    importeAplicado, deudaVenta - importeAplicado, importeReintegro);
+                if (!datos.ConfirmarDecisionCuenta) return preview;
+            }
+        }
+        else if (datos.DecisionCuenta is not null)
+        {
+            throw new InvalidOperationException("Esta venta no tiene deuda pendiente a la que aplicar la devolución.");
+        }
         if(diferencia>0)
         {
             if(datos.Cobros.Count==0 || datos.Cobros.Sum(p=>p.ImporteMinor)!=diferencia) throw new InvalidOperationException("Los pagos deben cubrir exactamente la diferencia a cobrar.");
@@ -78,7 +105,7 @@ public sealed class RegistrarCambio(
 
         var reintegroMedio= datos.MedioReintegro ?? MediosPago.Efectivo;
         string? autorizanteId=null;
-        if(diferencia<0)
+        if(importeReintegro>0)
         {
             _ = await autorizadorTx.AutorizarAsync(tx,datos.UsuarioSesionId,PermisosComerciales.ReintegroAutorizar,ct);
             if(string.IsNullOrWhiteSpace(datos.Motivo)) throw new ArgumentException("El motivo del reintegro es obligatorio.");
@@ -90,11 +117,12 @@ public sealed class RegistrarCambio(
                 autorizanteId=autorizante.Id;
             }
         }
-        if(diferencia!=0 && await caja.ObtenerAbiertaAsync(tx,ct) is null) throw new InvalidOperationException("No hay una caja abierta para registrar la diferencia del cambio.");
+        if((diferencia>0 || importeReintegro>0) && await caja.ObtenerAbiertaAsync(tx,ct) is null) throw new InvalidOperationException("No hay una caja abierta para registrar la diferencia del cambio.");
         // operation_id is unique in the F06 journal and caja ledger.
 
+        var datosPersistidos = datos with { MedioReintegro = importeReintegro > 0 ? reintegroMedio : null };
         var numero=$"C-{await cambios.ObtenerSiguienteNumeroAsync(tx,ct):D6}";
-        var cambioId=await cambios.InsertarCambioAsync(tx,numero,datos,actor.Id,autorizanteId,entradas,importeSalidas,fecha,ct);
+        var cambioId=await cambios.InsertarCambioAsync(tx,numero,datosPersistidos,actor.Id,autorizanteId,entradas,importeSalidas,fecha,ct);
         foreach(var entrada in datos.Entradas)
         {
             var linea=porId[entrada.LineaVentaId];
@@ -107,8 +135,23 @@ public sealed class RegistrarCambio(
             await cambios.InsertarSalidaAsync(tx,cambioId,salida.Variante.Id,salida.Variante.CodigoInterno,salida.Nombre,salida.Variante.Talle,salida.Variante.Color,salida.Solicitud.Cantidad,salida.Precio,ct);
             await movimientos.RegistrarAsync(tx,new(salida.Variante.Id,"egreso",-salida.Solicitud.Cantidad,$"Cambio {numero}",datos.OperacionId,actor.Id),fecha,ct);
         }
+        if (importeAplicado > 0)
+        {
+            if (cuenta is null || venta.ClienteId is null) throw new InvalidOperationException("La cuenta corriente no está configurada.");
+            var reductor = await cuenta.InsertarMovimientoAsync(tx, new(venta.ClienteId, TiposMovimientoCuentaCorriente.CreditoDevolucion,
+                -importeAplicado, datos.OperacionId, actor.Id, fecha, VentaId: venta.Id, CambioId: cambioId), ct);
+            var restante = importeAplicado;
+            foreach (var cargo in cargosVenta)
+            {
+                var aplica = Math.Min(restante, cargo.PendienteMinor);
+                if (aplica > 0) await cuenta.InsertarAplicacionAsync(tx, reductor, new(cargo.MovimientoId, aplica), fecha, ct);
+                restante -= aplica;
+                if (restante == 0) break;
+            }
+            if (restante != 0) throw new InvalidOperationException("No se pudo aplicar el crédito a la deuda de la venta original.");
+        }
         string? cajaId=null;
-        if(diferencia!=0)
+        if(diferencia>0 || importeReintegro>0)
         {
             var sesionCaja=await caja.ObtenerAbiertaAsync(tx,ct)??throw new InvalidOperationException("No hay una caja abierta para registrar la diferencia del cambio.");
             var tipoOperacion=diferencia>0?TiposOperacionCaja.MovimientoManual:TiposOperacionCaja.Reintegro;
@@ -120,13 +163,13 @@ public sealed class RegistrarCambio(
             }
             else
             {
-                var importe=-diferencia; long? recibido=reintegroMedio==MediosPago.Efectivo?importe:null;
+                var importe=importeReintegro; long? recibido=reintegroMedio==MediosPago.Efectivo?importe:null;
                 var id=await cambios.InsertarPagoAsync(tx,cambioId,"reintegro",reintegroMedio,importe,recibido,ct);
                 await caja.InsertarMovimientoAsync(tx,new(sesionCaja.Id,cajaOp,TiposMovimientoCaja.CambioReintegro,-importe,null,null,reintegroMedio,null,$"Reintegro {numero}: {datos.Motivo!.Trim()}",actor.Id,null,fecha,id),ct);
             }
             cajaId=sesionCaja.Id;
         }
-        await auditoria.RegistrarAsync(tx,new(datos.OperacionId,"cambio.registrado",ActorAuditoria.Usuario,actor.Id,"cambio",cambioId,$"numero={numero}; venta={venta.Numero}; importe_entradas_minor={entradas}; importe_salidas_minor={importeSalidas}; diferencia_minor={diferencia}; caja={cajaId??"sin_movimiento"}"),ct);
+        await auditoria.RegistrarAsync(tx,new(datos.OperacionId,"cambio.registrado",ActorAuditoria.Usuario,actor.Id,"cambio",cambioId,$"numero={numero}; venta={venta.Numero}; importe_entradas_minor={entradas}; importe_salidas_minor={importeSalidas}; diferencia_minor={diferencia}; cuenta_decision={datos.DecisionCuenta?.ToString()??"ninguna"}; cuenta_aplicado_minor={importeAplicado}; deuda_antes_minor={deudaVenta}; deuda_despues_minor={deudaVenta-importeAplicado}; reintegro_minor={importeReintegro}; caja={cajaId??"sin_movimiento"}"),ct);
         await tx.ConfirmarAsync(ct);
         return new ResultadoCambio.Registrado(cambioId,numero,entradas,importeSalidas,diferencia,fecha);
     }

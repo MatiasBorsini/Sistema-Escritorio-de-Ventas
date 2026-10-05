@@ -214,7 +214,7 @@ public sealed class VentasTests
                 new[] { new NuevoPago(MediosPago.Efectivo, precio - 1, precio - 1) },
                 "op-pago-menor",
                 e.Sesion));
-        Assert.Equal("El importe de los pagos no alcanza el total de la venta.", menor.Message);
+        Assert.Equal("Para dejar un saldo en cuenta corriente tenés que seleccionar un cliente y elegir Cuenta corriente.", menor.Message);
 
         // Suma mayor.
         var mayor = await Assert.ThrowsAsync<InvalidOperationException>(() =>

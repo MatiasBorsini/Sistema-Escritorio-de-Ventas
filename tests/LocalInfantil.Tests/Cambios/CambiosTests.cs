@@ -14,7 +14,7 @@ public sealed class CambiosTests
         Directory.CreateDirectory(dir); var path=Path.Combine(dir,"f06.db");
         try
         {
-            var aplicadas=await new MigradorBaseDatos(path).MigrarAsync();
+            var aplicadas=await new MigradorBaseDatos(path).MigrarAsync(MigracionesF01.Todas.Take(12).ToArray());
             Assert.Equal(12,aplicadas.Last());
             await using var db=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=path,Pooling=false}.ToString());
             await db.OpenAsync();
@@ -51,7 +51,7 @@ public sealed class CambiosTests
                       VALUES('m-v11','s-v11','ingreso',12500,'Prueba de preservación','2026-10-03T09:01:00Z','o-v11','efectivo','otro_ingreso','u-v11');
                     """;await cmd.ExecuteNonQueryAsync();
             }
-            var backup=Path.Combine(dir,"backups");var applied=await new MigradorBaseDatos(path).MigrarAsync(MigracionesF01.Todas,backup);
+            var backup=Path.Combine(dir,"backups");var applied=await new MigradorBaseDatos(path).MigrarAsync(MigracionesF01.Todas.Take(12).ToArray(),backup);
             Assert.Equal(new[]{12},applied);
             await using var db=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=path,Pooling=false}.ToString());await db.OpenAsync();
             Assert.Equal("ok",await ScalarAsync(db,"PRAGMA integrity_check;"));Assert.Equal(0L,await ScalarLongAsync(db,"SELECT COUNT(*) FROM pragma_foreign_key_check;"));

@@ -43,6 +43,13 @@
             <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,12,0" Padding="{StaticResource RellenoPanel}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <DockPanel Margin="0,0,0,5" Visibility="{Binding PuedeAsociarCliente, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0" Style="{StaticResource EstiloEtiqueta}" Text="Cliente (opcional)"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonQuiet}" Content="Quitar" Command="{Binding LimpiarClienteCommand}" Visibility="{Binding ClienteSeleccionado, Converter={StaticResource NullToVisibility}}"/>
+                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ClienteSeleccionado.NombreCompleto}" Visibility="{Binding ClienteSeleccionado, Converter={StaticResource NullToVisibility}}"/>
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Sin cliente ·" Visibility="{Binding SinClienteSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
+                            <views:BuscadorCliente Width="280" Motor="{Binding MotorClientes}" SeleccionCommand="{Binding SeleccionarClienteCommand}" Visibility="{Binding SinClienteSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
+                        </DockPanel>
                         <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,4">
                             <views:BuscadorAsistido x:Name="Buscador" Width="300" Modo="Variante" Motor="{Binding MotorSugerencias}"
                                                     SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
@@ -120,6 +127,21 @@
                             <TextBlock Grid.Row="3" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Vuelto" Margin="0,0,8,0"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Color.SuccessTextBrush}" Text="{Binding VueltoTotal, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
                         </Grid>
+                        <Border Margin="0,8,0,0" Padding="8" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="5" Visibility="{Binding MostrarOpcionesFiado, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="FORMA DE PAGO"/>
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SaldoClienteMinor, Converter={StaticResource MinorToArs}, StringFormat=Saldo del cliente: {0}}"/>
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding LimiteClienteMinor, Converter={StaticResource MinorToArs}, StringFormat=Límite: {0}}"/>
+                                <RadioButton Content="Pago completo" IsChecked="{Binding EsFiado, Converter={StaticResource BoolInvertido}}" Margin="0,4,0,0"/>
+                                <RadioButton Content="Cuenta corriente" IsChecked="{Binding EsFiado}" Margin="0,2,0,0"/>
+                                <StackPanel Visibility="{Binding EsFiado, Converter={StaticResource BoolToVisibility}}">
+                                    <DatePicker SelectedDate="{Binding Vencimiento}" Margin="0,5,0,0" ToolTip="Vencimiento informativo, opcional"/>
+                                    <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DeudaNuevaMinor, Converter={StaticResource MinorToArs}, StringFormat=Queda en cuenta: {0}}" Margin="0,4,0,0"/>
+                                    <TextBlock Foreground="{StaticResource Color.TextBrush}" FontWeight="SemiBold" Text="{Binding SaldoPosteriorMinor, Converter={StaticResource MinorToArs}, StringFormat=Saldo posterior: {0}}"/>
+                                    <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DisponibleCreditoMinor, Converter={StaticResource MinorToArs}, StringFormat=Disponible de crédito: {0}}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                         <Button Style="{StaticResource EstiloBotonPrimario}" Content="Confirmar venta" Command="{Binding ConfirmarCommand}" IsEnabled="{Binding PuedeConfirmar}" HorizontalAlignment="Stretch" Margin="0,10,0,0" MinHeight="{StaticResource AlturaToolbar}"/>
                         <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Al confirmar se descuenta stock Disponible. No hay venta en espera." TextWrapping="Wrap"/>
                     </StackPanel>

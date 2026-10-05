@@ -1,4 +1,6 @@
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Application.Features.Clientes;
+using LocalInfantil.Application.Features.CuentaCorriente;
 using LocalInfantil.Wpf.Infra;
 
 namespace LocalInfantil.Wpf.ViewModels;
@@ -113,8 +115,11 @@ public sealed class AppRootViewModel : ViewModelBase
         var conteo = new ConteoViewModel(_servicios, () => Sesion.IdSesion);
         await conteo.CargarConteosAsync();
         var apartado = new ApartadoViewModel(_servicios, () => Sesion.IdSesion);
+        var permisosClientes = await _servicios.Autorizador.ObtenerPermisosEfectivosAsync(Sesion.IdSesion, PermisosClientes.Todos);
+        var permisosCuenta = await _servicios.Autorizador.ObtenerPermisosEfectivosAsync(Sesion.IdSesion, PermisosCuentaCorriente.Todos);
         var dialogosVentas = new DialogosVentasWpf(_servicios, () => Sesion.IdSesion);
-        var pos = new PosViewModel(_servicios, () => Sesion.IdSesion, dialogosVentas);
+        var pos = new PosViewModel(_servicios, () => Sesion.IdSesion, dialogosVentas, permisosClientes.Contains(PermisosClientes.Consultar),
+            permisosCuenta.Contains(PermisosCuentaCorriente.VenderFiado), permisosCuenta.Contains(PermisosCuentaCorriente.Consultar));
         var ventas = new VentasConsultaViewModel(_servicios, () => Sesion.IdSesion, dialogosVentas);
         var caja = new CajaViewModel(_servicios, () => Sesion.IdSesion);
         await caja.CargarAsyncPublic();
@@ -122,16 +127,26 @@ public sealed class AppRootViewModel : ViewModelBase
         CambiosViewModel? cambios = permisosCambios.Contains(LocalInfantil.Application.Features.Cambios.PermisosCambios.Consultar)
             ? new CambiosViewModel(_servicios, () => Sesion.IdSesion, true, permisosCambios.Contains(LocalInfantil.Application.Features.Cambios.PermisosCambios.Registrar))
             : null;
+        ClientesViewModel? clientes = permisosClientes.Contains(PermisosClientes.Consultar)
+            ? new ClientesViewModel(_servicios, () => Sesion.IdSesion, permisosClientes.Contains(PermisosClientes.Administrar), permisosCuenta.Contains(PermisosCuentaCorriente.Consultar))
+            : null;
+        CuentaCorrienteViewModel? cuentaCorriente = permisosCuenta.Contains(PermisosCuentaCorriente.Consultar)
+            ? new CuentaCorrienteViewModel(_servicios, () => Sesion.IdSesion,
+                true,
+                permisosCuenta.Contains(PermisosCuentaCorriente.Abonar),
+                permisosCuenta.Contains(PermisosCuentaCorriente.Ajustar),
+                permisosCuenta.Contains(PermisosCuentaCorriente.ConfigurarLimite))
+            : null;
         var resumenInicio = await _servicios.ConsultasInicio.ObtenerAsync(Sesion.IdSesion);
         if (Sesion.Rol == "duena")
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios);
+            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios);
+            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente);
         }
     }
 }
@@ -153,6 +168,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public VentasConsultaViewModel? Ventas { get; }
     public CajaViewModel? Caja { get; }
     public CambiosViewModel? Cambios { get; }
+    public ClientesViewModel? Clientes { get; }
+    public CuentaCorrienteViewModel? CuentaCorriente { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
 
@@ -161,7 +178,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     {
     }
 
-    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null)
+    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null)
     {
         Sesion = sesion;
         Administracion = admin;
@@ -175,6 +192,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Ventas = ventas;
         Caja = caja;
         Cambios = cambios;
+        Clientes = clientes;
+        CuentaCorriente = cuentaCorriente;
         Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
@@ -203,6 +222,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         {
             _ = catalogo.InicializarAsyncPublic();
         }
+        if (vista is ClientesViewModel clientes)
+            _ = clientes.CargarAsync(true);
     }
 
     /// <summary>
@@ -237,6 +258,8 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public VentasConsultaViewModel? Ventas { get; }
     public CajaViewModel? Caja { get; }
     public CambiosViewModel? Cambios { get; }
+    public ClientesViewModel? Clientes { get; }
+    public CuentaCorrienteViewModel? CuentaCorriente { get; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
 
@@ -245,7 +268,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     {
     }
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null)
     {
         Sesion = sesion;
         Catalogo = catalogo;
@@ -258,6 +281,8 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         Ventas = ventas;
         Caja = caja;
         Cambios = cambios;
+        Clientes = clientes;
+        CuentaCorriente = cuentaCorriente;
         Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
@@ -286,6 +311,8 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         {
             _ = catalogo.InicializarAsyncPublic();
         }
+        if (vista is ClientesViewModel clientes)
+            _ = clientes.CargarAsync(true);
     }
 
     /// <summary>

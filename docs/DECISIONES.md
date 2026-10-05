@@ -321,7 +321,7 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
 
 ## D-39 — F06: cambios/devoluciones genéricos y liquidación local
 
-- Estado: núcleo local implementado en `feat/f06-cambios-devoluciones`, sin commit ni push. Build Debug: 0 advertencias/0 errores; suite focalizada de Cambios: 15/15; suite completa: 369/369. Capturas manuales 101–110 pendientes porque la sesión de automatización no expone ventanas WPF (`apps: []`). F06-T05 permanece bloqueada por D-05; D-01 continúa pendiente para procedimiento fiscal externo y producción.
+- Estado: núcleo local publicado en `7b0dd5e231ce4f8038a165fc82f50684f8f54ed2` (rama `feat/f06-cambios-devoluciones`). Build Debug: 0 advertencias/0 errores; suite focalizada de Cambios: 15/15; suite completa: 369/369. Capturas manuales 101–110 pendientes porque la sesión de automatización no expone ventanas WPF (`apps: []`). F06-T05 permanece bloqueada por D-05; D-01 continúa pendiente para procedimiento fiscal externo y producción.
 - Fecha: 2026-10-03.
 - Fuente: diseño y autorización de implementación F06 de la persona usuaria.
 - Decisiones implementadas:
@@ -339,4 +339,40 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
   12. F06-T05 no se implementa: D-05 y F04 carecen de fuente de verdad para promociones. No se infiere promoción por precio, nombre, cantidad ni proximidad de líneas.
   13. No existe una cantidad de días aprobada. Se muestra fecha y antigüedad meramente informativa cuando resulta pertinente; no se afirma «vencido/fuera de término» ni se bloquea por antigüedad.
   14. D-01 sigue pendiente: la aplicación no emite, anula ni revierte comprobantes fiscales. La función local/ticket interno no constituye autorización de producción.
-- Alcance: solo F06 core; sin F07, sin cambios en `main`, sin commit ni push. Migración y pruebas usan bases temporales; no se alteraron datos reales.
+- Alcance original: solo F06 core, sin cambios en `main`; migración y pruebas usaron bases temporales, sin alterar datos reales.
+
+## D-40 — F07-T01: clientes opcionales, sin cuenta corriente
+
+- Estado: decisión implementada técnicamente en `feat/f07-clientes-cuenta-corriente`; F07-T01 completada técnicamente. Capturas/revisión visual WPF 111–118 pendientes (`apps: []`). Sin commit ni push.
+- Fecha: 2026-10-04.
+- Fuente: aprobación de F07-T01 y límites de alcance indicados por la persona usuaria.
+- Decisiones:
+  1. La ficha mínima contiene nombre completo requerido, teléfono y observación opcionales, activación lógica y timestamps. No exige DNI/CUIT/email/domicilio ni hace único el teléfono.
+  2. Un cliente es opcional en venta común. V13 agrega `venta.cliente_id` nullable con FK `ON DELETE RESTRICT` y `cliente_nombre_snapshot` nullable. La confirmación valida cliente existente/activo dentro de la misma transacción de la venta. Ventas V1–V12 permanecen sin asociación ni snapshot; no se inventa cliente histórico.
+  3. La referencia mutable al cliente facilita búsqueda/historial; tickets e identidad histórica usan solo el snapshot del nombre. No se guarda teléfono en el snapshot. Una edición o desactivación futura no cambia el ticket ya generado.
+  4. `clientes.consultar` se concede inicialmente a Dueña y Empleada; `clientes.administrar` se concede a Dueña y se deniega a Empleada por matriz. Se conserva deny-by-default y las concesiones/denegaciones individuales efectivas, con autorización real en Application.
+  5. El historial paginado reúne ventas y cambios/devoluciones por `venta_original → cliente`, con T-*/C-*, fecha, total/estado y resumen de diferencia. No calcula ni presenta saldo, deuda, crédito o pagos a cuenta; no hace consultas N+1.
+  6. La venta sin cliente sigue utilizando el flujo/pagos actuales. No se crean cuentas, cargos, abonos, saldos a favor, límites, vencimientos, intereses, cuotas, venta parcialmente pagada ni ajustes de deuda. Fiado sigue deshabilitado.
+  7. F07-T02/D-02/D-03 continúa pendiente y bloquea activar fiado/cuenta corriente; F07-T03–T06 no se implementaron.
+- Verificación técnica: V12→V13 con respaldo y conservación de venta histórica sin cliente; CRUD, validación de nombre, teléfono repetido, búsqueda y paginación; permisos/overrides; asociación opcional POS, snapshot, cliente inactivo, ticket e historial C-*; VM POS/clientes. Build Debug: 0 advertencias/0 errores; pruebas F07-T01: 5/5; suite completa: 374/374; `git diff --check` limpio.
+- Verificación manual: no realizada. `cua.getState()` devolvió `apps: []`; capturas 111–118 no generadas ni simuladas. Revisar visualmente a 1200×750 y 980×620 cuando se disponga de sesión WPF interactiva.
+
+## D-41 — F07: política de cuenta corriente y alcance de activación
+
+- Estado: aprobada e implementada técnicamente en la rama de trabajo `feat/f07-clientes-cuenta-corriente`; sin commit ni push. F07 no habilita producción.
+- Fecha: 2026-10-04.
+- Fuente: aprobación explícita de la persona usuaria para F07-T02–T06.
+- Reglas aprobadas:
+  1. Solo se vende fiado a un cliente existente y activo. Dueña puede autorizarlo; Empleada solo cuando su permiso individual efectivo `cuenta_corriente.vender_fiado` lo concede. La denegación prevalece y la falta de concesión deniega.
+  2. El límite por cliente es opcional y nullable; solo Dueña lo configura. Si existe, el saldo actual más la nueva deuda no puede excederlo. Revalidación dentro de la operación atómica.
+  3. La venta puede ser total o parcialmente a cuenta. Todo pago recibido se registra normalmente y afecta caja por su importe recibido; el importe impago genera cargo. Incluso una venta totalmente fiada requiere sesión de caja abierta conforme D-38, pero no crea movimiento monetario por la parte impaga.
+  4. El vencimiento, si se informa, es una referencia informativa; no crea intereses ni bloqueo automático.
+  5. Abonos pueden combinar medios, nunca exceden deuda y se aplican automáticamente FIFO a cargos pendientes. Cada componente y aplicación conserva importe/medio exactos; el recibo es histórico y no fiscal.
+  6. Ajustes son exclusivos de Dueña, requieren motivo y son compensatorios e inmutables; un ajuste no puede producir saldo a favor. El saldo siempre deriva del ledger firmado.
+  7. Una devolución/cambio F06 con diferencia negativa y deuda de la venta original exige elección explícita entre aplicar crédito únicamente a esa deuda o reembolsar. Se muestra vista previa y requiere confirmación; se vuelve a validar antes de escribir. Nunca se reduce deuda automáticamente. El remanente al elegir aplicar se procesa como reintegro por el flujo de caja F06. Diferencias positivas no generan deuda.
+  8. Anulación total de venta cancela deuda impaga y solo reintegra importes efectivamente recibidos (en venta o abonos), por sus medios originales y mediante caja abierta. Una venta totalmente impaga no genera movimiento de caja. Se conserva la protección F06: ventas con cambio confirmado no admiten anulación total.
+  9. V14 es aditiva sobre V13; no altera V1–V13 ni atribuye deuda a ventas históricas. La migración con datos exige y verifica respaldo según el migrador existente.
+- Implementación: ledger y aplicaciones inmutables, límite por cliente, recibos con snapshots, integración de fiado en ConfirmarVenta, abonos, ajustes, consulta/historial, anulación, decisión explícita de devolución F06, permisos efectivos y UI local/offline. Sin nuevas dependencias ni cambios a D-13.
+- Verificación automática (2026-10-04): `dotnet build LocalInfantil.sln --configuration Debug` correcto, 0 advertencias/0 errores; suite completa 386/386; filtro de clientes/cuenta corriente 17/17; prueba de migración V13→V14 con datos 1/1; `git diff --check` limpio. Las pruebas usan bases temporales aisladas.
+- Verificación visual/manual: pendiente; la automatización no expone ventanas WPF (`apps: []`). No se generaron capturas sintéticas. Capturas requeridas 119–129 y flujo manual quedan pendientes en `docs/PRUEBAS_MANUALES.md`.
+- Límites: F00-T02/validación de PC real permanecen pendientes; F00-T06 conserva criterios de PC real; D-01 y otras decisiones de producción permanecen abiertas; producción NO habilitada.

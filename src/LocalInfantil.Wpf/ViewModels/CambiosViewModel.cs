@@ -56,7 +56,7 @@ public sealed class FilaVentaCambio(ResumenVenta resumen)
 public sealed class CambiosViewModel : ViewModelBase
 {
     private readonly ServiciosComerciales _s; private readonly Func<string?> _sesion; private readonly bool _puedeConsultar; private readonly bool _puedeRegistrar;
-    private FilaVentaCambio? _venta; private string _filtro=string.Empty; private string? _error; private string? _mensaje; private string _codigoSalida=string.Empty; private long _cantidadSalida=1; private string? _medioReintegro; private string _motivo=string.Empty; private string _usuarioAutorizante=string.Empty; private bool _ocupado; private string? _cambioIdReciente; private DateTime? _desde; private DateTime? _hasta;
+    private FilaVentaCambio? _venta; private string _filtro=string.Empty; private string? _error; private string? _mensaje; private string _codigoSalida=string.Empty; private long _cantidadSalida=1; private string? _medioReintegro; private string _motivo=string.Empty; private string _usuarioAutorizante=string.Empty; private bool _ocupado; private string? _cambioIdReciente; private DateTime? _desde; private DateTime? _hasta; private string? _operacionPendiente;
     public CambiosViewModel(ServiciosComerciales s,Func<string?> sesion,bool puedeConsultar,bool puedeRegistrar)
     {
         _s=s;_sesion=sesion;_puedeConsultar=puedeConsultar;_puedeRegistrar=puedeRegistrar;
@@ -92,15 +92,16 @@ public sealed class CambiosViewModel : ViewModelBase
     public string DiferenciaTexto=>$"{(Diferencia>=0?"A cobrar":"A reintegrar")}: {PosViewModel.FormatearArs(Math.Abs(Diferencia))}";
     public AsyncRelayCommand BuscarCommand{get;} public AsyncRelayCommand CargarCommand{get;} public AsyncRelayCommand AgregarSalidaCommand{get;}
     public async Task<DocumentoTicketCambio?> ObtenerTicketAsync(string idCambio)=>await _s.CasoGenerarTicketCambio.EjecutarAsync(idCambio,_sesion());
-    public async Task ConfirmarAsync(string? contrasenaAutorizante=null)
+    public async Task<ResultadoCambio?> ConfirmarAsync(string? contrasenaAutorizante=null, DecisionCuentaCorrienteCambio? decisionCuenta=null, bool confirmarDecisionCuenta=false, long? deudaEsperadaMinor=null)
     {
-        Error=null;Mensaje=null; if(Venta is null){Error="Seleccioná una venta.";return;}
+        Error=null;Mensaje=null; if(Venta is null){Error="Seleccioná una venta.";return null;}
         try
         {
             var entradas=Entradas.Where(x=>x.Cantidad>0).Select(x=>new LineaCambioEntrada(x.Item.Linea.Id,x.Cantidad,x.Apta,x.Apta?null:x.Motivo)).ToArray();
             var salidas=Salidas.Select(x=>new LineaCambioSalida(x.Opcion.VarianteId,x.Cantidad,x.Opcion.PrecioMinor)).ToArray();
             var cobros=Diferencia>0?Pagos.Where(p=>p.ImporteMinor>0).Select(p=>new PagoDiferenciaCambio(p.Medio,p.ImporteMinor,p.Medio==MediosPago.Efectivo?p.RecibidoMinor:null)).ToArray():Array.Empty<PagoDiferenciaCambio>();
-            var datos=new DatosCambio(Venta.Resumen.Id,entradas,salidas,cobros,MedioReintegro,string.IsNullOrWhiteSpace(Motivo)?null:Motivo,_s.GeneradorIds.NuevoId(),_sesion(),Diferencia<0&&MedioReintegro is not null&&MedioReintegro!=MediosPago.Efectivo?UsuarioAutorizante:null,contrasenaAutorizante);
+            _operacionPendiente ??= _s.GeneradorIds.NuevoId();
+            var datos=new DatosCambio(Venta.Resumen.Id,entradas,salidas,cobros,MedioReintegro,string.IsNullOrWhiteSpace(Motivo)?null:Motivo,_operacionPendiente,_sesion(),Diferencia<0&&MedioReintegro is not null&&MedioReintegro!=MediosPago.Efectivo?UsuarioAutorizante:null,contrasenaAutorizante,decisionCuenta,confirmarDecisionCuenta,deudaEsperadaMinor);
             var diferenciaTexto=DiferenciaTexto;Ocupado=true; var result=await _s.CasoRegistrarCambio.EjecutarAsync(datos);
             if(result is ResultadoCambio.PrecioCambiado cambioPrecio)
             {
@@ -112,12 +113,15 @@ public sealed class CambiosViewModel : ViewModelBase
                 ActualizarTotales();
                 var primero=cambioPrecio.Cambios[0];
                 Error=$"El precio de {primero.NombreProducto} cambió de {PosViewModel.FormatearArs(primero.PrecioEsperadoMinor)} a {PosViewModel.FormatearArs(primero.PrecioVigenteMinor)}. Revisá el cambio antes de continuar.";
-                return;
+                return result;
             }
+            if (result is ResultadoCambio.DecisionCuentaRequerida or ResultadoCambio.ConfirmacionCuenta) return result;
             var confirmado=(ResultadoCambio.Registrado)result;CambioIdReciente=confirmado.CambioId;Mensaje=$"Cambio {confirmado.Numero} registrado · {diferenciaTexto}";
+            _operacionPendiente = null;
             await CargarAsync();
+            return result;
         }
-        catch(Exception ex){Error=ex.Message;}
+        catch(Exception ex){Error=ex.Message; return null;}
         finally{Ocupado=false;}
     }
     private async Task BuscarAsync()

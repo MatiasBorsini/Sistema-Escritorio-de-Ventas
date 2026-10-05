@@ -1,6 +1,8 @@
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Caja;
+using LocalInfantil.Application.Features.Clientes;
+using LocalInfantil.Application.Features.CuentaCorriente;
 
 namespace LocalInfantil.Application.Features.Ventas;
 
@@ -28,6 +30,9 @@ public sealed class ConfirmarVenta
     private readonly IRepositorioCaja _caja;
     private readonly IGeneradorIds _ids;
     private readonly IReloj _reloj;
+    private readonly IRepositorioClientes? _clientes;
+    private readonly IRepositorioCuentaCorriente? _cuenta;
+    private readonly IAutorizadorEnSesion? _autorizadorTx;
 
     public ConfirmarVenta(
         IRepositorioVentas ventas,
@@ -42,7 +47,10 @@ public sealed class ConfirmarVenta
         IRepositorioAuditoria auditoria,
         IRepositorioCaja caja,
         IGeneradorIds ids,
-        IReloj reloj)
+        IReloj reloj,
+        IRepositorioClientes? clientes = null,
+        IRepositorioCuentaCorriente? cuenta = null,
+        IAutorizadorEnSesion? autorizadorTx = null)
     {
         _ventas = ventas;
         _variantes = variantes;
@@ -57,6 +65,9 @@ public sealed class ConfirmarVenta
         _caja = caja;
         _ids = ids;
         _reloj = reloj;
+        _clientes = clientes;
+        _cuenta = cuenta;
+        _autorizadorTx = autorizadorTx;
     }
 
     public async Task<ResultadoConfirmacionVenta> EjecutarAsync(
@@ -64,6 +75,26 @@ public sealed class ConfirmarVenta
         IReadOnlyList<NuevoPago> pagos,
         string operacionId,
         string? idSesion,
+        CancellationToken cancellationToken = default)
+        => await EjecutarAsync(lineas, pagos, operacionId, idSesion, null, null, false, cancellationToken);
+
+    public async Task<ResultadoConfirmacionVenta> EjecutarAsync(
+        IReadOnlyList<NuevaLineaVenta> lineas,
+        IReadOnlyList<NuevoPago> pagos,
+        string operacionId,
+        string? idSesion,
+        string? clienteId,
+        CancellationToken cancellationToken = default)
+        => await EjecutarAsync(lineas, pagos, operacionId, idSesion, clienteId, null, false, cancellationToken);
+
+    public async Task<ResultadoConfirmacionVenta> EjecutarAsync(
+        IReadOnlyList<NuevaLineaVenta> lineas,
+        IReadOnlyList<NuevoPago> pagos,
+        string operacionId,
+        string? idSesion,
+        string? clienteId,
+        string? vencimiento,
+        bool usarCuentaCorriente,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(lineas);
@@ -74,15 +105,12 @@ public sealed class ConfirmarVenta
         }
 
         var actor = await _autorizador.AutorizarAsync(idSesion, PermisosVentas.VentasConfirmar, cancellationToken);
+        if (clienteId is not null)
+            await _autorizador.AutorizarAsync(idSesion, PermisosClientes.Consultar, cancellationToken);
 
         if (lineas.Count == 0)
         {
             throw new ArgumentException("La venta no tiene líneas.", nameof(lineas));
-        }
-
-        if (pagos.Count == 0)
-        {
-            throw new ArgumentException("La venta no tiene pagos.", nameof(pagos));
         }
 
         if (string.IsNullOrWhiteSpace(operacionId))
@@ -134,6 +162,9 @@ public sealed class ConfirmarVenta
             }
         }
 
+        if (usarCuentaCorriente)
+            await _autorizador.AutorizarAsync(idSesion, PermisosCuentaCorriente.VenderFiado, cancellationToken);
+
         await using var sesion = await _fabrica.IniciarAsync(cancellationToken);
         if (await _ventas.ExistePorOperacionAsync(sesion, operacionId, cancellationToken))
         {
@@ -142,6 +173,17 @@ public sealed class ConfirmarVenta
 
         var cajaAbierta = await _caja.ObtenerAbiertaAsync(sesion, cancellationToken)
             ?? throw new InvalidOperationException("No hay una caja abierta. Abrí la caja antes de registrar una venta.");
+
+        string? clienteNombreSnapshot = null;
+        ClienteRegistrado? clienteSeleccionado = null;
+        if (clienteId is not null)
+        {
+            if (_clientes is null) throw new InvalidOperationException("La consulta de clientes no está configurada.");
+            clienteSeleccionado = await _clientes.ObtenerPorIdAsync(sesion, clienteId, cancellationToken);
+            if (clienteSeleccionado is null || !clienteSeleccionado.Activo)
+                throw new InvalidOperationException("El cliente seleccionado ya no está activo.");
+            clienteNombreSnapshot = clienteSeleccionado.NombreCompleto;
+        }
 
         var fecha = _reloj.UtcNow().ToString("o");
         var preciosVigentes = new List<(string VarianteId, string CodigoInterno, string NombreProducto, string? Talle, string? Color, long Cantidad, long PrecioMinor)>();
@@ -190,18 +232,33 @@ public sealed class ConfirmarVenta
 
         var total = preciosVigentes.Sum(p => p.Cantidad * p.PrecioMinor);
         var imputado = pagos.Sum(p => p.ImporteMinor);
-        if (imputado < total)
-        {
-            throw new InvalidOperationException("El importe de los pagos no alcanza el total de la venta.");
-        }
-
         if (imputado > total)
         {
             throw new InvalidOperationException("El importe de los pagos supera el total de la venta.");
         }
 
+        var deudaNueva = total - imputado;
+        if (deudaNueva > 0 && (!usarCuentaCorriente || clienteId is null))
+            throw new InvalidOperationException("Para dejar un saldo en cuenta corriente tenés que seleccionar un cliente y elegir Cuenta corriente.");
+        if (deudaNueva == 0 && pagos.Count == 0 && total != 0)
+            throw new InvalidOperationException("La venta no tiene pagos ni saldo en cuenta corriente.");
+        if (deudaNueva > 0)
+        {
+            if (_cuenta is null) throw new InvalidOperationException("La cuenta corriente no está configurada.");
+            if (_autorizadorTx is null) throw new InvalidOperationException("No está configurada la autorización transaccional de fiado.");
+            var actorFiado = await _autorizadorTx.AutorizarAsync(sesion, idSesion, PermisosCuentaCorriente.VenderFiado, cancellationToken);
+            if (actorFiado.Id != actor.Id) throw new SesionInvalidaException();
+            if (clienteSeleccionado?.LimiteCreditoMinor is null) throw new InvalidOperationException("El cliente todavía no está habilitado para fiado.");
+            var saldoActual = await _cuenta!.ObtenerSaldoAsync(sesion, clienteId!, cancellationToken);
+            if (saldoActual + deudaNueva > clienteSeleccionado.LimiteCreditoMinor.Value)
+                throw new InvalidOperationException("Esta operación supera el límite de cuenta corriente del cliente.");
+            if (string.IsNullOrWhiteSpace(vencimiento)) vencimiento = null;
+            else if (!DateOnly.TryParseExact(vencimiento, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _))
+                throw new ArgumentException("La fecha de vencimiento no es válida.", nameof(vencimiento));
+        }
+
         var numero = $"T-{await _ventas.ObtenerSiguienteNumeroAsync(sesion, cancellationToken):D6}";
-        var id = await _ventas.InsertarAsync(sesion, numero, operacionId, total, "ARS", actor.Id, fecha, fecha, cancellationToken);
+        var id = await _ventas.InsertarAsync(sesion, numero, operacionId, total, "ARS", actor.Id, fecha, fecha, clienteId, clienteNombreSnapshot, cancellationToken);
         foreach (var linea in preciosVigentes)
         {
             await _ventas.InsertarLineaAsync(sesion, id, linea.VarianteId, linea.CodigoInterno, linea.NombreProducto, linea.Talle, linea.Color, linea.Cantidad, linea.PrecioMinor, cancellationToken);
@@ -224,6 +281,10 @@ public sealed class ConfirmarVenta
                 new NuevoMovimientoCaja(cajaAbierta.Id, cajaOperacionId, TiposMovimientoCaja.Venta, pago.ImporteMinor, id, pagoId, pago.Medio, null, null, actor.Id, null, fecha),
                 cancellationToken);
         }
+
+        if (deudaNueva > 0)
+            await _cuenta!.InsertarMovimientoAsync(sesion, new(clienteId!, TiposMovimientoCuentaCorriente.CargoVenta, deudaNueva,
+                operacionId, actor.Id, fecha, VentaId: id, Vencimiento: vencimiento), cancellationToken);
 
         await _auditoria.RegistrarAsync(
             sesion,

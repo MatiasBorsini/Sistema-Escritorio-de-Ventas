@@ -27,4 +27,8 @@ public sealed record DocumentoTicketVenta(
     IReadOnlyList<LineaTicketVenta> Lineas,
     long TotalMinor,
     IReadOnlyList<PagoTicketVenta> Pagos,
-    string? MotivoAnulacion);
+    string? MotivoAnulacion,
+    string? ClienteNombre = null,
+    long ImportePagadoMinor = 0,
+    long ImporteCuentaCorrienteMinor = 0,
+    string? VencimientoCuentaCorriente = null);
