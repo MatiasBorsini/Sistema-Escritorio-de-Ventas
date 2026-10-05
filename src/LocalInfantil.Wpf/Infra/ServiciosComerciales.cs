@@ -10,17 +10,20 @@ using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Application.Features.Cambios;
 using LocalInfantil.Application.Features.Clientes;
 using LocalInfantil.Application.Features.CuentaCorriente;
+using LocalInfantil.Application.Features.Respaldos;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
 using LocalInfantil.Infrastructure.Tiempo;
+using LocalInfantil.Infrastructure.Persistence.Respaldos;
 
 namespace LocalInfantil.Wpf.Infra;
 
 public sealed class ServiciosComerciales
 {
     public string RutaBaseDatos { get; }
+    public CoordinadorRespaldos CoordinadorRespaldos { get; }
     public FabricaConexionesSqlite Fabrica { get; }
     public GestorSesiones Gestor { get; }
     public MatrizPermisos Matriz { get; }
@@ -124,6 +127,8 @@ public sealed class ServiciosComerciales
         RepoApartados = new RepositorioApartados(GeneradorIds);
         RepoInicio = new RepositorioInicio();
         Autorizador = new Autorizador(Gestor, RepoUsuarios, RepoPermisos, Fabrica, Matriz, Hasher);
+        var managerBackups = new GestorRespaldosLocales(RutaBaseDatos);
+        CoordinadorRespaldos = new CoordinadorRespaldos(managerBackups, new ClienteGoogleDriveRespaldos(managerBackups.DirectorioSecretos), Autorizador);
         AutorizadorEnSesion = (IAutorizadorEnSesion)Autorizador;
         CasoIniciarSesion = new IniciarSesion(RepoUsuarios, Hasher, Gestor, Fabrica, RepoAuditoria, GeneradorIds, Reloj, new OpcionesAutenticacion());
         CasoCerrarSesion = new CerrarSesion(Gestor, Fabrica, RepoAuditoria, GeneradorIds);
@@ -207,5 +212,6 @@ public sealed class ServiciosComerciales
         .. PermisosCuentaCorriente.Todos,
         .. PermisosCambios.Todos,
         .. PermisosCaja.Todos,
+        .. PermisosRespaldos.Todos,
     ];
 }

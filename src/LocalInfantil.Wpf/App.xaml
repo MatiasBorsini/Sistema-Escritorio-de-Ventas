@@ -84,6 +84,9 @@
         <DataTemplate DataType="{x:Type viewModels:ArqueoCiegoViewModel}">
             <views:ArqueoCajaView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:RespaldosViewModel}">
+            <views:RespaldosView />
+        </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

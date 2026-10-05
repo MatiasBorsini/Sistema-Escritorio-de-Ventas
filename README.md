@@ -1,6 +1,6 @@
 # LocalInfantil
 
-Aplicación WPF de escritorio para un único local de ropa infantil. En la rama actual, F07 incluye clientes y cuenta corriente local con ventas fiadas, abonos, ajustes y decisiones explícitas para devoluciones. La implementación tiene validación automatizada; la revisión visual/manual WPF y la validación en la PC del local siguen pendientes. No está habilitada para producción ni contiene datos reales del comercio.
+Aplicación WPF de escritorio para un único local de ropa infantil. En la rama actual se implementa F08 de respaldos locales cifrados, cola de Google Drive y recuperación, sobre F07 (clientes/cuenta corriente). F08 tiene validación automatizada local; OAuth/Drive real y la restauración visual/manual siguen pendientes. No está habilitada para producción ni contiene datos reales del comercio.
 
 ## Requisitos provisionales
 
@@ -21,6 +21,14 @@ La aplicación utiliza navegación WPF/MVVM y opera localmente. Clientes permite
 
 La base SQLite, sus archivos WAL/SHM, respaldos, logs y secretos se mantienen fuera del repositorio. Solo para el prototipo, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`; no es una decisión de producción. La ruta definitiva de datos depende de D-13 y se resolverá antes de guardar datos reales.
 
+## Respaldos F08 (implementación técnica; no producción)
+
+Los backups locales se escriben en `%LOCALAPPDATA%\LocalInfantil\Backups` (ruta aún provisional) en un contenedor `.libackup`: snapshot SQLite de F01, GZip streaming y cifrado autenticado SecretStream. Manifiestos/cola y secretos están en subdirectorios separados; los secretos no entran en el backup. La restauración exige código externo, permiso/reautenticación de Dueña, caja cerrada, copia previa y confirmación final. Ver [D-42](docs/DECISIONES.md) y [procedimiento manual](docs/PRUEBAS_MANUALES.md).
+
+Para habilitar la conexión de desarrollo, crear un OAuth Desktop Client en el Cloud Project correspondiente, declarar únicamente `drive.file` y proporcionar el Client ID mediante la variable pública no secreta `LOCALINFANTIL_GOOGLE_CLIENT_ID` antes de iniciar el proceso. No se guardan credenciales reales en el repositorio. OAuth/Drive real aún no se probó; una autorización del proyecto OAuth en estado Testing expira a los siete días y no sirve como configuración silenciosa permanente. La elegibilidad de uso personal y los requisitos de branding/privacidad deben revisarse con la configuración real de Google. No subir una DB real ni usar esta implementación en producción hasta la validación manual y de la PC destino.
+
+Dependencias criptográficas de F08: `Sodium.Core` 1.4.1 (MIT) trae libsodium nativo 1.0.22 (ISC), invocado para las primitivas oficiales XChaCha20-Poly1305 SecretStream mediante una frontera P/Invoke acotada; `System.Security.Cryptography.ProtectedData` 10.0.0 implementa DPAPI CurrentUser. La publicación de prueba es self-contained `win-x64`; no confirma arquitectura del local.
+
 ## Comandos
 
 Desde la raíz de la solución:
@@ -33,18 +41,18 @@ dotnet test LocalInfantil.sln --configuration Debug --no-build
 
 ## Publicación de prueba
 
-La publicación .NET 10 actual es una carpeta self-contained de prueba para la arquitectura confirmada del equipo de desarrollo (`win-x64`). No es un instalador ni valida la arquitectura de la PC del local. La publicación .NET 8 anterior permanece separada en `artifacts\publish\win-x64`.
+La publicación .NET 10 actual es una carpeta self-contained de prueba para la arquitectura confirmada del equipo de desarrollo (`win-x64`). No es un instalador ni valida la arquitectura de la PC del local. La publicación .NET 8 anterior permanece separada en `artifacts\publish\win-x64`. F08-T07 tiene cobertura automatizada completa (suite 409/409); F08 sigue en curso porque OAuth/Drive real y la validación manual WPF/restauración están pendientes.
 
 ```powershell
-dotnet restore LocalInfantil.sln --runtime win-x64
-dotnet publish src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts\publish\net10-win-x64 --disable-build-servers -m:1 -p:DebugType=None -p:DebugSymbols=false
-.\artifacts\publish\net10-win-x64\LocalInfantil.Wpf.exe
+dotnet restore LocalInfantil.sln --runtime win-x64 --property:Configuration=Release
+dotnet publish src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts\publish\net10-f08-win-x64 -m:1 -p:DebugType=None -p:DebugSymbols=false
+.\artifacts\publish\net10-f08-win-x64\LocalInfantil.Wpf.exe
 ```
 
 La carpeta publicada se puede eliminar sin borrar datos de usuario porque la comprobación SQLite usa `%LOCALAPPDATA%\LocalInfantil\Prototype\`, fuera de `artifacts\publish`. Para borrar solo la publicación de prueba:
 
 ```powershell
-Remove-Item -LiteralPath .\artifacts\publish\net10-win-x64 -Recurse
+Remove-Item -LiteralPath .\artifacts\publish\net10-f08-win-x64 -Recurse
 ```
 
 ## Instalador de prueba (F00-T06, Inno Setup 6)
@@ -66,4 +74,4 @@ El procedimiento de prueba manual con datos ficticios aislados está en `docs/PR
 
 ## Estado
 
-Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F07-T01–T06 están implementadas y verificadas técnicamente en la rama de trabajo; F07-T02/D-02 se registra como aprobada en D-41 para este alcance. La validación visual/manual WPF 111–129 sigue pendiente porque la automatización no expone ventanas (`apps: []`). F00-T02 continúa bloqueada hasta validar la PC del local; F00-T06 sigue pendiente de validación en ese equipo. Producción NO habilitada.
+Consultar `PLAN.md` para el estado por tarea y `docs/DECISIONES.md` para decisiones. F08-T01–T03, T05 y T07 están implementadas y verificadas técnicamente; T04 sigue parcial por falta de OAuth/Drive real y T06 por falta de restauración manual y prueba en PC nueva. Build Debug 0/0, suite completa 409/409 y pruebas focalizadas de respaldos 38/38; la publicación self-contained win-x64 (409 archivos, 151.021.404 bytes) inició y cerró, sin inspección visual de la ventana. F07 visual/manual y F08 visual/manual siguen pendientes; F00-T02/PC real permanece bloqueada. Producción NO habilitada.

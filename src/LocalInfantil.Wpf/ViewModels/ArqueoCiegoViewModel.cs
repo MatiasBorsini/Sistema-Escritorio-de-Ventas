@@ -105,13 +105,16 @@ public sealed class ArqueoCiegoViewModel : ViewModelBase
         Ocupado = true;
         try
         {
+            var operacionId = _servicios.GeneradorIds.NuevoId();
             await _servicios.CasoCerrarCaja.EjecutarAsync(
                 Resultado.SesionId,
                 Resultado.EfectivoContadoMinor,
                 Resultado.EfectivoEsperadoMinor,
                 Observacion,
-                _servicios.GeneradorIds.NuevoId(),
+                operacionId,
                 _idSesion());
+            // El cierre comercial ya fue confirmado; el respaldo es posterior y nunca condiciona el cierre.
+            await _servicios.CoordinadorRespaldos.SolicitarPostCierreCajaAsync(operacionId);
             await _cerrado();
         }
         catch (ArqueoCajaCambioException ex)

@@ -3,6 +3,7 @@ using LocalInfantil.Application.Features.Caja;
 using LocalInfantil.Application.Features.Cambios;
 using LocalInfantil.Application.Features.Clientes;
 using LocalInfantil.Application.Features.CuentaCorriente;
+using LocalInfantil.Application.Features.Respaldos;
 
 namespace LocalInfantil.Application.Features.Autenticacion;
 
@@ -25,6 +26,8 @@ public sealed class MatrizPermisos
         matriz.Permitir(RolesLocal.Empleada, PermisosComerciales.ReintegroAutorizar);
         matriz.Permitir(RolesLocal.Duena, PermisosComerciales.ReintegroMedioExcepcional);
         matriz.Permitir(RolesLocal.Duena, PermisosAdministracion.UsuariosAdministrar);
+        foreach (var permiso in PermisosRespaldos.Todos) matriz.Permitir(RolesLocal.Duena, permiso);
+        matriz.Permitir(RolesLocal.Empleada, PermisosRespaldos.Consultar);
         matriz.Permitir(RolesLocal.Duena, PermisosClientes.Consultar);
         matriz.Permitir(RolesLocal.Empleada, PermisosClientes.Consultar);
         matriz.Permitir(RolesLocal.Duena, PermisosClientes.Administrar);

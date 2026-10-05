@@ -15,9 +15,16 @@ namespace LocalInfantil.Wpf;
 /// </summary>
 public partial class App : System.Windows.Application
 {
+    private ServiciosComerciales? _serviciosActivo;
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        if(e.Args.Length>0&&string.Equals(e.Args[0],"--restore-swap",StringComparison.OrdinalIgnoreCase))
+        {
+            try{await IntercambiadorRestauracion.EjecutarHelperAsync(e.Args);}catch{ }
+            Shutdown(0);return;
+        }
 
         string? rutaDev = null;
         string? errorDev = null;
@@ -75,6 +82,8 @@ public partial class App : System.Windows.Application
 
             await using var sesion = await servicios.Fabrica.IniciarLecturaAsync();
             _ = await servicios.RepoUsuarios.ContarTodosAsync(sesion);
+            EscribirEstadoRestauracion(Environment.GetCommandLineArgs(),"OK");
+            await servicios.CoordinadorRespaldos.IniciarAsync();
         }
         catch (Exception ex)
         {
@@ -84,11 +93,14 @@ public partial class App : System.Windows.Application
 
         if (servicios is null)
         {
+            EscribirEstadoRestauracion(Environment.GetCommandLineArgs(),"ERROR no se pudo abrir la base restaurada");
             var rootError = new AppRootViewModel(null, rutaDev, error, contenidoInicial);
             var winError = new DevMainWindow { DataContext = rootError };
             winError.Show();
             return;
         }
+
+        _serviciosActivo = servicios;
 
         var root = new AppRootViewModel(servicios, rutaDev, error, contenidoInicial);
 
@@ -165,6 +177,25 @@ public partial class App : System.Windows.Application
         };
 
         ventana.ShowDialog();
+    }
+
+    private static void EscribirEstadoRestauracion(string[] args,string value)
+    {
+        for(var i=0;i<args.Length-1;i++)if(string.Equals(args[i],"--restore-verify",StringComparison.OrdinalIgnoreCase))try{File.WriteAllText(args[i+1],value);}catch{ }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        if (_serviciosActivo is not null)
+        {
+            try
+            {
+                if (_serviciosActivo.CoordinadorRespaldos.DetenerAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult())
+                    _serviciosActivo.CoordinadorRespaldos.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch { /* El paquete pendiente queda para reconciliar en el próximo inicio. */ }
+        }
+        base.OnExit(e);
     }
 }
 

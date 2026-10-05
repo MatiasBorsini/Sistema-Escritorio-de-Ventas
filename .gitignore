@@ -14,18 +14,29 @@
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.sqlite3
+*.db3
 
 # Respaldos, diagnósticos y secretos
 backups/
+Backups/
 logs/
 *.log
 *.bak
+*.libackup
+*.dpapi
+*.tmp
+*.tmp-*
+*.partial
+*.status
 *.pfx
 *.p12
 *.pem
 *.key
 *.token
 secrets.json
+Secrets/
+secrets/
 appsettings.Local.json
 
 # Publicación e instaladores locales

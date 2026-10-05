@@ -1,5 +1,19 @@
 # Pruebas manuales
 
+## F08 — Verificación técnica automatizada (2026-10-05; no sustituye pruebas manuales)
+
+- `dotnet restore LocalInfantil.sln --runtime win-x64 --property:Configuration=Release`: correcto. El primer `publish --no-restore` sin activos runtime falló con `NETSDK1047`; tras el restore indicado, la publicación concluyó correctamente.
+- `dotnet build LocalInfantil.sln --configuration Debug`: correcto, 0 advertencias y 0 errores.
+- `dotnet test tests/LocalInfantil.Tests/LocalInfantil.Tests.csproj --configuration Debug --filter FullyQualifiedName~Respaldos --logger "console;verbosity=normal"`: correcto, 38/38 pruebas de respaldos.
+- `dotnet test LocalInfantil.sln --configuration Debug --logger "console;verbosity=normal"`: correcto, 409/409 pruebas superadas en 4,3977 minutos. La búsqueda representativa de Catálogo tardó 2m55s y terminó; no se canceló.
+- `dotnet publish src/LocalInfantil.Wpf/LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts/publish/net10-f08-win-x64 -m:1 -p:DebugType=None -p:DebugSymbols=false`: correcto, publicación de 409 archivos / 151.021.404 bytes (144,03 MiB). `libsodium.dll` se cargó correctamente. No se encontraron DB, backups, secretos, temporales ni PDB; `.deps.json` y `.runtimeconfig.json` son metadatos normales de .NET.
+- Inicio directo de `LocalInfantil.Wpf.exe`: el proceso permaneció activo y obtuvo un handle de ventana después de 5 segundos; cerró normalmente. No se inspeccionó visualmente la UI, no se inició sesión y no se probaron operaciones manuales de F08; esta comprobación no sustituye la validación visual.
+- Las pruebas automatizadas operan con bases temporales. No se abrió, escribió ni migró una base de usuario/histórica.
+- Build de Release se produjo como parte de `dotnet publish` y finalizó correctamente con 0 advertencias/0 errores.
+- `git diff --check`: ejecutado, salida limpia (código 0).
+
+Pendientes manuales F08: configuración y OAuth/Drive real; autorización/reconexión y retry con cuenta de prueba; capturas y recorrido visual WPF; restauración local completa, cancelación y revisión visual de caja abierta/rollback/staging; restauración en una PC/perfil Windows nuevo; repetición manual del comportamiento post-cierre/scheduler; validación de PC/hardware real. No se afirma que esos escenarios se hayan probado. La cobertura automatizada F08-T07 está completa, pero F08-T04 y F08-T06 siguen parciales; F08 no queda cerrada y producción NO está habilitada.
+
 ## F00-T01 — Estructura inicial
 
 - Compilación ejecutada el 2026-09-20 en Windows: `dotnet build LocalInfantil.sln --configuration Debug --no-restore`, correcta (0 advertencias, 0 errores).
@@ -102,3 +116,35 @@ La validación visual manual de F00-T03 está completada.
 - Inspeccionar cliente, historial, cuenta y recibos: sin GUID, IDs técnicos, nombres internos de eventos ni payload de auditoría. Confirmar funcionamiento offline y que F00-T02/PC real siguen pendientes. No usar impresora real ni tratar el recibo interno como comprobante fiscal.
 - Estado reportado al 2026-10-04: pendientes todas las capturas 119–129 y los recorridos anteriores. No hay evidencia visual/manual y producción permanece NO habilitada.
 - Verificación automática asociada, 2026-10-04: build Debug 0 advertencias/0 errores; suite completa 386/386; filtro de Clientes/cuenta corriente 17/17, incluida migración V13→V14 con cliente, ventas con/sin cliente, caja y cambio histórico sin deuda retroactiva; `git diff --check` limpio. No sustituye las pruebas manuales de arriba.
+
+## F08 — respaldos y recuperación (pendiente de validación manual/remota)
+
+No se ejecutó OAuth, Drive real ni restauración visual durante la implementación: no se proporcionaron credenciales ni un Cloud Project. Tampoco se modificó una base del usuario. Toda prueba manual debe usar una base ficticia aislada y una carpeta temporal; no copiar ni señalar la DB real del local/desarrollo.
+
+### Preparar OAuth de prueba cuando exista autorización/Cloud Project
+
+1. En Google Cloud Console, crear/seleccionar un proyecto aislado de desarrollo, habilitar Google Drive API y configurar Google Auth Platform (nombre identificable LocalInfantil, email de soporte/contacto y audiencia apropiada para la cuenta de prueba).
+2. Declarar exclusivamente el scope `https://www.googleapis.com/auth/drive.file`; no agregar `drive`, `drive.readonly` ni otros scopes. Crear un OAuth client tipo **Desktop app** y conservar su Client ID como configuración pública no secreta. No crear ni distribuir un client secret.
+3. Si el proyecto queda en estado Testing, agregar explícitamente la cuenta de prueba como test user. La autorización en ese estado expira a los siete días; es solo una prueba temporal, no la configuración de producción.
+4. En una consola PowerShell de prueba, antes de iniciar la aplicación, establecer para ese proceso: `$env:LOCALINFANTIL_GOOGLE_CLIENT_ID = '<client-id-desktop>'`. No poner el valor en Git, logs, tickets ni archivos de datos. Iniciar la aplicación con `--dev-db` apuntando a una DB temporal aislada.
+5. Como Dueña, entrar en Respaldos, generar el código de recuperación, copiarlo fuera del directorio `Backups`, reingresarlo para confirmar y, si se desea, usar explícitamente «Imprimir hoja». Cancelar el diálogo de impresión no debe escribir archivo alguno. Guardar dos copias físicas, una fuera del local.
+6. Crear una copia manual. Abrir el navegador del sistema, completar el consentimiento y volver a la aplicación. Verificar que la lista remota muestra la copia solo después de la confirmación, con nombre `.libackup`, tamaño coincidente y sin PII ni tokens. Verificar en Drive la carpeta administrada LocalInfantil.
+7. Desconectar Internet y realizar únicamente operaciones comerciales ficticias en la DB temporal: deben funcionar; los fallos remotos no bloquean venta/caja ni abren un modal por cada operación. La copia local debe seguir disponible y el estado quedar pendiente. Restaurar la conectividad, reconectar/reintentar y comprobar que se reutiliza el mismo ID remoto sin duplicados.
+8. Probar la caducidad/revocación de credenciales solo con esta cuenta de prueba. La app debe indicar «Volver a conectar Google Drive» y preservar las copias locales. No usar la cuenta personal/producción para provocar una revocación.
+
+### Restauración aislada y PC nueva
+
+1. Preparar dos bases temporales independientes (A origen y B destino) y registrar sus rutas/hashes. A debe contener datos ficticios de prueba representativos (venta, pago, caja, cliente, cuenta y C-* cuando se prepare el fixture integral); nunca apuntar a una DB histórica/real.
+2. Crear un backup local y, cuando Drive real esté configurado, confirmar su subida. Copiar el código de recuperación fuera de A. Mantener la aplicación cerrada antes de copiar/alterar paquetes.
+3. Caso local: iniciar la app con base A, ir a Respaldos y seleccionar `.libackup`; probar clave incorrecta/archivo corrupto (deben rechazarse sin cambiar A); dejar caja abierta (debe rechazar); luego cerrar caja, reautenticar Dueña, importar/proteger el código original y restaurar confirmando expresamente. La app helper debe cerrar, reemplazar, abrir la DB restaurada y permitir comprobar los datos. No enviar trabajos de impresión reales.
+4. Cancelar en la confirmación final y comprobar que A conserva el mismo hash; la DB descifrada de staging debe limpiarse en una cancelación normal.
+5. Forzar solo en B una falla controlada de apertura/reemplazo (sin tocar A), comprobar rollback a la DB anterior y que el staging queda preservado para diagnóstico. Registrar el mensaje seguro y retirar a mano los temporales solo después de verificar hashes.
+6. Caso PC nueva: usar perfil Windows/VM limpio sin los archivos DPAPI de A; instalar una compilación de prueba, conectar la misma cuenta Drive desde navegador, listar las copias de la app, descargar una y proteger en DPAPI el código externo original. Descifrar/verificar, reautenticar Dueña, validar backup previo, confirmar reemplazo y comprobar apertura/históricos. Confirmar que el token/DPAPI anterior no es requerido.
+7. Verificar reintento/backoff, retención local (7 días, última copia y pendientes protegidos) y política remota (todos 0–7 días, una por día 8–30 priorizando cierre, >30 elegible). No probar borrado remoto destructivo fuera de un Drive de prueba. Si falla/queda ambiguo el listado, comprobar que no se inicia limpieza.
+8. Repetir la UI de Respaldos en 1200×750 y 980×620: estados sin copias, pendiente, confirmada, reconexión y error local; acción de consultar/descargar Drive y flujo de reautenticación/confirmación. No se generaron capturas de F08 durante esta ejecución.
+
+### Evidencia de esta implementación
+
+- Ejecutada en el equipo de desarrollo y sobre DB temporales: pruebas focalizadas 38/38 de paquete autenticado, checksum recovery, reconciliación sidecar/reinicio, protector fake, retry/ID remoto, retención local/Drive fake, scheduler/catch-up/no solapamiento, cola de cierre durable, bloqueo interproceso, snapshot WAL y E2E completo restaurado a otra base. Build Debug 0/0, suite 409/409, publicación e inicio del ejecutable registrados arriba.
+- No ejecutadas: autorización OAuth real, API Drive real, credenciales caducadas/revocadas, PC nueva, UI/manual de impresión de hoja/restauración, backup F08 durante operación de ventas con fixture E2E completo, pruebas de apagado/arranque manuales ni validación de PC/hardware real. No se afirma éxito para esos escenarios.
+- Referencia de política Google consultada el 2026-10-05: [OAuth Desktop/PKCE y loopback](https://developers.google.com/identity/protocols/oauth2/native-app), [consentimientos en Testing](https://support.google.com/cloud/answer/15549945?hl=en), [excepciones de verificación](https://support.google.com/cloud/answer/13464323?hl=en), [scope drive.file](https://developers.google.com/drive/api/guides/api-specific-auth). La elegibilidad de uso personal (<100 usuarios) no se presume: debe revisarse para la configuración real.
