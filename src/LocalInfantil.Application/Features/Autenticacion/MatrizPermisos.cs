@@ -1,3 +1,4 @@
+using LocalInfantil.Application.Features.Reportes;
 using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Application.Features.Caja;
 using LocalInfantil.Application.Features.Cambios;
@@ -56,6 +57,14 @@ public sealed class MatrizPermisos
             matriz.Permitir(RolesLocal.Empleada, permiso);
         matriz.Denegar(RolesLocal.Empleada, PermisosCaja.RetiroPropietario);
         matriz.Denegar(RolesLocal.Empleada, PermisosCaja.CorregirMedio);
+        matriz.Permitir(RolesLocal.Duena, PermisosReportes.Ventas);
+        matriz.Permitir(RolesLocal.Duena, PermisosReportes.Caja);
+        matriz.Permitir(RolesLocal.Duena, PermisosReportes.Inventario);
+        matriz.Permitir(RolesLocal.Duena, PermisosReportes.Costos);
+        matriz.Denegar(RolesLocal.Empleada, PermisosReportes.Ventas);
+        matriz.Denegar(RolesLocal.Empleada, PermisosReportes.Caja);
+        matriz.Permitir(RolesLocal.Empleada, PermisosReportes.Inventario);
+        matriz.Denegar(RolesLocal.Empleada, PermisosReportes.Costos);
         return matriz;
     }
 

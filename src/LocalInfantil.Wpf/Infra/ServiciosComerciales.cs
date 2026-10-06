@@ -6,6 +6,7 @@ using LocalInfantil.Application.Features.Catalogo;
 using LocalInfantil.Application.Features.Compras;
 using LocalInfantil.Application.Features.Inventario;
 using LocalInfantil.Application.Features.Inicio;
+using LocalInfantil.Application.Features.Reportes;
 using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Application.Features.Cambios;
 using LocalInfantil.Application.Features.Clientes;
@@ -99,6 +100,8 @@ public sealed class ServiciosComerciales
     public ConsultasClientes ConsultasClientes { get; }
     public IRepositorioCuentaCorriente RepoCuentaCorriente { get; }
     public ConsultasCuentaCorriente ConsultasCuentaCorriente { get; }
+    public IRepositorioReportes RepoReportes { get; }
+    public ConsultasReportes ConsultasReportes { get; }
     public ConfigurarLimiteCredito CasoConfigurarLimiteCredito { get; }
     public RegistrarAbono CasoRegistrarAbono { get; }
     public AjustarCuentaCorriente CasoAjustarCuentaCorriente { get; }
@@ -188,6 +191,8 @@ public sealed class ServiciosComerciales
         CasoRegistrarCambio = new RegistrarCambio(RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj, RepoCuentaCorriente);
         ConsultasCambios = new ConsultasCambios(Autorizador, Fabrica, RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, Reloj);
         CasoGenerarTicketCambio = new GenerarTicketCambio(Autorizador, Fabrica, RepoCambios);
+        RepoReportes = new RepositorioReportes();
+        ConsultasReportes = new ConsultasReportes(RepoReportes, RepoCaja, Autorizador, Fabrica);
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =
@@ -213,5 +218,6 @@ public sealed class ServiciosComerciales
         .. PermisosCambios.Todos,
         .. PermisosCaja.Todos,
         .. PermisosRespaldos.Todos,
+        .. PermisosReportes.Todos,
     ];
 }

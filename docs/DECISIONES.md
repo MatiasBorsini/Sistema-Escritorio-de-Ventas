@@ -399,3 +399,21 @@ No se tomaron decisiones sobre facturaciÃ³n, permisos, cuentas corrientes, promo
 - Dependencias nuevas: `Sodium.Core` 1.4.1 y `System.Security.Cryptography.ProtectedData` 10.0.0 en `LocalInfantil.Infrastructure`; `Sodium.Core` trae libsodium 1.0.22 en el runtime nativo. Sin EF Core ni cambio arquitectÃ³nico.
 - Evidencia automatizada/tÃ©cnica (2026-10-05): restore Release `win-x64`; build Debug 0 advertencias/0 errores; tests focalizados de respaldos 38/38; suite completa detallada 409/409 (4,3977 min); publicaciÃ³n Release self-contained en `artifacts/publish/net10-f08-win-x64`, 409 archivos / 151.021.404 bytes, sin bases de datos, backups, secretos, temporales ni `.pdb`. `libsodium.dll` se cargÃ³ desde la publicaciÃ³n. El ejecutable se iniciÃ³ directamente, obtuvo handle de ventana y cerrÃ³ normalmente; no hubo inspecciÃ³n visual ni validaciÃ³n manual de UI. La automatizaciÃ³n cubre scheduler/catch-up/no solapamiento/cola, cierre durable/idempotente, lock entre instancias, snapshot con escritura WAL concurrente, rollback de intercambio y un E2E aislado de venta/pago/caja/cliente/cuenta/C-* restaurado a otra base. Las pruebas SQLite usan bases temporales; no se alteraron bases del usuario.
 - Pendientes: OAuth/Drive real y Client ID; recuperaciÃ³n desde Drive en PC nueva; pruebas visuales/manuales de setup, impresiÃ³n de hoja, reconexiÃ³n y recorrido de restauraciÃ³n local/Drive/caja abierta/cancelaciÃ³n/rollback; validaciÃ³n PC/hardware real. Estos pendientes impiden declarar F08 globalmente cerrada y producciÃ³n sigue NO habilitada.
+
+## D-43 — F09: reportes por fecha del evento, sin segunda verdad
+
+- Estado: T01/T02/T03/T05 implementados técnicamente en `feat/f09-reportes`; T04 bloqueada por D-07; sin commit ni push. D-07 sigue pendiente (no se registra promedio ponderado ni ningún criterio).
+- Fecha: 2026-10-06.
+- Fuente: auditoría e instrucciones F09 de la persona usuaria.
+- Decisiones:
+  1. Reportes por fecha del evento: anulaciones, devoluciones, cambios, cobros, abonos y reintegros entran en el período en que ocurrieron; nunca se reescriben períodos históricos.
+  2. Ventas brutas = SUM de `venta_linea.subtotal_minor` de confirmadas creadas en el período (incluye fiadas, parciales y luego anuladas/devueltas; excluye C-*, abonos, manuales, ajustes, reintegros); con cantidad de ventas.
+  3. Ajustes separados: anulaciones (reversiones del período), entradas F06 (crédito reconocido), salidas F06 (mercadería entregada); netas = brutas - anulaciones - entradas + salidas; ningún C-* se cuenta dos veces.
+  4. Cobros = pagos iniciales + abonos + diferencias F06 cobradas, por fecha real y medio; reintegros en línea propia (anulación cobrada, devolución F06, remanente tras aplicar a deuda; nunca cancelación de deuda impaga ni crédito aplicado); flujo neto etiquetado explícitamente; vuelto excluido siempre (derivado, no venta ni reintegro ni medio).
+  5. Fiado no infla ventas (total en ventas, solo lo recibido en cobros, deuda del libro real); abonos suman cobro en su fecha sin crear venta.
+  6. Corrección de medio reporta el medio vigente sin duplicar (original + nuevo); indicador solo en detalle.
+  7. Unidades netas por variante = salidas por venta - entradas F06 + salidas F06, por fecha de evento, columnas brutas/devueltas/salidas/netas, con rollup por producto.
+  8. Sin temporada en el esquema: criterio "Sin ventas hace N días" (N editable, valor inicial 30, no regla comercial), separando nunca vendidos; muestra última venta/recepción/movimiento cuando existen.
+  9. Permisos `reportes.ventas/caja/inventario/costos`; Dueña todo, Empleada solo inventario; backend real en cada consulta.
+  10. Sin gráficos ni exportación inicial; sin pestaña de costos; sin tablas resumen (derivar + medir + indexar); V15 solo con `ix_venta_linea_variante` justificado por medición (22 s ? 33 ms).
+- Verificación técnica: build Debug 0/0; suite completa con nuevos tests de ventas/cobros/caja/inventario/permisos/performance; capturas reales 130–136 del build; `git diff --check` limpio. Visual/manual en PC real y D-01 pendientes como en el resto de fases; producción NO habilitada.

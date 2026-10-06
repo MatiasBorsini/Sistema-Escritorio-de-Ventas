@@ -80,6 +80,25 @@ public sealed class MinorToArsConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
 
+/// <summary>
+/// Igual que <see cref="MinorToArsConverter"/> pero con signo explícito
+/// para magnitudes que pueden ser positivas o negativas (ajustes).
+/// </summary>
+public sealed class MinorConSignoToArsConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is long l)
+        {
+            var texto = ((decimal)Math.Abs(l) / 100m).ToString("N2", new CultureInfo("es-AR"));
+            return l == 0 ? $"ARS {texto}" : l > 0 ? $"+ARS {texto}" : $"-ARS {texto}";
+        }
+
+        return "—";
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
 public sealed class CajaTextoHumanoConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

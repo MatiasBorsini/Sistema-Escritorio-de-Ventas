@@ -30,6 +30,7 @@ public static class MigracionesF01
         new(12, "cambios-devoluciones-f06", SqlV12),
         new(13, "clientes-ventas-opcionales-f07", SqlV13),
         new(14, "cuenta-corriente-clientes-f07", SqlV14),
+        new(15, "reportes-indices-f09", SqlV15),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -928,5 +929,15 @@ public static class MigracionesF01
         CREATE TRIGGER trg_cc_componente_no_borrar BEFORE DELETE ON cuenta_corriente_abono_componente BEGIN SELECT RAISE(ABORT,'el componente del abono es histórico'); END;
         CREATE TRIGGER trg_cc_aplicacion_no_editar BEFORE UPDATE ON cuenta_corriente_aplicacion BEGIN SELECT RAISE(ABORT,'la aplicación de cuenta corriente es inmutable'); END;
         CREATE TRIGGER trg_cc_aplicacion_no_borrar BEFORE DELETE ON cuenta_corriente_aplicacion BEGIN SELECT RAISE(ABORT,'la aplicación de cuenta corriente es histórica'); END;
+        """;
+
+    /// <summary>
+    /// V15 solo índices, sin tablas ni cambios a V14. Justificado por medición
+    /// F09-T05: SinVentasAsync tardaba ~22 s en 1200 variantes/15000 líneas
+    /// por full scan de venta_linea en la subconsulta correlacionada
+    /// (no existía índice por variante_id).
+    /// </summary>
+    private const string SqlV15 = """
+        CREATE INDEX IF NOT EXISTS ix_venta_linea_variante ON venta_linea(variante_id);
         """;
 }

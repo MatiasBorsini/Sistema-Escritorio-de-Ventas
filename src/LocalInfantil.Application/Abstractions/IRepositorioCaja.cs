@@ -16,6 +16,8 @@ public interface IRepositorioCaja
     Task<IReadOnlyList<ImportePorMedioCaja>> ResumirMediosAsync(ISesionPersistencia sesion, string sesionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ImportePorTipoCaja>> ResumirMovimientosAsync(ISesionPersistencia sesion, string sesionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SesionCajaRegistrada>> ListarSesionesAsync(ISesionPersistencia sesion, int limite, int desplazamiento, CancellationToken cancellationToken = default);
+    /// <summary>Sesiones que se solapan con [desdeUtc, hastaUtc): abiertas o cerradas dentro.</summary>
+    Task<IReadOnlyList<SesionCajaRegistrada>> ListarSesionesPorFechaAsync(ISesionPersistencia sesion, string desdeUtc, string hastaUtc, int limite, int desplazamiento, CancellationToken cancellationToken = default);
     Task<PagoCajaActual?> ObtenerPagoActualAsync(ISesionPersistencia sesion, string pagoId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PagoCajaActual>> ListarPagosActualesPorVentaAsync(ISesionPersistencia sesion, string ventaId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PagoCajaActual>> BuscarPagosCorregiblesAsync(ISesionPersistencia sesion, string filtroNumeroVenta, int limite, CancellationToken cancellationToken = default);

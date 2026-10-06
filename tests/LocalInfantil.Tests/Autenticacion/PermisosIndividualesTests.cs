@@ -127,14 +127,14 @@ public sealed class PermisosIndividualesTests
                 "INSERT INTO usuario (id, nombre, rol, creado_en) VALUES ('u-ana', 'Ana', 'empleada', '2026-09-21T12:00:00Z');",
                 "INSERT INTO auditoria (id, operacion_id, tipo_evento, actor_tipo, actor_id, creado_en) VALUES ('ev-1', 'op-vieja', 'prueba.evento', 'sistema', NULL, '2026-09-21T12:00:00Z');");
 
-            Assert.Equal(new[] { 6, 7, 8, 9, 10, 11, 12, 13, 14 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, Path.Combine(directorio, "respaldos")));
+            Assert.Equal(new[] { 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, Path.Combine(directorio, "respaldos")));
 
             Assert.Equal("duena", await LeerTextoAsync(ruta, "SELECT rol FROM usuario WHERE id = 'u-admin';"));
             Assert.Equal("Vieja Admin", await LeerTextoAsync(ruta, "SELECT nombre FROM usuario WHERE id = 'u-admin';"));
             Assert.Equal("huella-ficticia-abc", await LeerTextoAsync(ruta, "SELECT huella_contrasena FROM usuario WHERE id = 'u-admin';"));
             Assert.Equal("empleada", await LeerTextoAsync(ruta, "SELECT rol FROM usuario WHERE id = 'u-ana';"));
             Assert.Equal("op-vieja", await LeerTextoAsync(ruta, "SELECT operacion_id FROM auditoria WHERE id = 'ev-1';"));
-            Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 }, await VersionesAsync(ruta));
+            Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }, await VersionesAsync(ruta));
             Assert.Empty(await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, Path.Combine(directorio, "respaldos")));
         }
         finally

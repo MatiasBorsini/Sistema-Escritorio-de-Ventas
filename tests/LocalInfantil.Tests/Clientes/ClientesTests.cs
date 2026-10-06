@@ -47,7 +47,7 @@ public sealed class ClientesTests
             }
 
             var backups = Path.Combine(dir, "backups");
-            Assert.Equal(new[] { 14 }, await migrador.MigrarAsync(MigracionesF01.Todas, backups));
+            Assert.Equal(new[] { 14, 15 }, await migrador.MigrarAsync(MigracionesF01.Todas, backups));
             Assert.Single(Directory.GetFiles(backups, "*.db"));
             await using var upgraded = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
             await upgraded.OpenAsync();
@@ -78,7 +78,7 @@ public sealed class ClientesTests
             }
 
             var backups = Path.Combine(dir, "backups");
-            Assert.Equal(new[] { 13, 14 }, await new MigradorBaseDatos(path).MigrarAsync(MigracionesF01.Todas, backups));
+            Assert.Equal(new[] { 13, 14, 15 }, await new MigradorBaseDatos(path).MigrarAsync(MigracionesF01.Todas, backups));
             Assert.Single(Directory.GetFiles(backups, "*.db"));
             await using var upgraded = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString());
             await upgraded.OpenAsync();

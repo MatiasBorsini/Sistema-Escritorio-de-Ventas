@@ -16,6 +16,7 @@
         <infra:FechaCortaConverter x:Key="FechaCorta"/>
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
         <infra:MinorToArsConverter x:Key="MinorToArs"/>
+        <infra:MinorConSignoToArsConverter x:Key="MinorConSignoToArs"/>
         <infra:CeroVisibleConverter x:Key="CeroVisible"/>
         <infra:CajaTextoHumanoConverter x:Key="CajaTextoHumano"/>
         <DataTemplate DataType="{x:Type viewModels:InicioViewModel}">
@@ -86,6 +87,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:RespaldosViewModel}">
             <views:RespaldosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ReportesViewModel}">
+            <views:ReportesView />
         </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

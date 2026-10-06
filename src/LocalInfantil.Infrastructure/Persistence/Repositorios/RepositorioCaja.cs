@@ -195,6 +195,22 @@ public sealed class RepositorioCaja : IRepositorioCaja
         return result;
     }
 
+    public async Task<IReadOnlyList<SesionCajaRegistrada>> ListarSesionesPorFechaAsync(ISesionPersistencia sesion, string desdeUtc, string hastaUtc, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    {
+        if (limite < 1 || limite > 100) throw new ArgumentOutOfRangeException(nameof(limite));
+        if (desplazamiento < 0) throw new ArgumentOutOfRangeException(nameof(desplazamiento));
+        var s = Sesion(sesion);
+        using var cmd = CrearComando(s, $"{SelectSesion} WHERE c.abierta_en < $h AND (c.cerrada_en IS NULL OR c.cerrada_en >= $d) ORDER BY c.abierta_en DESC, c.id DESC LIMIT $limite OFFSET $offset;");
+        cmd.Parameters.AddWithValue("$d", desdeUtc);
+        cmd.Parameters.AddWithValue("$h", hastaUtc);
+        cmd.Parameters.AddWithValue("$limite", limite + 1);
+        cmd.Parameters.AddWithValue("$offset", desplazamiento);
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        var result = new List<SesionCajaRegistrada>();
+        while (await r.ReadAsync(cancellationToken)) result.Add(LeerSesion(r));
+        return result;
+    }
+
     public async Task<PagoCajaActual?> ObtenerPagoActualAsync(ISesionPersistencia sesion, string pagoId, CancellationToken cancellationToken = default)
     {
         var s = Sesion(sesion);

@@ -45,6 +45,7 @@
                         <MenuItem Header="ACCESOS" Style="{StaticResource EstiloItemSeccionMenu}"/>
                     <MenuItem Header="Usuarios" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Administracion}"/>
                     <MenuItem Header="Respaldos" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding Respaldos, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Respaldos}"/>
+                    <MenuItem Header="_Reportes" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Reportes, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Reportes}"/>
                     </MenuItem>
                 </Menu>
             </DockPanel>

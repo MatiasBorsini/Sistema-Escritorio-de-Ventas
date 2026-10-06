@@ -264,13 +264,13 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Objetivo:** información útil que no contradiga ventas ni caja.
 
-- [ ] **F09-T01.** Ventas diarias/mensuales y filtro de fechas; separar ventas brutas/netas y cobros.
-- [ ] **F09-T02.** Desglose por medio de pago, efectivo teórico e historial de caja.
-- [ ] **F09-T03.** Stock actual, unidades más vendidas y artículos sin movimiento con fecha de ingreso/temporada cuando existan esos datos.
-- [ ] **F09-T04.** Margen bruto **solo si se aprobó D-07** y con fórmula explicada; nunca etiquetar como ganancia neta.
-- [ ] **F09-T05.** Medición de rendimiento en catálogo representativo y ajustes de índices/consultas.
+- [x] **F09-T01.** Ventas diarias/mensuales y filtro de fechas; separar ventas brutas/netas y cobros. Semántica por fecha del evento (D-43): brutas = líneas de confirmadas creadas en el período; ajustes = anulaciones + entradas − salidas F06 ocurridos en el período; netas = brutas + ajustes. Hoy/Este mes/Personalizado, resumen por día con drill a detalle, detalle con filas venta/anulación/cambio. Ver D-43.
+- [x] **F09-T02.** Desglose por medio de pago (ventas/abonos/cambios/reintegros/neto por medio vigente con corrección aplicada), efectivo teórico reutilizando el libro F05 (sin caja paralela) e historial de caja con filtro de fechas (nuevo `ListarSesionesPorFechaAsync`; detalle con consulta F05 existente).
+- [x] **F09-T03.** Stock actual en vivo (Disponible/Apartado/Físico, filtros texto/categoría/cero/hasta N), unidades más vendidas netas por evento (columnas brutas/devueltas/salidas/netas, variante o producto), sin-ventas con N editable (nunca vendidos vs sin ventas recientes + última venta/recepción/movimiento). Sin temporada (no existe en el esquema) ni stock mínimo comercial.
+- [>] **F09-T04.** BLOQUEADA por D-07: sin margen, costo de venta, ganancia ni rentabilidad en UI ni consultas. Permiso `reportes.costos` reservado sin pantalla.
+- [x] **F09-T05.** Fixture temporal representativa (300 productos, 1200 variantes, 5000 ventas, 15000 líneas, pagos, ~200 operaciones y 300 movimientos de caja, 300 cambios, 50 clientes/abonos): todo ≤ 33 ms salvo `SinVentasAsync` (22 s → 33 ms) que justificó V15 (`ix_venta_linea_variante`, solo índices). Evidencia en `docs/RENDIMIENTO_REPORTES.md`.
 
-**Aceptación:** reportes cuadran con ventas/pagos de pruebas, devoluciones no se cuentan dos veces, consultas frecuentes son ágiles.
+**Aceptación:** reportes cuadran con ventas/pagos de pruebas, devoluciones no se cuentan dos veces, consultas frecuentes son ágiles. F09 no se declara completamente cerrada (T04 bloqueada por D-07).
 
 ### F10 — Instalación, actualización y entrega
 

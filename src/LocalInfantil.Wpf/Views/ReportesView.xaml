@@ -1,0 +1,209 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.ReportesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Background="{StaticResource Color.CanvasBrush}">
+        <StackPanel DockPanel.Dock="Top" Margin="20,12,20,0">
+            <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Reportes" Margin="0,0,0,0"/>
+            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Información derivada de registros. Sin gráficos ni exportación." Margin="0,0,0,2"/>
+            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
+        </StackPanel>
+        <TabControl Margin="20,2,20,12" SelectedValue="{Binding TabActiva}" SelectedValuePath="Tag">
+            <TabItem Header="Ventas" Tag="Ventas" Visibility="{Binding PuedeVerVentas, Converter={StaticResource BoolToVisibility}}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Hoy" Command="{Binding AplicarPresetCommand}" CommandParameter="Hoy"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Este mes" Command="{Binding AplicarPresetCommand}" CommandParameter="Este mes" Margin="8,0,0,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Personalizado" Command="{Binding AplicarPresetCommand}" CommandParameter="Personalizado" Margin="8,0,0,0"/>
+                            <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Desde" Margin="12,0,4,0"/>
+                            <DatePicker SelectedDate="{Binding Desde}" Width="130"/>
+                            <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Hasta" Margin="8,0,4,0"/>
+                            <DatePicker SelectedDate="{Binding Hasta}" Width="130"/>
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar" Command="{Binding CargarVentasCommand}" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Style="{StaticResource EstiloEtiqueta}" Text="Ventas brutas"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Resumen.BrutasMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="1" Style="{StaticResource EstiloEtiqueta}" Text="Ajustes"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AjustesVentasMinor, Converter={StaticResource MinorConSignoToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="2" Style="{StaticResource EstiloEtiqueta}" Text="Ventas netas"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" FontWeight="Bold" Text="{Binding Resumen.NetasMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Style="{StaticResource EstiloEtiqueta}" Text="Cobrado" Margin="16,0,0,0"/>
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding Resumen.CobradoMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource EstiloEtiqueta}" Text="Reintegros" Margin="16,0,0,0"/>
+                                <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Resumen.ReintegrosMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="2" Style="{StaticResource EstiloEtiqueta}" Text="Flujo neto" Margin="16,0,0,0"/>
+                                <TextBlock Grid.Row="2" Grid.Column="3" FontWeight="Bold" Text="{Binding Resumen.FlujoNetoMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="3" Style="{StaticResource EstiloEtiqueta}" Text="Crédito devoluciones"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Resumen.CreditoDevolucionesMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                <TextBlock Grid.Row="4" Style="{StaticResource EstiloEtiqueta}" Text="Salidas por cambio"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Resumen.SalidasCambioMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                            </Grid>
+                        </Border>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Por día" FontSize="15" Margin="0,0,0,4"/>
+                        <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                                  ItemsSource="{Binding FilasDiarias}" SelectedValue="{Binding DiaSeleccionado}" SelectedValuePath="Fecha" MaxHeight="180">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fecha" Binding="{Binding Fecha}" Width="110"/>
+                                <DataGridTextColumn Header="Brutas" Binding="{Binding BrutasMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Ajustes" Binding="{Binding AjustesMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Netas" Binding="{Binding NetasMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Cobros" Binding="{Binding CobrosMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Reintegros" Binding="{Binding ReintegrosMinor, Converter={StaticResource MinorToArs}}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Por medio" FontSize="15" Margin="0,8,0,4"/>
+                        <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True"
+                                  ItemsSource="{Binding Medios}" MaxHeight="180">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Medio" Binding="{Binding Medio}" Width="110"/>
+                                <DataGridTextColumn Header="Ventas" Binding="{Binding VentasMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Abonos" Binding="{Binding AbonosMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Cambios" Binding="{Binding CambiosCobrosMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Reintegros" Binding="{Binding ReintegrosMinor, Converter={StaticResource MinorToArs}}" Width="110"/>
+                                <DataGridTextColumn Header="Neto" Binding="{Binding NetoMinor, Converter={StaticResource MinorToArs}}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <DockPanel Margin="0,8,0,4">
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Detalle" FontSize="15" VerticalAlignment="Center"/>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorDetalleCommand}" IsEnabled="{Binding HayAnteriorDetalle}" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteDetalleCommand}" IsEnabled="{Binding HayMasDetalle}"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True"
+                                  ItemsSource="{Binding Detalle}" MinHeight="140">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fecha" Binding="{Binding Fecha, Converter={StaticResource FechaCorta}}" Width="130"/>
+                                <DataGridTextColumn Header="Referencia" Binding="{Binding Referencia}" Width="90"/>
+                                <DataGridTextColumn Header="Cliente" Binding="{Binding ClienteNombre, TargetNullValue=—}" Width="*"/>
+                                <DataGridTextColumn Header="Bruta" Binding="{Binding BrutaMinor, Converter={StaticResource MinorToArs}}" Width="100"/>
+                                <DataGridTextColumn Header="Ajustes" Binding="{Binding AjustesMinor, Converter={StaticResource MinorToArs}}" Width="100"/>
+                                <DataGridTextColumn Header="Neto" Binding="{Binding NetoMinor, Converter={StaticResource MinorToArs}}" Width="100"/>
+                                <DataGridTextColumn Header="Estado" Binding="{Binding Estado}" Width="90"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Caja" Tag="Caja" Visibility="{Binding PuedeVerCaja, Converter={StaticResource BoolToVisibility}}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Hoy" Command="{Binding AplicarPresetCommand}" CommandParameter="Hoy"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Este mes" Command="{Binding AplicarPresetCommand}" CommandParameter="Este mes" Margin="8,0,0,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Personalizado" Command="{Binding AplicarPresetCommand}" CommandParameter="Personalizado" Margin="8,0,0,0"/>
+                            <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Desde" Margin="12,0,4,0"/>
+                            <DatePicker SelectedDate="{Binding Desde}" Width="130"/>
+                            <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Hasta" Margin="8,0,4,0"/>
+                            <DatePicker SelectedDate="{Binding Hasta}" Width="130"/>
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar" Command="{Binding CargarCajaCommand}" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                                  ItemsSource="{Binding SesionesCaja}" SelectedItem="{Binding SesionCajaSeleccionada}" MinHeight="140" MaxHeight="260">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Apertura" Binding="{Binding AbiertaEn, Converter={StaticResource FechaCorta}}" Width="130"/>
+                                <DataGridTextColumn Header="Cierre" Binding="{Binding CerradaEn, Converter={StaticResource FechaCorta}, TargetNullValue=Abierta}" Width="130"/>
+                                <DataGridTextColumn Header="Apertura por" Binding="{Binding UsuarioAperturaNombre, TargetNullValue=—}" Width="*"/>
+                                <DataGridTextColumn Header="Fondo" Binding="{Binding FondoInicialMinor, Converter={StaticResource MinorToArs}}" Width="100"/>
+                                <DataGridTextColumn Header="Teórico" Binding="{Binding EfectivoEsperadoMinor, Converter={StaticResource MinorToArs}, TargetNullValue=—}" Width="100"/>
+                                <DataGridTextColumn Header="Contado" Binding="{Binding EfectivoContadoMinor, Converter={StaticResource MinorToArs}, TargetNullValue=—}" Width="100"/>
+                                <DataGridTextColumn Header="Diferencia" Binding="{Binding DiferenciaMinor, Converter={StaticResource MinorToArs}, TargetNullValue=—}" Width="100"/>
+                                <DataGridTextColumn Header="Estado" Binding="{Binding Estado}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorCajaCommand}" IsEnabled="{Binding HayAnteriorCaja}" Margin="0,0,8,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteCajaCommand}" IsEnabled="{Binding HayMasCaja}"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="El detalle de movimientos usa la consulta existente de caja (misma fuente, sin duplicar pantalla)." Margin="0,8,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Inventario" Tag="Inventario" Visibility="{Binding PuedeVerInventario, Converter={StaticResource BoolToVisibility}}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Stock actual" Command="{Binding SeleccionarSubAreaCommand}" CommandParameter="Stock"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Más vendidos" Command="{Binding SeleccionarSubAreaCommand}" CommandParameter="Ranking" Margin="8,0,0,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Sin ventas" Command="{Binding SeleccionarSubAreaCommand}" CommandParameter="SinVentas" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding SubAreaStockVisible, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="200" Text="{Binding TextoStock, UpdateSourceTrigger=PropertyChanged}" ToolTip="Producto o código"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Solo stock 0" Command="{Binding AlternarSoloCeroCommand}" Margin="8,0,0,0"/>
+                                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Hasta" Margin="8,0,4,0"/>
+                                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="70" Text="{Binding HastaUnidadesTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Hasta N unidades (vacío = sin tope)"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar" Command="{Binding CargarInventarioCommand}" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding FilasStock}" MinHeight="200">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Producto" Binding="{Binding ProductoNombre}" Width="2*"/>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="110"/>
+                                    <DataGridTextColumn Header="Talle/Color" Binding="{Binding TalleColor}" Width="110"/>
+                                    <DataGridTextColumn Header="Disponible" Binding="{Binding Disponible}" Width="90"/>
+                                    <DataGridTextColumn Header="Apartado" Binding="{Binding Apartado}" Width="90"/>
+                                    <DataGridTextColumn Header="Físico" Binding="{Binding Fisico}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding SubAreaRankingVisible, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Hoy" Command="{Binding AplicarPresetCommand}" CommandParameter="Hoy"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Este mes" Command="{Binding AplicarPresetCommand}" CommandParameter="Este mes" Margin="8,0,0,0"/>
+                                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Desde" Margin="12,0,4,0"/>
+                                <DatePicker SelectedDate="{Binding Desde}" Width="130"/>
+                                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Hasta" Margin="8,0,4,0"/>
+                                <DatePicker SelectedDate="{Binding Hasta}" Width="130"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Por producto" Command="{Binding AlternarAgrupacionCommand}" Margin="8,0,0,0"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar" Command="{Binding CargarInventarioCommand}" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding Ranking}" MinHeight="200">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Producto" Binding="{Binding NombreProducto}" Width="2*"/>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="110"/>
+                                    <DataGridTextColumn Header="Brutas" Binding="{Binding BrutasUnidades}" Width="70"/>
+                                    <DataGridTextColumn Header="Devueltas" Binding="{Binding DevueltasUnidades}" Width="80"/>
+                                    <DataGridTextColumn Header="Salidas" Binding="{Binding SalidasCambioUnidades}" Width="70"/>
+                                    <DataGridTextColumn Header="Netas" Binding="{Binding NetasUnidades}" Width="70"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorRankingCommand}" IsEnabled="{Binding HayAnteriorRanking}" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteRankingCommand}" IsEnabled="{Binding HayMasRanking}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding SubAreaSinVentasVisible, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Sin ventas hace"/>
+                                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="60" Text="{Binding DiasSinVentasTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Días (valor de consulta, no regla comercial)"/>
+                                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="días" Margin="4,0,0,0"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar" Command="{Binding CargarInventarioCommand}" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding SinVentasFilas}" MinHeight="200">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Producto" Binding="{Binding ProductoNombre}" Width="2*"/>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="110"/>
+                                    <DataGridTextColumn Header="Última venta" Binding="{Binding UltimaVentaEn, Converter={StaticResource FechaCorta}, TargetNullValue=Nunca}" Width="130"/>
+                                    <DataGridTextColumn Header="Última recepción" Binding="{Binding UltimaRecepcionEn, Converter={StaticResource FechaCorta}, TargetNullValue=—}" Width="130"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorSinVentasCommand}" IsEnabled="{Binding HayAnteriorSinVentas}" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteSinVentasCommand}" IsEnabled="{Binding HayMasSinVentas}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>
