@@ -113,6 +113,7 @@ public sealed class RecepcionViewModel : ViewModelBase
     private string? _mensaje;
     private bool _ocupado;
     private bool _resumenListo;
+    private IReadOnlyDictionary<string, int>? _cantidadesRecepcionConfirmada;
 
     public RecepcionViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
     {
@@ -182,6 +183,9 @@ public sealed class RecepcionViewModel : ViewModelBase
     public AsyncRelayCommand QuitarFilaCommand { get; }
     public AsyncRelayCommand RefrescarProveedoresCommand { get; }
     public AsyncRelayCommand VerificarCommand { get; }
+    public bool EtiquetasRecepcionDisponibles => _cantidadesRecepcionConfirmada is { Count: > 0 };
+    public EtiquetasViewModel CrearEtiquetasRecepcionViewModel()
+        => new(_servicios, _idSesion, _cantidadesRecepcionConfirmada ?? new Dictionary<string, int>());
 
     public Task VerificarAsyncPublic() => VerificarAsync();
 
@@ -354,6 +358,7 @@ public sealed class RecepcionViewModel : ViewModelBase
         Error = null; Mensaje = null;
         if (ProveedorSeleccionado is null) { Error = "Elegí un proveedor."; return; }
         var lineas = new List<LineaRecepcion>();
+        var cantidadesParaEtiquetas = new Dictionary<string, int>(StringComparer.Ordinal);
         var vistos = new HashSet<string>(StringComparer.Ordinal);
         foreach (var f in Filas)
         {
@@ -382,6 +387,7 @@ public sealed class RecepcionViewModel : ViewModelBase
                 f.VarianteId = vari.Id;
                 f.Detalle = $"{vari.CodigoInterno} — {vari.Talle ?? "sin talle"}/{vari.Color ?? "sin color"}";
                 lineas.Add(new LineaRecepcion(vari.Id, cant, costoMinor, moneda));
+                cantidadesParaEtiquetas[vari.Id] = (int)Math.Clamp(cant, 0, int.MaxValue);
             }
             catch (Exception ex) { Error = MensajeError(ex); return; }
         }
@@ -461,6 +467,8 @@ public sealed class RecepcionViewModel : ViewModelBase
         {
             var id = await _servicios.CasoConfirmarRecepcion.EjecutarAsync(ProveedorSeleccionado.Id, lineas, _operacionId, comprobante, _idSesion());
             Mensaje = $"Recepción {ReferenciaHumana(comprobante, id)} confirmada: {lineas.Count} variante(s) sumadas. No es ESTABLECER.";
+            _cantidadesRecepcionConfirmada = cantidadesParaEtiquetas;
+            OnPropertyChanged(nameof(EtiquetasRecepcionDisponibles));
             ResumenListo = false;
             AlmacenRecepcionPendiente.Eliminar(_servicios.RutaBaseDatos);
             _operacionId = _servicios.GeneradorIds.NuevoId();

@@ -54,7 +54,44 @@ public sealed class WpfPosTests
         using var e = await EntornoPos.CrearAsync();
         var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
         await vm.AgregarDirectaAsyncPublic(e.CodigoSinPrecio);
-        Assert.Equal("Esta variante no tiene un precio vigente.", vm.Error);
+        Assert.Equal("Esta variante no tiene precio vigente.", vm.Error);
+        Assert.Empty(vm.Filas);
+    }
+
+    [Fact]
+    public async Task Escaneo_repetido_incrementa_una_sola_fila_y_devuelve_foco()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        var foco = 0;
+        vm.SolicitarFocoBuscador += () => foco++;
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        var fila = Assert.Single(vm.Filas);
+        Assert.Equal(3, fila.Cantidad);
+        Assert.Equal(30000, vm.Total);
+        Assert.Equal(3, foco);
+    }
+
+    [Fact]
+    public async Task Codigo_inexistente_muestra_codigo_y_reinicia_el_buscador()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic("REM-999-99");
+        Assert.Equal("No encontramos el código REM-999-99.", vm.Error);
+        Assert.Empty(vm.Filas);
+        Assert.Equal(string.Empty, vm.MotorSugerencias.Texto);
+    }
+
+    [Fact]
+    public async Task Variante_sin_stock_muestra_estado_operativo_y_no_agrega()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.CodigoSinStock);
+        Assert.Equal("Sin stock disponible.", vm.Error);
         Assert.Empty(vm.Filas);
     }
 
@@ -175,10 +212,11 @@ public sealed class WpfPosTests
         public string Codigo1 { get; }
         public string Codigo2 { get; }
         public string CodigoSinPrecio { get; }
+        public string CodigoSinStock { get; }
         public string V1 { get; }
         private readonly string _dir;
 
-        private EntornoPos(string dir, ServiciosComerciales servicios, string sesion, string c1, string c2, string csp, string v1)
+        private EntornoPos(string dir, ServiciosComerciales servicios, string sesion, string c1, string c2, string csp, string css, string v1)
         {
             _dir = dir;
             Servicios = servicios;
@@ -186,6 +224,7 @@ public sealed class WpfPosTests
             Codigo1 = c1;
             Codigo2 = c2;
             CodigoSinPrecio = csp;
+            CodigoSinStock = css;
             V1 = v1;
         }
 
@@ -216,8 +255,10 @@ public sealed class WpfPosTests
             var v1 = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", null), sesion.IdSesion);
             var v2 = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "S", null), sesion.IdSesion);
             var v3 = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "L", null), sesion.IdSesion);
+            var v4 = await servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "XL", null), sesion.IdSesion);
             await servicios.CasoFijarPrecio.EjecutarAsync(v1, 10000, sesion.IdSesion);
             await servicios.CasoFijarPrecio.EjecutarAsync(v2, 12000, sesion.IdSesion);
+            await servicios.CasoFijarPrecio.EjecutarAsync(v4, 9000, sesion.IdSesion);
             await servicios.CasoCargarExistenciaInicial.EjecutarAsync(
                 new[] { new FilaCargaInicial(v1, 10), new FilaCargaInicial(v2, 7), new FilaCargaInicial(v3, 4) },
                 Guid.NewGuid().ToString("N"),
@@ -225,7 +266,8 @@ public sealed class WpfPosTests
             var c1 = (await servicios.ConsultasCatalogo.ObtenerVarianteAsync(v1, sesion.IdSesion))!.CodigoInterno;
             var c2 = (await servicios.ConsultasCatalogo.ObtenerVarianteAsync(v2, sesion.IdSesion))!.CodigoInterno;
             var c3 = (await servicios.ConsultasCatalogo.ObtenerVarianteAsync(v3, sesion.IdSesion))!.CodigoInterno;
-            return new EntornoPos(dir, servicios, sesion.IdSesion, c1, c2, c3, v1);
+            var c4 = (await servicios.ConsultasCatalogo.ObtenerVarianteAsync(v4, sesion.IdSesion))!.CodigoInterno;
+            return new EntornoPos(dir, servicios, sesion.IdSesion, c1, c2, c3, c4, v1);
         }
 
         public void Dispose()

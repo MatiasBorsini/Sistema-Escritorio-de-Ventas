@@ -271,6 +271,11 @@ public sealed class WpfCatalogoFichaTests
         Assert.Contains("establecida", (ficha.MensajeVariantes ?? "").ToLowerInvariant());
         Assert.Equal(7, ficha.Ficha!.Variantes.First(v => v.CodigoInterno == codigo).Existencias);
         Assert.Equal("", ficha.CantidadInicialTexto);
+        Assert.True(ficha.EtiquetasCargaInicialDisponibles);
+        var etiquetas = ficha.CrearEtiquetasCargaInicialViewModel();
+        await etiquetas.InicializarAsync();
+        Assert.Equal(7, Assert.Single(etiquetas.Filas).Cantidad);
+        Assert.Equal(7, (await e.Servicios.ConsultasInventario.ObtenerStockVendibleAsync(ficha.Ficha.Variantes.Single().Id, e.Sesion))!.Disponible);
     }
 
     [Fact]

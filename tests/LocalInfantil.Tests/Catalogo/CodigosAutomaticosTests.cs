@@ -212,6 +212,102 @@ public sealed class CodigosAutomaticosTests
         Assert.Equal(vid, hallada.Id);
     }
 
+    [Fact]
+    public async Task Matriz_12_combinaciones_es_atomica_secuencial_y_no_cambia_stock()
+    {
+        using var e = await Entorno.CrearAsync();
+        var prod = await e.Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Remera matriz", null, "cat-rem"), e.Sesion);
+        var combinaciones = (from talle in new[] { "4", "6", "8", "10" } from color in new[] { "Azul", "Rojo", "Negro" } select new CombinacionVariante(talle, color)).ToArray();
+        var preview = await e.Servicios.ConsultasMatrizVariantes.PrevisualizarAsync(prod, combinaciones, e.Sesion);
+        Assert.Equal(12, preview.Count);
+        Assert.Equal("REM-001-01", preview[0].CodigoInterno);
+        Assert.All(preview, p => Assert.False(p.YaExiste));
+
+        var resultado = await e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, combinaciones, e.Sesion);
+        Assert.Equal(12, resultado.CantidadCreadas);
+        var variantes = await e.Servicios.ConsultasCatalogo.ListarPorProductoAsync(prod, e.Sesion);
+        Assert.Equal(Enumerable.Range(1, 12).Select(i => $"REM-001-{i:D2}"), variantes.Select(v => v.CodigoInterno));
+        foreach (var variante in variantes)
+            Assert.Equal(0, (await e.Servicios.ConsultasInventario.ObtenerStockVendibleAsync(variante.Id, e.Sesion))!.Disponible);
+        Assert.Equal(0, (await e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, combinaciones, e.Sesion)).CantidadCreadas);
+    }
+
+    [Fact]
+    public async Task Matriz_admite_solo_talle_solo_color_y_sin_atributos()
+    {
+        using var e = await Entorno.CrearAsync();
+        var prod = await e.Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Accesorio matriz", null, "cat-acc"), e.Sesion);
+        var combinaciones = new[] { new CombinacionVariante("Único", null), new CombinacionVariante(null, "Dorado"), new CombinacionVariante(null, null) };
+        var creado = await e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, combinaciones, e.Sesion);
+        Assert.Equal(3, creado.CantidadCreadas);
+        var variantes = await e.Servicios.ConsultasCatalogo.ListarPorProductoAsync(prod, e.Sesion);
+        Assert.Contains(variantes, v => v.Talle == "Único" && v.Color is null);
+        Assert.Contains(variantes, v => v.Talle is null && v.Color == "Dorado");
+        Assert.Contains(variantes, v => v.Talle is null && v.Color is null);
+    }
+
+    [Fact]
+    public async Task Matriz_omite_duplicados_normalizados_y_es_idempotente()
+    {
+        using var e = await Entorno.CrearAsync();
+        var prod = await e.Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), e.Sesion);
+        await e.Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "4", "Azul"), e.Sesion);
+        var seleccion = new[] { new CombinacionVariante(" 4 ", " azul "), new CombinacionVariante("6", "Rojo") };
+        var preview = await e.Servicios.ConsultasMatrizVariantes.PrevisualizarAsync(prod, seleccion, e.Sesion);
+        Assert.True(preview[0].YaExiste);
+        Assert.False(preview[1].YaExiste);
+        Assert.Equal("REM-001-02", preview[1].CodigoInterno);
+
+        Assert.Equal(1, (await e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, seleccion, e.Sesion)).CantidadCreadas);
+        Assert.Equal(0, (await e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, seleccion, e.Sesion)).CantidadCreadas);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod,
+            [new("M", "Rojo"), new(" m ", " rojo ")], e.Sesion));
+    }
+
+    [Fact]
+    public async Task Fallo_en_el_medio_del_lote_revierte_variantes_auditoria_y_secuencia()
+    {
+        using var e = await Entorno.CrearAsync();
+        var prod = await e.Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), e.Sesion);
+        await using (var conexion = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = e.Ruta, Pooling = false }.ToString()))
+        {
+            await conexion.OpenAsync();
+            using var comando = conexion.CreateCommand();
+            comando.CommandText = "CREATE TRIGGER test_f11_falla BEFORE INSERT ON variante WHEN NEW.talle = 'FALLA' BEGIN SELECT RAISE(ABORT, 'fallo de prueba'); END;";
+            await comando.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsAnyAsync<Exception>(() => e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod,
+            [new("4", "Azul"), new("FALLA", "Rojo")], e.Sesion));
+        Assert.Empty(await e.Servicios.ConsultasCatalogo.ListarPorProductoAsync(prod, e.Sesion));
+        await using (var conexion = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = e.Ruta, Pooling = false }.ToString()))
+        {
+            await conexion.OpenAsync();
+            using var comando = conexion.CreateCommand(); comando.CommandText = "SELECT COUNT(*) FROM auditoria WHERE tipo_evento = 'catalogo.variante_alta';";
+            Assert.Equal(0L, Convert.ToInt64(await comando.ExecuteScalarAsync()));
+        }
+        await using (var conexion = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = e.Ruta, Pooling = false }.ToString()))
+        {
+            await conexion.OpenAsync(); using var comando = conexion.CreateCommand(); comando.CommandText = "DROP TRIGGER test_f11_falla;"; await comando.ExecuteNonQueryAsync();
+        }
+        var siguiente = await e.Servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(prod, "4", "Azul"), e.Sesion);
+        Assert.Equal("REM-001-01", (await e.Servicios.ConsultasCatalogo.ObtenerVarianteAsync(siguiente, e.Sesion))!.CodigoInterno);
+    }
+
+    [Fact]
+    public async Task Lotes_concurrentes_no_duplican_combinaciones_ni_secuencia()
+    {
+        using var e = await Entorno.CrearAsync();
+        var prod = await e.Servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), e.Sesion);
+        var combinaciones = new[] { new CombinacionVariante("4", "Azul"), new CombinacionVariante("6", "Rojo") };
+        var resultados = await Task.WhenAll(
+            e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, combinaciones, e.Sesion),
+            e.Servicios.CasoCrearVariantesBatch.EjecutarAsync(prod, combinaciones, e.Sesion));
+        Assert.Equal(2, resultados.Sum(r => r.CantidadCreadas));
+        var codigos = (await e.Servicios.ConsultasCatalogo.ListarPorProductoAsync(prod, e.Sesion)).Select(v => v.CodigoInterno).ToArray();
+        Assert.Equal(new[] { "REM-001-01", "REM-001-02" }, codigos);
+    }
+
     private sealed class Entorno : IDisposable
     {
         public ServiciosComerciales Servicios { get; }

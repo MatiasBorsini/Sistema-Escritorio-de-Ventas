@@ -33,4 +33,27 @@ public partial class FichaProductoWindow : Window
     }
 
     private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
+
+    private async void CrearPorMatriz_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not FichaProductoViewModel vm || vm.ProductoId is null) return;
+        var matriz = vm.CrearMatrizVariantesViewModel();
+        var ventana = new MatrizVariantesWindow(matriz) { Owner = this };
+        ventana.ShowDialog();
+        if (matriz.CantidadCreadas > 0) await vm.RecargarFichaAsyncPublic();
+    }
+
+    private void ImprimirEtiquetas_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not FichaProductoViewModel vm || vm.ProductoId is null) return;
+        var ventana = new EtiquetasWindow(vm.CrearEtiquetasViewModel()) { Owner = this };
+        ventana.ShowDialog();
+    }
+
+    private void ImprimirEtiquetasCarga_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not FichaProductoViewModel vm) return;
+        var ventana = new EtiquetasWindow(vm.CrearEtiquetasCargaInicialViewModel()) { Owner = this };
+        ventana.ShowDialog();
+    }
 }

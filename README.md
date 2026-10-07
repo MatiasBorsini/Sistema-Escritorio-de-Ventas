@@ -19,6 +19,8 @@ Los proyectos usan `net10.0` / `net10.0-windows` como migración controlada y ve
 
 La aplicación utiliza navegación WPF/MVVM y opera localmente. Clientes permite asociar un cliente opcional a una venta común; la venta fiada requiere un cliente activo, límite explícito y permiso efectivo. La cuenta corriente registra sus movimientos y asignaciones sin backfill de ventas históricas. Los tickets usan snapshots históricos y permanecen marcados como comprobantes internos no fiscales.
 
+F11 agrega alta de variantes por matriz, etiquetas Code128 basadas únicamente en el código interno existente y búsqueda exacta en POS compatible con lectores USB tipo teclado. Las etiquetas usan preview y el diálogo de impresión Windows; los tamaños iniciales son parámetros de desarrollo y no están calibrados para hardware del local. La impresión nunca modifica stock.
+
 La base SQLite, sus archivos WAL/SHM, respaldos, logs y secretos se mantienen fuera del repositorio. Solo para el prototipo, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`; no es una decisión de producción. La ruta definitiva de datos depende de D-13 y se resolverá antes de guardar datos reales.
 
 ## Respaldos F08 (implementación técnica; no producción)
@@ -71,6 +73,7 @@ El procedimiento de prueba manual con datos ficticios aislados está en `docs/PR
 - `Nullable` e `ImplicitUsings` están habilitados en todos los proyectos.
 - Las dependencias siguen el sentido indicado en `ESTRUCTURA.md`; WPF nunca accede a SQLite directamente.
 - El único paquete de SQLite incorporado para F00-T04 es `Microsoft.Data.Sqlite` 10.0.12; no se utiliza Entity Framework ni otro ORM.
+- F11 usa `ZXing.Net` 0.16.11 solo en Infrastructure para codificar Code128; WPF dibuja el resultado en vector. No se agregó una migración de base para barcode ni seriales.
 
 ## Estado
 

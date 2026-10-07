@@ -125,6 +125,38 @@ public sealed class WpfRecepcionDurableTests
     }
 
     [Fact]
+    public async Task Recepcion_confirmada_precarga_etiquetas_y_estas_no_cambian_el_stock()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));
+        var ruta = Path.Combine(dir, "etiquetas-recepcion.db");
+        await new MigradorBaseDatos(ruta).MigrarAsync();
+        using var e = await Entorno.CrearAsync(ruta);
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.ProveedoresGestionar, true, e.SesionDuena);
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.RecepcionConfirmar, true, e.SesionDuena);
+        var proveedor = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Proveedor de prueba"), e.SesionDuena);
+        var (producto, v1, v2) = await CrearCatalogoAsync(e);
+        var servicioUi = new ServiciosComerciales(ruta);
+        var sesionUi = await servicioUi.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.RecepcionViewModel(servicioUi, () => sesionUi.IdSesion);
+        await vm.CargarProveedoresAsync();
+        vm.ProveedorSeleccionado = vm.Proveedores.Single(p => p.Id == proveedor);
+        vm.Filas.Clear();
+        var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(producto, DateTime.UtcNow.ToString("o"), e.SesionDuena);
+        vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.Single(v => v.Id == v1).CodigoInterno, CantidadTexto = "3" });
+        vm.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha.Variantes.Single(v => v.Id == v2).CodigoInterno, CantidadTexto = "5" });
+
+        await vm.ConfirmarAsyncPublic();
+        Assert.Null(vm.Error);
+        Assert.True(vm.EtiquetasRecepcionDisponibles);
+        var etiquetas = vm.CrearEtiquetasRecepcionViewModel();
+        await etiquetas.InicializarAsync();
+        Assert.Equal(new[] { 3, 5 }, etiquetas.Filas.Select(f => f.Cantidad).OrderBy(x => x));
+        Assert.Equal(2, etiquetas.Seleccionadas.Count);
+        Assert.Equal(3, (await servicioUi.ConsultasInventario.ObtenerStockVendibleAsync(v1, sesionUi.IdSesion))!.Disponible);
+        Assert.Equal(5, (await servicioUi.ConsultasInventario.ObtenerStockVendibleAsync(v2, sesionUi.IdSesion))!.Disponible);
+    }
+
+    [Fact]
     public async Task Recuperacion_en_curso_bloquea_confirmar()
     {
         var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));

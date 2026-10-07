@@ -285,11 +285,26 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Aceptación:** instalación limpia, upgrade sin pérdida de datos, respaldo/restauración comprobados, procedimiento fiscal acordado y una jornada de prueba sin inconsistencias graves. Solo entonces habilitar producción.
 
-### F11 — Funcionalidades posteriores, NO empezar sin validar necesidad
+### F11 — Identificación física por variante
 
-- [ ] Reservas y señas con stock disponible vs. reservado y política de cancelación.
-- [ ] Códigos de barras/lector, etiquetas e impresora específica cuando se adquiera hardware.
-- [ ] Promociones adicionales, fidelización con tratamiento adecuado de datos, reportes avanzados y cualquier otro requerimiento surgido del uso real.
+- [x] **F11-A.** Crear variantes en lote desde un producto existente mediante matriz talle/color; cubrir combinaciones parciales y ausencia de atributos, normalización central, duplicados, vista previa de códigos, secuencia compartida, auditoría y transacción atómica. El lote no fija precio ni modifica stock.
+- [x] **F11-B.** Generar Code128 a partir exclusivamente del código interno de variante existente. Dependencia técnica en Infrastructure; sin columna/código alternativo ni serial individual.
+- [x] **F11-C.** Componer etiquetas vectoriales con producto, talle/color cuando existan, barras, código legible y precio vigente opcional. Medidas editables de desarrollo en milímetros; la matriz de impresión no se persiste.
+- [x] **F11-D.** Vista previa `FixedDocument`, distribución multi-etiqueta y paginación A4; diálogo genérico de impresión Windows solo tras acción explícita. Cancelar/no poder imprimir no altera stock ni operación confirmada. Accesos opcionales tras recepción/carga inicial y reimpresión desde ficha.
+- [x] **F11-E.** Resolver Enter del POS primero por código exacto, sin esperar debounce; agregar/incrementar la misma fila con precio vigente y Disponible, devolver foco y mostrar mensajes operativos para inexistente/sin precio/sin stock. Lector HID/teclado no es obligatorio.
+- [>] **F11-F.** Validación física pendiente: lector e impresora del local, calibración, tamaño y legibilidad. Hardware/Windows real aún no confirmado; no se simula ni se considera requisito para estas pruebas técnicas.
+- [ ] Funcionalidades posteriores no autorizadas por esta entrega: reservas/señas, promociones adicionales, fidelización y reportes nuevos.
+
+**Estado:** F11-A–E implementadas y verificadas técnicamente en rama aislada `feat/f11-etiquetas-codigos-batch`; F11-F permanece pendiente. F11 no se declara cerrada ni habilita producción. No se agrega migración a V1–V15 ni se modifica F10. Ver D-44 y `docs/PRUEBAS_MANUALES.md`.
+
+### F12 — Integración Mercado Pago (roadmap; futura, no iniciada)
+
+- [ ] Identificar el modelo exacto de Point/terminal disponible y verificar la API oficial vigente compatible antes de decidir la integración.
+- [ ] Desde POS, iniciar pagos y representar estados pendiente, aprobado, rechazado y cancelado; diseñar idempotencia, timeout y recuperación ante resultado incierto.
+- [ ] Conservar la referencia externa de Mercado Pago e integrar la conciliación con Caja, anulaciones y reintegros sin duplicar movimientos.
+- [ ] Definir el comportamiento degradado cuando no haya Internet y probarlo con credenciales y dispositivo reales en entorno controlado.
+
+**Estado:** futura y no iniciada. Mercado Pago no está implementado: esta entrada no agrega paquetes, endpoints ni secretos, no modifica F04/F05 y no es requisito para cerrar F11.
 
 ---
 
@@ -303,6 +318,7 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 | E3 | F06–F07 | Cambios y clientes/cuentas corrientes si se aprueban reglas | No, hasta validación final |
 | E4 | F08–F10 | Drive, restauración, reportes, actualizaciones, validación PC real | Sí, solo después del checklist de salida |
 | E5 | F11 | Ampliaciones validadas por uso real | Según cada entrega |
+| E6 | F12 | Integración Mercado Pago (roadmap; no iniciada) | No, hasta validar API, dispositivo y procedimiento operativo |
 
 **No es una estimación de fechas ni horas.** Si alguna tarea resulta demasiado grande, descomponerla conservando sus criterios de aceptación.
 
@@ -393,5 +409,6 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 | 2026-10-03 | F06 core | Núcleo implementado y publicado en `7b0dd5e231ce4f8038a165fc82f50684f8f54ed2`; T01–T04/T06/T07 completadas técnicamente; T05 bloqueada por D-05 | V12 aditiva; build Debug 0 advertencias/0 errores; suite focalizada 15/15; suite completa 369/369; ver D-39 | Capturas WPF 101–110 pendientes (`apps: []`); D-01 procedimiento fiscal externo y validación PC real pendientes; no producción |
 | 2026-10-04 | F07-T01 | Implementada y validada técnicamente en `feat/f07-clientes-cuenta-corriente`; F07 seguía parcial en ese corte | V13 aditiva; clientes/CRUD lógico, permisos efectivos, consulta paginada, asociación POS opcional, snapshot histórico en consulta/ticket y ventas/cambios en historial; build Debug 0 advertencias/0 errores; F07-T01 5/5; suite 374/374; `git diff --check` limpio | WPF manual/capturas 111–118 pendientes (`apps: []`); F00-T02 y PC real pendientes |
 | 2026-10-04 | F07-T02–T06 | Implementadas y validadas técnicamente; sin commit/push | Política D-02 aprobada (D-41); V14 aditiva y migración V13→V14 con respaldo probado; fiado parcial/total, ledger, abonos FIFO y por medio, ajustes, recibo, integración de caja/F06/anulación, permisos; build Debug 0/0; tests 386/386 (17/17 focalizados de Clientes/cuenta corriente); `git diff --check` limpio | Capturas/revisión visual manual 119–129 pendientes (`apps: []`); capturas 111–118 de T01 también pendientes; validación PC real/F00-T02 y F00-T06 pendiente; D-01 y producción NO habilitada |
+| 2026-10-06 | F11-A–E | Implementadas y verificadas técnicamente en `feat/f11-etiquetas-codigos-batch`; sin commit/push | `dotnet restore LocalInfantil.sln` correcto; build Debug 0 advertencias/0 errores; suite focalizada 41/41 y suite completa detallada 461/461 (5,3657 min); `git diff --check` limpio. Lote transaccional/idempotente, Code128 round-trip, etiquetas vectoriales A4, impresión Windows y escaneo exacto POS; sin migración V1–V15 ni cambios de stock por imprimir | Validación visual WPF no disponible (`apps: []`); probar manualmente matriz, preview/PDF/cancelación, cargas y POS con `--dev-db`; F11-F lector/impresora/calibración y PC real pendientes; producción NO habilitada |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

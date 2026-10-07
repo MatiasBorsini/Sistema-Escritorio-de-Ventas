@@ -18,6 +18,7 @@ using LocalInfantil.Infrastructure.Persistence.Repositorios;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
 using LocalInfantil.Infrastructure.Tiempo;
 using LocalInfantil.Infrastructure.Persistence.Respaldos;
+using LocalInfantil.Infrastructure.Printing;
 
 namespace LocalInfantil.Wpf.Infra;
 
@@ -45,12 +46,17 @@ public sealed class ServiciosComerciales
     public IRepositorioProductos RepoProductos { get; }
     public IRepositorioCategorias RepoCategorias { get; }
     public IRepositorioVariantes RepoVariantes { get; }
+    public IRepositorioEtiquetas RepoEtiquetas { get; }
     public IRepositorioPrecios RepoPrecios { get; }
     public IRepositorioMovimientos RepoMovimientos { get; }
     public CrearProducto CasoCrearProducto { get; }
     public EditarProducto CasoEditarProducto { get; }
     public DesactivarProducto CasoDesactivarProducto { get; }
     public CrearVariante CasoCrearVariante { get; }
+    public CrearVariantesBatch CasoCrearVariantesBatch { get; }
+    public ConsultasMatrizVariantes ConsultasMatrizVariantes { get; }
+    public ConsultasEtiquetas ConsultasEtiquetas { get; }
+    public IGeneradorCodigoBarras GeneradorCodigoBarras { get; }
     public EditarVariante CasoEditarVariante { get; }
     public DesactivarVariante CasoDesactivarVariante { get; }
     public FijarPrecio CasoFijarPrecio { get; }
@@ -122,6 +128,8 @@ public sealed class ServiciosComerciales
         RepoProductos = new RepositorioProductos(GeneradorIds);
         RepoCategorias = new RepositorioCategorias(GeneradorIds);
         RepoVariantes = new RepositorioVariantes(GeneradorIds);
+        RepoEtiquetas = new RepositorioEtiquetas();
+        GeneradorCodigoBarras = new GeneradorCodigoBarrasCode128();
         RepoPrecios = new RepositorioPrecios(GeneradorIds);
         RepoMovimientos = new RepositorioMovimientos(GeneradorIds);
         RepoProveedores = new RepositorioProveedores(GeneradorIds);
@@ -143,6 +151,9 @@ public sealed class ServiciosComerciales
         CasoEditarProducto = new EditarProducto(RepoProductos, RepoCategorias, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoDesactivarProducto = new DesactivarProducto(RepoProductos, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoCrearVariante = new CrearVariante(RepoVariantes, RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoCrearVariantesBatch = new CrearVariantesBatch(RepoVariantes, RepoProductos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        ConsultasMatrizVariantes = new ConsultasMatrizVariantes(RepoProductos, RepoVariantes, Autorizador, Fabrica);
+        ConsultasEtiquetas = new ConsultasEtiquetas(RepoEtiquetas, Gestor, Fabrica);
         CasoEditarVariante = new EditarVariante(RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoDesactivarVariante = new DesactivarVariante(RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoFijarPrecio = new FijarPrecio(RepoPrecios, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);

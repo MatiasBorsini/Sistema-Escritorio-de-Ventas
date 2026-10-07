@@ -77,6 +77,7 @@
                     </Grid>
                     <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Verificá las filas para calcular el resumen." TextWrapping="Wrap" Visibility="{Binding ResumenListo, Converter={StaticResource BoolToVisibilityInverted}, FallbackValue=Visible}"/>
                     <Button Style="{StaticResource EstiloBotonPrimario}" Content="{Binding ConfirmarTexto}" Command="{Binding ConfirmarCommand}" HorizontalAlignment="Stretch" Margin="0,8,0,0" MinHeight="{StaticResource AlturaToolbar}"/>
+                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Imprimir etiquetas de esta recepción" Click="ImprimirEtiquetas_Click" Visibility="{Binding EtiquetasRecepcionDisponibles, Converter={StaticResource BoolToVisibility}}" HorizontalAlignment="Stretch" Margin="0,6,0,0"/>
                     <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Se sumarán las unidades; el stock existente no se reemplaza." TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>

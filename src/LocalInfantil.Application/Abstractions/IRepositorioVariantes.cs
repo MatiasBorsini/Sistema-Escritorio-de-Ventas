@@ -28,4 +28,6 @@ public interface IRepositorioVariantes
     Task<IReadOnlyList<SugerenciaVariante>> BuscarSugerenciasAsync(ISesionPersistencia sesion, string texto, int limite, CancellationToken cancellationToken = default);
 
     Task<int> ObtenerSiguienteNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
+
+    Task<int> ObtenerUltimoNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
 }

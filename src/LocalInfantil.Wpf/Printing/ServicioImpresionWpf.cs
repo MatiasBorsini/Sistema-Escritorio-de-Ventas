@@ -27,7 +27,7 @@ public sealed class ServicioImpresionWpf
         }
         catch (Exception exception)
         {
-            return ResultadoEnvioImpresion.CrearError($"No se pudo enviar la impresión de prueba: {exception.Message}");
+            return ResultadoEnvioImpresion.CrearError($"No se pudo enviar el trabajo de impresión: {exception.Message}");
         }
     }
 }

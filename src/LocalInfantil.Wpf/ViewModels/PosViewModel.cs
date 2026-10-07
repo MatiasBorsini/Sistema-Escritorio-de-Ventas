@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Clientes;
 using LocalInfantil.Application.Features.CuentaCorriente;
@@ -417,19 +418,34 @@ public sealed class PosViewModel : ViewModelBase
         Error = null;
         try
         {
-            var variante = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(texto.Trim(), _idSesion());
-            if (variante is null)
+            var codigo = texto.Trim();
+            var variante = await _servicios.ConsultasCatalogo.BuscarPorCodigoInternoAsync(codigo, _idSesion());
+            if (variante is not null)
             {
-                Error = "Código interno no encontrado.";
+                await AgregarVarianteAsync(variante.Id, devolverFoco: false);
                 return;
             }
 
-            await AgregarVarianteAsync(variante.Id);
+            if (!Regex.IsMatch(codigo, "^[A-Za-z]{2,5}-[0-9]{3}-[A-Za-z0-9-]+$", RegexOptions.CultureInvariant))
+            {
+                var sugerencias = await _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(codigo, 10, _idSesion());
+                if (sugerencias.Count > 0)
+                {
+                    await AgregarVarianteAsync(sugerencias[0].VarianteId, devolverFoco: false);
+                    return;
+                }
+            }
+            Error = $"No encontramos el código {codigo}.";
         }
         catch (Exception ex) { Error = MensajeError(ex); }
+        finally
+        {
+            if (Error is not null) MotorSugerencias.EstablecerTexto(string.Empty);
+            SolicitarFocoBuscador?.Invoke();
+        }
     }
 
-    private async Task AgregarVarianteAsync(string varianteId)
+    private async Task AgregarVarianteAsync(string varianteId, bool devolverFoco = true)
     {
         if (Ocupado) return;
         Error = null; Mensaje = null; Ocupado = true;
@@ -438,7 +454,7 @@ public sealed class PosViewModel : ViewModelBase
             var variante = await _servicios.ConsultasCatalogo.ObtenerVarianteAsync(varianteId, _idSesion());
             if (variante is null || !variante.Activa)
             {
-                Error = "No hay unidades disponibles de esta variante.";
+                Error = variante is null ? "No encontramos esta variante." : "Esta variante está inactiva.";
                 return;
             }
 
@@ -447,7 +463,7 @@ public sealed class PosViewModel : ViewModelBase
             var linea = ficha?.Variantes.FirstOrDefault(v => v.Id == varianteId);
             if (linea?.PrecioMinor is null)
             {
-                Error = "Esta variante no tiene un precio vigente.";
+                Error = "Esta variante no tiene precio vigente.";
                 return;
             }
 
@@ -458,7 +474,7 @@ public sealed class PosViewModel : ViewModelBase
             if (disponible < pedidas)
             {
                 Error = disponible <= 0
-                    ? "No hay unidades disponibles de esta variante."
+                    ? "Sin stock disponible."
                     : $"Solo hay {disponible} unidades disponibles de esta variante.";
                 return;
             }
@@ -497,7 +513,7 @@ public sealed class PosViewModel : ViewModelBase
             MotorSugerencias.Limpiar();
             UltimoNumero = null;
             Mensaje = null;
-            SolicitarFocoBuscador?.Invoke();
+            if (devolverFoco) SolicitarFocoBuscador?.Invoke();
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }

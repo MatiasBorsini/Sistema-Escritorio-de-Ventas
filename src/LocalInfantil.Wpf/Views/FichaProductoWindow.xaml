@@ -95,7 +95,11 @@
                                 <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Variantes" FontSize="16"/>
                                 <TextBlock Style="{StaticResource EstiloAyuda}" Text="Gestioná talle, color, precio y stock inicial sin mezclar tareas." Margin="0,0,0,0"/>
                             </StackPanel>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="＋ Nueva variante" Command="{Binding SolicitarAltaCommand}" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="16,0,0,0"/>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Imprimir etiquetas" Click="ImprimirEtiquetas_Click" VerticalAlignment="Top" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Crear por matriz" Click="CrearPorMatriz_Click" VerticalAlignment="Top" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="＋ Nueva variante" Command="{Binding SolicitarAltaCommand}" VerticalAlignment="Top" HorizontalAlignment="Right"/>
+                            </StackPanel>
                         </DockPanel>
                         <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding ErrorVariantes}"/>
                         <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding MensajeVariantes}"/>
@@ -197,6 +201,7 @@
                                         <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Cantidad inicial"/>
                                         <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding CantidadInicialTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera mayor a cero" Margin="0,0,0,8"/>
                                         <Button Style="{StaticResource EstiloBotonPrimario}" HorizontalAlignment="Left" Content="Establecer stock inicial" Command="{Binding EstablecerStockInicialCommand}"/>
+                                        <Button Style="{StaticResource EstiloBotonSecundario}" HorizontalAlignment="Left" Content="Imprimir etiquetas de la carga" Click="ImprimirEtiquetasCarga_Click" Visibility="{Binding EtiquetasCargaInicialDisponibles, Converter={StaticResource BoolToVisibility}}" Margin="0,6,0,0"/>
                                         <TextBlock Margin="0,8,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap" Text="Usá esta operación únicamente para establecer el stock inicial. Para sumar mercadería después, usá Compras → Recepción de mercadería."/>
                                         <Border Margin="0,12,0,0" Padding="12" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.DestructiveBrush}" BorderThickness="1" CornerRadius="8">
                                             <StackPanel>

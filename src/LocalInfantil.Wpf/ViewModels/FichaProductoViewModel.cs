@@ -34,6 +34,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
     private string _precioTexto = string.Empty;
     private string _operacionIdCarga = string.Empty;
     private IReadOnlyList<FilaCargaInicial>? _ultimasFilasEnviadas;
+    private IReadOnlyDictionary<string, int>? _cantidadesCargaConfirmada;
     private string? _error;
     private string? _mensaje;
     private bool _ocupado;
@@ -75,6 +76,7 @@ public sealed class FichaProductoViewModel : ViewModelBase
     /// de edición completa aparece solo en ficha normal (no creación).
     /// </summary>
     public bool ModoCreacion { get; }
+    public bool EtiquetasCargaInicialDisponibles => _cantidadesCargaConfirmada is { Count: > 0 };
 
     /// <summary>Id creado en este wizard (para seleccionar en Catálogo al cerrar).</summary>
     public string? ProductoIdCreado => ModoCreacion ? _productoId : null;
@@ -338,6 +340,13 @@ public sealed class FichaProductoViewModel : ViewModelBase
     public AsyncRelayCommand EjecutarCargaCommand { get; }
 
     public Task InicializarAsyncPublic() => InicializarAsync();
+    public MatrizVariantesViewModel CrearMatrizVariantesViewModel()
+        => new(_servicios, _idSesion, _productoId ?? throw new InvalidOperationException("Primero guardá el producto."));
+    public EtiquetasViewModel CrearEtiquetasViewModel(IReadOnlyDictionary<string, int>? cantidadesIniciales = null)
+        => new(_servicios, _idSesion, _productoId ?? throw new InvalidOperationException("Primero guardá el producto."), cantidadesIniciales);
+    public EtiquetasViewModel CrearEtiquetasCargaInicialViewModel()
+        => new(_servicios, _idSesion, _cantidadesCargaConfirmada ?? new Dictionary<string, int>());
+    public Task RecargarFichaAsyncPublic() => RecargarFichaAsync();
     public Task GuardarDatosAsyncPublic() => GuardarDatosAsync();
     public Task CrearVarianteAsyncPublic() => CrearVarianteAsync();
     public Task EditarVarianteAsyncPublic() => EditarVarianteAsync();
@@ -579,6 +588,8 @@ public sealed class FichaProductoViewModel : ViewModelBase
         {
             await _servicios.CasoCargarExistenciaInicial.EjecutarAsync(filas, _operacionIdCarga, _idSesion());
             MensajeVariantes = $"Existencia inicial establecida: {filas.Count} variante(s). No es recepción ni suma.";
+            _cantidadesCargaConfirmada = filas.ToDictionary(f => f.VarianteId, f => (int)Math.Clamp(f.Cantidad, 0, int.MaxValue));
+            OnPropertyChanged(nameof(EtiquetasCargaInicialDisponibles));
             _operacionIdCarga = _servicios.GeneradorIds.NuevoId();
             OnPropertyChanged(nameof(OperacionIdCarga));
             _ultimasFilasEnviadas = null;

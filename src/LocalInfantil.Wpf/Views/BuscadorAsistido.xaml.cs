@@ -29,6 +29,9 @@ public partial class BuscadorAsistido : UserControl
     public static readonly DependencyProperty BusquedaDirectaCommandProperty =
         DependencyProperty.Register(nameof(BusquedaDirectaCommand), typeof(ICommand), typeof(BuscadorAsistido), new PropertyMetadata(null));
 
+    public static readonly DependencyProperty PriorizarBusquedaDirectaEnEnterProperty =
+        DependencyProperty.Register(nameof(PriorizarBusquedaDirectaEnEnter), typeof(bool), typeof(BuscadorAsistido), new PropertyMetadata(false));
+
     public BuscadorAsistido() => InitializeComponent();
 
     public MotorSugerencias<SugerenciaVariante>? Motor
@@ -55,6 +58,12 @@ public partial class BuscadorAsistido : UserControl
     {
         get => (ICommand?)GetValue(BusquedaDirectaCommandProperty);
         set => SetValue(BusquedaDirectaCommandProperty, value);
+    }
+
+    public bool PriorizarBusquedaDirectaEnEnter
+    {
+        get => (bool)GetValue(PriorizarBusquedaDirectaEnEnterProperty);
+        set => SetValue(PriorizarBusquedaDirectaEnEnterProperty, value);
     }
 
     private void AlCambiarMotor(MotorSugerencias<SugerenciaVariante>? anterior, MotorSugerencias<SugerenciaVariante>? nuevo)
@@ -107,7 +116,12 @@ public partial class BuscadorAsistido : UserControl
                 e.Handled = true;
                 break;
             case Key.Enter:
-                if (Motor.Abierto && Motor.SugerenciaActiva is not null)
+                if (PriorizarBusquedaDirectaEnEnter && BusquedaDirectaCommand?.CanExecute(Caja.Text) == true)
+                {
+                    Motor.Cerrar();
+                    BusquedaDirectaCommand.Execute(Caja.Text);
+                }
+                else if (Motor.Abierto && Motor.SugerenciaActiva is not null)
                 {
                     Confirmar(Motor.ConfirmarSeleccion());
                 }

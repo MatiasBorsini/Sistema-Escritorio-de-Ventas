@@ -309,6 +309,23 @@ public sealed class RepositorioVariantes : IRepositorioVariantes
         }
     }
 
+    public async Task<int> ObtenerUltimoNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT COALESCE((SELECT ultimo_numero FROM secuencia_variante WHERE producto_id = $producto), 0);";
+            comando.Parameters.AddWithValue("$producto", productoId);
+            return Convert.ToInt32(await comando.ExecuteScalarAsync(cancellationToken));
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static VarianteRegistrada Leer(SqliteDataReader lector)
     {
         return new VarianteRegistrada(

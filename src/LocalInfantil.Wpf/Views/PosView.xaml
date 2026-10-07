@@ -52,6 +52,7 @@
                         </DockPanel>
                         <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,4">
                             <views:BuscadorAsistido x:Name="Buscador" Width="300" Modo="Variante" Motor="{Binding MotorSugerencias}"
+                                                    PriorizarBusquedaDirectaEnEnter="True"
                                                     SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
                                                     BusquedaDirectaCommand="{Binding BuscarDirectaCommand}"
                                                     ToolTip="Código interno o nombre de producto (Enter agrega directo)"/>
