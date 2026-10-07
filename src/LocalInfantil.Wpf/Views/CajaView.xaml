@@ -66,11 +66,12 @@
                                         <TextBlock Text="{Binding EfectivoEsperadoTexto}" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}"/>
                                     </StackPanel>
                                     <Grid Grid.Row="1" Grid.ColumnSpan="4" Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0"><TextBlock Text="Transferencia" Foreground="{StaticResource Color.TextSecondaryBrush}"/><TextBlock Text="{Binding TransferenciaTexto}"/></StackPanel>
                                         <StackPanel Grid.Column="1"><TextBlock Text="Débito" Foreground="{StaticResource Color.TextSecondaryBrush}"/><TextBlock Text="{Binding DebitoTexto}"/></StackPanel>
                                         <StackPanel Grid.Column="2"><TextBlock Text="Crédito" Foreground="{StaticResource Color.TextSecondaryBrush}"/><TextBlock Text="{Binding CreditoTexto}"/></StackPanel>
                                         <StackPanel Grid.Column="3"><TextBlock Text="Billetera virtual" Foreground="{StaticResource Color.TextSecondaryBrush}"/><TextBlock Text="{Binding BilleteraTexto}"/></StackPanel>
+                                        <StackPanel Grid.Column="4"><TextBlock Text="Mercado Pago" Foreground="{StaticResource Color.TextSecondaryBrush}"/><TextBlock Text="{Binding MercadoPagoTexto}"/></StackPanel>
                                     </Grid>
                                     <StackPanel Grid.Row="2" Grid.ColumnSpan="4" Orientation="Horizontal" Margin="0,8,0,0">
                                         <TextBlock Text="Reintegros en efectivo: " Foreground="{StaticResource Color.TextSecondaryBrush}"/><TextBlock Text="{Binding ReintegrosEfectivoTexto}" FontWeight="SemiBold" Margin="0,0,18,0"/>

@@ -299,14 +299,17 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Estado:** F11-A–E implementadas y verificadas técnicamente en rama aislada `feat/f11-etiquetas-codigos-batch`; F11-F permanece pendiente. F11 no se declara cerrada ni habilita producción. No se agrega migración a V1–V15 ni se modifica F10. Ver D-44 y `docs/PRUEBAS_MANUALES.md`.
 
-### F12 — Integración Mercado Pago (roadmap; futura, no iniciada)
+### F12 — Integración Mercado Pago (implementada técnicamente; Point real pendiente)
 
-- [ ] Identificar el modelo exacto de Point/terminal disponible y verificar la API oficial vigente compatible antes de decidir la integración.
-- [ ] Desde POS, iniciar pagos y representar estados pendiente, aprobado, rechazado y cancelado; diseñar idempotencia, timeout y recuperación ante resultado incierto.
-- [ ] Conservar la referencia externa de Mercado Pago e integrar la conciliación con Caja, anulaciones y reintegros sin duplicar movimientos.
-- [ ] Definir el comportamiento degradado cuando no haya Internet y probarlo con credenciales y dispositivo reales en entorno controlado.
+- [x] **F12-T01.** Configuración segura + terminales: credencial propia en DPAPI CurrentUser (`Secrets/mercadopago_token.bin`), descubrimiento dinámico por `operating_mode` (sin modelos hardcodeados), selección persistida, activación PDV solo explícita de Dueña. Permiso `mercadopago.configurar` solo Dueña.
+- [x] **F12-T02.** Cobro Point + POS: medio `mercado_pago` (no manual directo), pagos combinados sin fiado, saga con order `point`, polling cancelable, estados visibles.
+- [x] **F12-T03.** Persistencia/reconciliación: V16 (`mercado-pago-point-f12`) con snapshot durable previo al POST, idempotency key persistida, timeout ≠ rechazo, reconciliación al arrancar.
+- [x] **F12-T04.** Caja/reportes: medio no efectivo, cierre bloqueado con pendientes, desglose F09 sin métricas inventadas.
+- [x] **F12-T05.** Cancelación/reembolsos/F06: cancel pre-processed propia, refund total/parcial durable con misma key, cobertura F06 sin refunds automáticos, anulación redirige a devolución.
+- [x] **F12-T06.** Tests (49/49 focalizados, suite 525/525) y documentación (`docs/MERCADO_PAGO.md`, D-48, manuales).
+- [>] **F12-T07.** Point/cuenta real: credencial, terminal física PDV, live tests con `LOCALINFANTIL_MP_TEST_ACCESS_TOKEN`, recorrido con dinero de prueba, PC del local.
 
-**Estado:** futura y no iniciada. Mercado Pago no está implementado: esta entrada no agrega paquetes, endpoints ni secretos, no modifica F04/F05 y no es requisito para cerrar F11.
+**Estado:** F12-T01–T06 implementadas y verificadas técnicamente en rama aislada `feat/f12-mercado-pago`; F12-T07 permanece pendiente. F12 global parcial hasta validación real. No se agrega SDK de Mercado Pago. Producción NO habilitada. Ver D-48 y `docs/MERCADO_PAGO.md`.
 
 ---
 
@@ -412,5 +415,6 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 | 2026-10-04 | F07-T01 | Implementada y validada técnicamente en `feat/f07-clientes-cuenta-corriente`; F07 seguía parcial en ese corte | V13 aditiva; clientes/CRUD lógico, permisos efectivos, consulta paginada, asociación POS opcional, snapshot histórico en consulta/ticket y ventas/cambios en historial; build Debug 0 advertencias/0 errores; F07-T01 5/5; suite 374/374; `git diff --check` limpio | WPF manual/capturas 111–118 pendientes (`apps: []`); F00-T02 y PC real pendientes |
 | 2026-10-04 | F07-T02–T06 | Implementadas y validadas técnicamente; sin commit/push | Política D-02 aprobada (D-41); V14 aditiva y migración V13→V14 con respaldo probado; fiado parcial/total, ledger, abonos FIFO y por medio, ajustes, recibo, integración de caja/F06/anulación, permisos; build Debug 0/0; tests 386/386 (17/17 focalizados de Clientes/cuenta corriente); `git diff --check` limpio | Capturas/revisión visual manual 119–129 pendientes (`apps: []`); capturas 111–118 de T01 también pendientes; validación PC real/F00-T02 y F00-T06 pendiente; D-01 y producción NO habilitada |
 | 2026-10-06 | F11-A–E | Implementadas y verificadas técnicamente en `feat/f11-etiquetas-codigos-batch`; sin commit/push | `dotnet restore LocalInfantil.sln` correcto; build Debug 0 advertencias/0 errores; suite focalizada 41/41 y suite completa detallada 461/461 (5,3657 min); `git diff --check` limpio. Lote transaccional/idempotente, Code128 round-trip, etiquetas vectoriales A4, impresión Windows y escaneo exacto POS; sin migración V1–V15 ni cambios de stock por imprimir | Validación visual WPF no disponible (`apps: []`); probar manualmente matriz, preview/PDF/cancelación, cargas y POS con `--dev-db`; F11-F lector/impresora/calibración y PC real pendientes; producción NO habilitada |
+| 2026-10-07 | F12-T01–T06 | Implementadas y verificadas técnicamente en `feat/f12-mercado-pago`; sin commit/push | Orders API sin SDK; V16 `mercado-pago-point-f12`; build Debug 0 errores/0 warnings CS; suite 525/525; focalizada F12 49/49; publish Release self-contained win-x64 por pipeline F10 (410 archivos, 145,1 MB) + instalador Inno 48.196.634 bytes; `git diff --check` limpio; saga durable/idempotente, DPAPI, `--dev-db` aislado | F12-T07 Point/cuenta real (credencial, terminal PDV, live tests, dinero de prueba); manual visual con hardware; F00-T02/PC real; producción NO habilitada |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

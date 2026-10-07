@@ -48,6 +48,9 @@
                 </Menu>
             </DockPanel>
         </Border>
+        <Border DockPanel.Dock="Top" Margin="12,8,12,0" Padding="10" Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="4" Visibility="{Binding AvisoMercadoPago, Converter={StaticResource NullToVisibility}}">
+            <TextBlock Foreground="#92400E" TextWrapping="Wrap" Text="{Binding AvisoMercadoPago}"/>
+        </Border>
         <ContentControl Content="{Binding VistaActual}"/>
     </DockPanel>
 </UserControl>

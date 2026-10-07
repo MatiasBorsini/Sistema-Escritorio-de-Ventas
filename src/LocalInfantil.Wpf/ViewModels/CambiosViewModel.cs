@@ -61,6 +61,7 @@ public sealed class CambiosViewModel : ViewModelBase
     {
         _s=s;_sesion=sesion;_puedeConsultar=puedeConsultar;_puedeRegistrar=puedeRegistrar;
         BuscarCommand=new AsyncRelayCommand(BuscarAsync); AgregarSalidaCommand=new AsyncRelayCommand(AgregarSalidaAsync); CargarCommand=new AsyncRelayCommand(CargarAsync); AgregarPagoCommand=new RelayCommand(_=>Pagos.Add(new FilaPagoCambio()));
+        ReembolsarMpCommand=new AsyncRelayCommand(ReembolsarMpAsync);
         Pagos.Add(new FilaPagoCambio());
     }
     public ObservableCollection<FilaVentaCambio> Ventas {get;}=[];
@@ -69,6 +70,14 @@ public sealed class CambiosViewModel : ViewModelBase
     public ObservableCollection<FilaPagoCambio> Pagos {get;}=[];
     public ObservableCollection<ResumenCambio> Historial {get;}=[];
     public string[] Medios {get;}=[MediosPago.Efectivo,MediosPago.Transferencia,MediosPago.Debito,MediosPago.Credito,MediosPago.Billetera];
+    public string[] MediosReintegro {get;}=[MediosPago.Efectivo,MediosPago.Transferencia,MediosPago.Debito,MediosPago.Credito,MediosPago.Billetera,MediosPago.MercadoPago];
+    public bool VentaTieneMp {get=>_ventaTieneMp;private set=>SetProperty(ref _ventaTieneMp,value);}
+    private bool _ventaTieneMp;
+    public bool AvisoReintegroMpVisible => Diferencia<0 && VentaTieneMp && MedioReintegro!=MediosPago.MercadoPago;
+    public string AvisoReintegroMp => "El pago original de Mercado Pago no será reembolsado automáticamente.";
+    public bool PuedeReembolsarMp => _reintegroMpPendiente is not null && !Ocupado;
+    private (string VentaId, long Importe)? _reintegroMpPendiente;
+    public AsyncRelayCommand ReembolsarMpCommand {get;}
     public string Filtro {get=>_filtro;set=>SetProperty(ref _filtro,value);}
     public FilaVentaCambio? Venta {get=>_venta;set{if(SetProperty(ref _venta,value)&&value is not null)_=CargarAsync();}}
     public string? Error {get=>_error;set=>SetProperty(ref _error,value);}
@@ -82,7 +91,7 @@ public sealed class CambiosViewModel : ViewModelBase
     public System.Windows.Input.ICommand AgregarPagoCommand{get;}
     public string CodigoSalida {get=>_codigoSalida;set=>SetProperty(ref _codigoSalida,value);}
     public long CantidadSalida {get=>_cantidadSalida;set=>SetProperty(ref _cantidadSalida,value);}
-    public string? MedioReintegro {get=>_medioReintegro;set{if(SetProperty(ref _medioReintegro,value))OnPropertyChanged(nameof(RequiereAutorizacionPresencial));}}
+    public string? MedioReintegro {get=>_medioReintegro;set{if(SetProperty(ref _medioReintegro,value)){OnPropertyChanged(nameof(RequiereAutorizacionPresencial));OnPropertyChanged(nameof(AvisoReintegroMpVisible));}}}
     public string Motivo {get=>_motivo;set=>SetProperty(ref _motivo,value);}
     public string UsuarioAutorizante {get=>_usuarioAutorizante;set=>SetProperty(ref _usuarioAutorizante,value);}
     public string? CambioIdReciente {get=>_cambioIdReciente;private set=>SetProperty(ref _cambioIdReciente,value);}
@@ -116,7 +125,9 @@ public sealed class CambiosViewModel : ViewModelBase
                 return result;
             }
             if (result is ResultadoCambio.DecisionCuentaRequerida or ResultadoCambio.ConfirmacionCuenta) return result;
-            var confirmado=(ResultadoCambio.Registrado)result;CambioIdReciente=confirmado.CambioId;Mensaje=$"Cambio {confirmado.Numero} registrado · {diferenciaTexto}";
+            var confirmado=(ResultadoCambio.Registrado)result;CambioIdReciente=confirmado.CambioId;Mensaje=$"Cambio {confirmado.Numero} registrado: {diferenciaTexto}";
+            if(Diferencia<0 && MedioReintegro==MediosPago.MercadoPago && Venta is not null)
+            {_reintegroMpPendiente=(Venta.Resumen.Id,-Diferencia);Mensaje+=$". Cr�dito reconocido. Reintegro por Mercado Pago pendiente: ejecutalo con Reembolsar.";OnPropertyChanged(nameof(PuedeReembolsarMp));}
             _operacionPendiente = null;
             await CargarAsync();
             return result;
@@ -130,11 +141,12 @@ public sealed class CambiosViewModel : ViewModelBase
     }
     private async Task CargarAsync()
     {
-        if(Venta is null)return;Error=null;try{Ocupado=true;var lineas=await _s.ConsultasCambios.ObtenerEntradasDisponiblesAsync(Venta.Resumen.Id,_sesion());Entradas.Clear();foreach(var item in lineas){var row=new FilaLineaCambio(item);row.PropertyChanged+=(_,_)=>ActualizarTotales();Entradas.Add(row);}var historial=await _s.ConsultasCambios.ListarAsync(Venta.Resumen.Id,_sesion());Historial.Clear();foreach(var item in historial)Historial.Add(item);ActualizarTotales();}catch(Exception ex){Error=ex.Message;}finally{Ocupado=false;}
+        if(Venta is null)return;Error=null;try{Ocupado=true;var lineas=await _s.ConsultasCambios.ObtenerEntradasDisponiblesAsync(Venta.Resumen.Id,_sesion());Entradas.Clear();foreach(var item in lineas){var row=new FilaLineaCambio(item);row.PropertyChanged+=(_,_)=>ActualizarTotales();Entradas.Add(row);}var historial=await _s.ConsultasCambios.ListarAsync(Venta.Resumen.Id,_sesion());Historial.Clear();foreach(var item in historial)Historial.Add(item);try{var ficha=await _s.ConsultasVentas.ObtenerFichaAsync(Venta.Resumen.Id,_sesion());VentaTieneMp=ficha is not null && ficha.Pagos.Any(p=>p.Medio==MediosPago.MercadoPago);}catch{VentaTieneMp=false;}ActualizarTotales();}catch(Exception ex){Error=ex.Message;}finally{Ocupado=false;}
     }
     private async Task AgregarSalidaAsync()
     {
         Error=null;try{var opcion=await _s.ConsultasCambios.ObtenerVarianteExactaAsync(CodigoSalida,_sesion());if(opcion is null){Error="No se encontró una variante activa con precio vigente para ese código.";return;}if(CantidadSalida<=0){Error="La cantidad debe ser mayor que cero.";return;}if(opcion.Disponible<CantidadSalida){Error=$"Solo hay {opcion.Disponible} unidades disponibles.";return;}var existente=Salidas.FirstOrDefault(x=>x.Opcion.VarianteId==opcion.VarianteId);if(existente is null){existente=new(opcion,CantidadSalida);existente.PropertyChanged+=(_,_)=>ActualizarTotales();Salidas.Add(existente);}else existente.Cantidad+=CantidadSalida;CodigoSalida=string.Empty;ActualizarTotales();}catch(Exception ex){Error=ex.Message;}
     }
-    private void ActualizarTotales(){OnPropertyChanged(nameof(TotalEntradas));OnPropertyChanged(nameof(TotalSalidas));OnPropertyChanged(nameof(Diferencia));OnPropertyChanged(nameof(DiferenciaTexto));OnPropertyChanged(nameof(RequiereAutorizacionPresencial));}
+    private async Task ReembolsarMpAsync(){if(Ocupado||_reintegroMpPendiente is null)return;Error=null;Mensaje=null;Ocupado=true;try{var(ventaId,importe)=_reintegroMpPendiente.Value;var ficha=await _s.ConsultasVentas.ObtenerFichaAsync(ventaId,_sesion());var pagoMp=ficha?.Pagos.FirstOrDefault(p=>p.Medio==MediosPago.MercadoPago);if(pagoMp is null){Error="La venta ya no tiene cobro de Mercado Pago.";return;}var reop=await _s.CasoReembolsarMercadoPago.EjecutarAsync(ventaId,pagoMp.Id,importe,LocalInfantil.Application.Features.Autenticacion.PermisosComerciales.ReintegroAutorizar,_sesion());await _s.CasoReembolsarMercadoPago.MarcarConfirmadoLocalAsync(reop,_sesion());_reintegroMpPendiente=null;OnPropertyChanged(nameof(PuedeReembolsarMp));Mensaje="Reintegro por Mercado Pago confirmado.";}catch(Exception ex){Error=ex.Message;}finally{Ocupado=false;}}
+    private void ActualizarTotales(){OnPropertyChanged(nameof(TotalEntradas));OnPropertyChanged(nameof(TotalSalidas));OnPropertyChanged(nameof(Diferencia));OnPropertyChanged(nameof(DiferenciaTexto));OnPropertyChanged(nameof(RequiereAutorizacionPresencial));OnPropertyChanged(nameof(AvisoReintegroMpVisible));}
 }

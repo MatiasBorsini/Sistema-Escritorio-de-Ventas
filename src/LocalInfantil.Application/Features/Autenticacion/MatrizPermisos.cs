@@ -6,6 +6,7 @@ using LocalInfantil.Application.Features.Clientes;
 using LocalInfantil.Application.Features.CuentaCorriente;
 using LocalInfantil.Application.Features.Respaldos;
 using LocalInfantil.Application.Features.Actualizaciones;
+using LocalInfantil.Application.Features.MercadoPago;
 
 namespace LocalInfantil.Application.Features.Autenticacion;
 
@@ -68,6 +69,8 @@ public sealed class MatrizPermisos
         matriz.Denegar(RolesLocal.Empleada, PermisosReportes.Caja);
         matriz.Permitir(RolesLocal.Empleada, PermisosReportes.Inventario);
         matriz.Denegar(RolesLocal.Empleada, PermisosReportes.Costos);
+        matriz.Permitir(RolesLocal.Duena, PermisosMercadoPago.Configurar);
+        matriz.Denegar(RolesLocal.Empleada, PermisosMercadoPago.Configurar);
         return matriz;
     }
 

@@ -183,6 +183,12 @@ public sealed class PosViewModel : ViewModelBase
     private readonly ServiciosComerciales _servicios;
     private readonly Func<string?> _idSesion;
     private readonly IDialogosVentas? _dialogos;
+    private readonly Application.Features.MercadoPago.IniciarCobroPoint? _iniciarCobro;
+    private readonly Application.Features.MercadoPago.ConsultarCobroPoint? _consultarCobro;
+    private readonly Application.Features.MercadoPago.CancelarCobroPoint? _cancelarCobro;
+    private Application.Features.MercadoPago.IniciarCobroPoint CasoIniciar => _iniciarCobro ?? _servicios.CasoIniciarCobroPoint;
+    private Application.Features.MercadoPago.ConsultarCobroPoint CasoConsultar => _consultarCobro ?? _servicios.CasoConsultarCobroPoint;
+    private Application.Features.MercadoPago.CancelarCobroPoint CasoCancelar => _cancelarCobro ?? _servicios.CasoCancelarCobroPoint;
     private string _operacionId;
     private string? _error;
     private string? _mensaje;
@@ -199,11 +205,14 @@ public sealed class PosViewModel : ViewModelBase
     public bool PuedeVenderFiado { get; }
     public bool PuedeConsultarCuenta { get; }
 
-    public PosViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null, bool puedeAsociarCliente = true, bool puedeVenderFiado = false, bool puedeConsultarCuenta = false)
+    public PosViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null, bool puedeAsociarCliente = true, bool puedeVenderFiado = false, bool puedeConsultarCuenta = false, Application.Features.MercadoPago.IniciarCobroPoint? iniciarCobro = null, Application.Features.MercadoPago.ConsultarCobroPoint? consultarCobro = null, Application.Features.MercadoPago.CancelarCobroPoint? cancelarCobro = null)
     {
         _servicios = servicios;
         _idSesion = idSesion;
         _dialogos = dialogos;
+        _iniciarCobro = iniciarCobro;
+        _consultarCobro = consultarCobro;
+        _cancelarCobro = cancelarCobro;
         PuedeAsociarCliente = puedeAsociarCliente;
         PuedeVenderFiado = puedeVenderFiado;
         PuedeConsultarCuenta = puedeConsultarCuenta;
@@ -227,8 +236,11 @@ public sealed class PosViewModel : ViewModelBase
         AgregarPagoCommand = new AsyncRelayCommand(AgregarPagoAsync);
         QuitarPagoCommand = new AsyncRelayCommand(QuitarPagoAsync);
         ConfirmarCommand = new AsyncRelayCommand(ConfirmarAsync);
+        CobrarEnPointCommand = new AsyncRelayCommand(CobrarEnPointAsync);
+        CancelarCobroPointCommand = new AsyncRelayCommand(CancelarCobroPointAsync);
         SolicitarCancelarCommand = new RelayCommand(_ =>
         {
+            if (CobroEnCurso) { Error = "Cancelá el cobro en curso antes de limpiar."; return; }
             if (Filas.Count == 0) return;
             Error = null; Mensaje = null;
             ConfirmacionCancelarVisible = true;
@@ -265,8 +277,41 @@ public sealed class PosViewModel : ViewModelBase
     public ObservableCollection<FilaVentaViewModel> Filas { get; }
     public ObservableCollection<FilaPagoViewModel> Pagos { get; }
 
-    /// <summary>Medios del esquema (registros manuales, sin integraciones).</summary>
-    public IReadOnlyList<string> MediosDisponibles => MediosPago.Todos;
+    /// <summary>
+    /// Medios manuales más Mercado Pago Point. MP no se confirma directo:
+    /// requiere el flujo saga (Cobrar en Point) con order processed.
+    /// </summary>
+    public IReadOnlyList<string> MediosDisponibles => MediosPago.Manuales.Concat(new[] { MediosPago.MercadoPago }).ToList();
+    public bool TieneMercadoPago => Pagos.Any(p => p.Medio == MediosPago.MercadoPago && !string.IsNullOrWhiteSpace(p.ImporteTexto));
+    public bool CobroEnCurso { get => _cobroEnCurso; private set { if (SetProperty(ref _cobroEnCurso, value)) { OnPropertyChanged(nameof(PuedeCobrarPoint)); OnPropertyChanged(nameof(PuedeCancelarCobro)); } } }
+    private bool _cobroEnCurso;
+    public string? EstadoCobroMp { get => _estadoCobroMp; private set => SetProperty(ref _estadoCobroMp, value); }
+    private string? _estadoCobroMp;
+    private string? _operacionMpId;
+    private CancellationTokenSource? _pollCts;
+
+    /// <summary>
+    /// Habilita Cobrar en Point: carrito válido, Σ medios == total, sin
+    /// fiado, una fila MP con importe, sin cobro en curso.
+    /// </summary>
+    public bool PuedeCobrarPoint
+    {
+        get
+        {
+            if (CobroEnCurso || Ocupado || Filas.Count == 0 || Total <= 0 || EsFiado) return false;
+            var filasPago = Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)).ToArray();
+            if (filasPago.Length == 0) return false;
+            if (filasPago.Count(p => p.Medio == MediosPago.MercadoPago) != 1) return false;
+            foreach (var p in filasPago)
+            {
+                if (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0) return false;
+                if (p.EsEfectivo && (!p.RecibidoMinor.HasValue || p.RecibidoMinor < p.ImporteMinor)) return false;
+            }
+            return Pagado == Total;
+        }
+    }
+
+    public bool PuedeCancelarCobro => CobroEnCurso;
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
     public string? Mensaje { get => _mensaje; set => SetProperty(ref _mensaje, value); }
     public bool Ocupado { get => _ocupado; set => SetProperty(ref _ocupado, value); }
@@ -312,6 +357,8 @@ public sealed class PosViewModel : ViewModelBase
     public AsyncRelayCommand AgregarPagoCommand { get; }
     public AsyncRelayCommand QuitarPagoCommand { get; }
     public AsyncRelayCommand ConfirmarCommand { get; }
+    public AsyncRelayCommand CobrarEnPointCommand { get; }
+    public AsyncRelayCommand CancelarCobroPointCommand { get; }
     public RelayCommand SolicitarCancelarCommand { get; }
     public RelayCommand CancelarCancelarCommand { get; }
     public RelayCommand ConfirmarCancelarCommand { get; }
@@ -396,6 +443,8 @@ public sealed class PosViewModel : ViewModelBase
         OnPropertyChanged(nameof(Restante));
         OnPropertyChanged(nameof(VueltoTotal));
         OnPropertyChanged(nameof(PuedeConfirmar));
+        OnPropertyChanged(nameof(TieneMercadoPago));
+        OnPropertyChanged(nameof(PuedeCobrarPoint));
         OnPropertyChanged(nameof(DeudaNuevaMinor));
         OnPropertyChanged(nameof(SaldoPosteriorMinor));
         OnPropertyChanged(nameof(DisponibleCreditoMinor));
@@ -447,8 +496,9 @@ public sealed class PosViewModel : ViewModelBase
 
     private async Task AgregarVarianteAsync(string varianteId, bool devolverFoco = true)
     {
-        if (Ocupado) return;
-        Error = null; Mensaje = null; Ocupado = true;
+        if (Ocupado || CobroEnCurso) return;
+        Error = null; Mensaje = null;
+        if (TieneMercadoPago) { Error = "El medio Mercado Pago se cobra con Cobrar en Point."; return; } Ocupado = true;
         try
         {
             var variante = await _servicios.ConsultasCatalogo.ObtenerVarianteAsync(varianteId, _idSesion());
@@ -540,8 +590,9 @@ public sealed class PosViewModel : ViewModelBase
 
     private async Task ConfirmarAsync()
     {
-        if (Ocupado) return;
+        if (Ocupado || CobroEnCurso) return;
         Error = null; Mensaje = null;
+        if (TieneMercadoPago) { Error = "El medio Mercado Pago se cobra con Cobrar en Point."; return; }
         if (Filas.Count == 0) { Error = "El carrito está vacío."; return; }
         var lineas = new List<NuevaLineaVenta>();
         foreach (var f in Filas)
@@ -602,8 +653,145 @@ public sealed class PosViewModel : ViewModelBase
         finally { Ocupado = false; }
     }
 
+    /// <summary>
+    /// Cobro Point con saga durable: una sola operación lógica aunque haya
+    /// doble click/Enter (CobroEnCurso se activa antes del primer await).
+    /// Polling moderado y cancelable; timeout ≠ rechazo.
+    /// </summary>
+    private async Task CobrarEnPointAsync()
+    {
+        if (Ocupado || CobroEnCurso) return;
+        Error = null; Mensaje = null; EstadoCobroMp = null;
+        if (!PuedeCobrarPoint) { Error = "Revisá el carrito y los medios antes de cobrar en Point."; return; }
+        var lineas = Filas.Select(f => new NuevaLineaVenta(f.VarianteId, f.Cantidad, f.PrecioUnitarioMinor)).ToList();
+        var pagos = new List<NuevoPago>();
+        foreach (var p in Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)))
+        {
+            if (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0) { Error = "Revisá los importes de los pagos."; return; }
+            pagos.Add(new NuevoPago(p.Medio, p.ImporteMinor.Value, p.EsEfectivo ? p.RecibidoMinor : null));
+        }
+
+        CobroEnCurso = true;
+        Ocupado = true;
+        EstadoCobroMp = "Enviando cobro…";
+        _pollCts = new CancellationTokenSource();
+        try
+        {
+            _operacionMpId = await CasoIniciar.EjecutarAsync(lineas, pagos, _idSesion(), _pollCts.Token);
+            await EsperarCobroAsync(_pollCts.Token);
+        }
+        catch (OperationCanceledException) when (_pollCts?.IsCancellationRequested == true)
+        {
+            EstadoCobroMp = "Cobro cancelado. La versión actual sigue sin cambios.";
+        }
+        catch (Exception ex)
+        {
+            Error = MensajeError(ex);
+            EstadoCobroMp = null;
+        }
+        finally
+        {
+            CobroEnCurso = false;
+            Ocupado = false;
+            _pollCts?.Dispose();
+            _pollCts = null;
+        }
+    }
+
+    private async Task EsperarCobroAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            var operacion = await CasoConsultar.EjecutarAsync(_operacionMpId!, _idSesion(), ct);
+            EstadoCobroMp = operacion.EstadoLocal switch
+            {
+                Application.Contracts.EstadosLocalesMp.EsperandoTerminal => operacion.EstadoMp == Application.Contracts.EstadosOrdenMp.AtTerminal
+                    ? "Esperando pago en Point…"
+                    : "Enviando cobro…",
+                Application.Contracts.EstadosLocalesMp.ProcesadaRemota or Application.Contracts.EstadosLocalesMp.ConfirmandoLocal => "Pago aprobado. Confirmando venta…",
+                Application.Contracts.EstadosLocalesMp.RequiereConciliacion => "Verificando el estado del cobro…",
+                _ => EstadoCobroMp,
+            };
+            switch (operacion.EstadoLocal)
+            {
+                case Application.Contracts.EstadosLocalesMp.Confirmada:
+                    await CerrarCobroExitosoAsync(operacion.OperacionId, ct);
+                    return;
+                case Application.Contracts.EstadosLocalesMp.Fallida:
+                    Error = "Pago rechazado. No se registró venta.";
+                    EstadoCobroMp = null;
+                    _operacionMpId = null;
+                    return;
+                case Application.Contracts.EstadosLocalesMp.Cancelada:
+                    Mensaje = "Cobro cancelado. No se registró venta.";
+                    EstadoCobroMp = null;
+                    _operacionMpId = null;
+                    return;
+                case Application.Contracts.EstadosLocalesMp.Expirada:
+                    Error = "El cobro expiró. No se registró venta.";
+                    EstadoCobroMp = null;
+                    _operacionMpId = null;
+                    return;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(3), ct);
+        }
+    }
+
+    private async Task CerrarCobroExitosoAsync(string operacionId, CancellationToken ct)
+    {
+        var venta = await _servicios.ConsultasVentas.BuscarPorOperacionAsync(operacionId, _idSesion());
+        UltimoNumero = venta?.Numero;
+        UltimoTotal = venta?.TotalMinor;
+        Mensaje = venta is null ? "Venta confirmada." : $"Venta {venta.Numero} confirmada.";
+        EstadoCobroMp = "Pago aprobado.";
+        _operacionMpId = null;
+        Filas.Clear();
+        ClienteSeleccionado = null;
+        EsFiado = false;
+        Pagos.Clear();
+        Pagos.Add(new FilaPagoViewModel());
+        _operacionId = _servicios.GeneradorIds.NuevoId();
+        OnPropertyChanged(nameof(OperacionId));
+        NotificarTotales();
+        SolicitarFocoBuscador?.Invoke();
+    }
+
+    private async Task CancelarCobroPointAsync()
+    {
+        if (!CobroEnCurso || _operacionMpId is null)
+        {
+            _pollCts?.Cancel();
+            return;
+        }
+
+        try
+        {
+            var operacion = await CasoCancelar.EjecutarAsync(_operacionMpId, _idSesion());
+            if (operacion.EstadoLocal == Application.Contracts.EstadosLocalesMp.Cancelada)
+            {
+                Mensaje = "Cobro cancelado. No se registró venta.";
+                EstadoCobroMp = null;
+                _operacionMpId = null;
+            }
+            else
+            {
+                EstadoCobroMp = "Verificando el estado del cobro…";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = ex.Message;
+        }
+        finally
+        {
+            _pollCts?.Cancel();
+        }
+    }
+
     private void LimpiarVenta()
     {
+        if (CobroEnCurso) { Error = "Cancelá el cobro en curso antes de limpiar."; return; }
         Filas.Clear();
         ClienteSeleccionado = null;
         EsFiado = false; Vencimiento = null; SaldoClienteMinor = null; LimiteClienteMinor = null;

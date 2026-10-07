@@ -472,3 +472,22 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
   5. No se añade migración: V15 permanece como última versión de schema. D-01/D-03, D-13, PC real, Drive real y aprobación de producción siguen pendientes.
 
 - Evidencia técnica al 2026-10-07: restore serial y build Debug estándar completaron con concurrencia limitada; NU1900 indica que el entorno no pudo consultar `https://api.nuget.org/v3/index.json` para auditoría de vulnerabilidades. Build estándar: 0 errores con advertencias NU1900; build final `--no-restore`: 0 errores/8 advertencias (3 NU1900 y 5 warnings nullable/analyzers preexistentes en tests de reportes). Suite detallada completa: 476/476 (4,7494 min); subconjuntos focalizados F10 15/15 y F11 (barcode/lotes/POS) 39/39. Publicación Release self-contained win-x64: 410 archivos, 151.798.645 bytes; instalador Inno Setup 6.7.3 generado correctamente: 48.148.989 bytes. Escaneo de publicación: cero bases, backups, símbolos y secretos; SQLite, ZXing y libsodium presentes. La ejecución de proceso WPF aislada con `--dev-db` no fue inspección visual. No se probaron instalación limpia, upgrade ni uninstall en un perfil aislado; ver `docs/PRUEBAS_MANUALES.md`.
+
+## D-48 - F12: Mercado Pago Point con Orders API, saga durable e integracion propia
+
+- Estado: implementacion tecnica en `feat/f12-mercado-pago`; Point/cuenta real pendientes (F12-T07); produccion NO habilitada.
+- Fecha: 2026-10-07.
+- Fuente: autorizacion F12 y documentacion oficial vigente de Mercado Pago Point / Orders API.
+- Decisiones:
+  1. Integracion propia inicial con Orders API (`POST /v1/orders`, `type: "point"`); sin SDK y sin Payment Intents legacy para una integracion nueva.
+  2. Descubrimiento dinamico de terminales (`GET /terminals/v1/list` paginado); la compatibilidad la define `operating_mode=PDV`, sin hardcodear modelos (NEWLAND/PAX/etc. no existen en el codigo).
+  3. Modo PDV solo por accion explicita de Duena (`PATCH /terminals/v1/setup`); `terminal_not_allowed_action` es mensaje humano, nunca cambio automatico.
+  4. Saga durable con snapshot relacional previo al POST e idempotency key persistida; timeout != rechazo; solo `processed` habilita confirmacion local idempotente (mismo `operacion_id`).
+  5. Medio `mercado_pago` no efectivo y no manual directo; combinados sin fiado; cierre bloqueado con pendientes; F09 lo desglosa sin metricas inventadas.
+  6. Cancelacion pre-processed sobre orders propias; reembolso total/parcial con intencion durable y misma key; F06 con cobertura y sin refunds automaticos; anulacion con MP redirige a devolucion.
+  7. Access Token propio en DPAPI CurrentUser (`Secrets/mercadopago_token.bin`); config no secreta fuera de la DB; `--dev-db` aislado; permiso `mercadopago.configurar` solo Duena.
+  8. Sin webhook (desktop sin backend): polling temporal + reconciliacion al arrancar; degradacion offline sin bloquear el resto.
+  9. OAuth Authorization Code queda como requisito documentado para una futura comercializacion a terceros; el `client_secret` no va en el desktop.
+  10. Migracion V16 (`mercado-pago-point-f12`); ultima version de schema pasa a V16.
+
+- Evidencia tecnica al 2026-10-07: build Debug 0 errores/0 warnings CS; suite 525/525; focalizada F12 49/49. Publicacion Release self-contained win-x64 por pipeline F10 (410 archivos, 145,1 MB) + instalador 48.196.634 bytes, sin DB/configs/secretos. Point/cuenta real pendientes; ver `docs/MERCADO_PAGO.md` y `docs/PRUEBAS_MANUALES.md`.

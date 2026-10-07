@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Features.Autenticacion;
 using LocalInfantil.Application.Features.Caja;
@@ -12,7 +13,9 @@ using LocalInfantil.Application.Features.Cambios;
 using LocalInfantil.Application.Features.Clientes;
 using LocalInfantil.Application.Features.CuentaCorriente;
 using LocalInfantil.Application.Features.Actualizaciones;
+using LocalInfantil.Application.Features.MercadoPago;
 using LocalInfantil.Application.Features.Respaldos;
+using LocalInfantil.Infrastructure.MercadoPago;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
 using LocalInfantil.Infrastructure.Persistence.Repositorios;
@@ -109,6 +112,17 @@ public sealed class ServiciosComerciales
     public ConsultasCuentaCorriente ConsultasCuentaCorriente { get; }
     public IRepositorioReportes RepoReportes { get; }
     public ConsultasReportes ConsultasReportes { get; }
+    public IRepositorioMercadoPago RepoMercadoPago { get; }
+    public IMercadoPagoCredencialProvider CredencialMercadoPago { get; }
+    public IAlmacenConfigMercadoPago ConfigMercadoPagoStore { get; }
+    public IMercadoPagoPointClient ClienteMercadoPago { get; }
+    public DescubrirTerminales CasoDescubrirTerminales { get; }
+    public ConfigurarMercadoPago CasoConfigurarMercadoPago { get; }
+    public IniciarCobroPoint CasoIniciarCobroPoint { get; }
+    public ConsultarCobroPoint CasoConsultarCobroPoint { get; }
+    public CancelarCobroPoint CasoCancelarCobroPoint { get; }
+    public ReembolsarMercadoPago CasoReembolsarMercadoPago { get; }
+    public ReconciliarMercadoPago CasoReconciliarMercadoPago { get; }
     public ConfigurarLimiteCredito CasoConfigurarLimiteCredito { get; }
     public RegistrarAbono CasoRegistrarAbono { get; }
     public AjustarCuentaCorriente CasoAjustarCuentaCorriente { get; }
@@ -182,6 +196,7 @@ public sealed class ServiciosComerciales
         RepoCambios = new RepositorioCambios(GeneradorIds);
         RepoClientes = new RepositorioClientes(GeneradorIds);
         RepoCuentaCorriente = new RepositorioCuentaCorriente(GeneradorIds);
+        RepoMercadoPago = new RepositorioMercadoPago(GeneradorIds);
         CasoCrearCliente = new CrearCliente(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoEditarCliente = new EditarCliente(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoDesactivarCliente = new DesactivarCliente(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
@@ -193,18 +208,43 @@ public sealed class ServiciosComerciales
         CasoGenerarTicketAbono = new GenerarTicketAbono(Autorizador, Fabrica, RepoCuentaCorriente);
         CasoAbrirCaja = new AbrirCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoRegistrarMovimientoCaja = new RegistrarMovimientoCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
-        CasoCerrarCaja = new CerrarCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
+        CasoCerrarCaja = new CerrarCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj, RepoMercadoPago);
         ConsultasCaja = new ConsultasCaja(RepoCaja, Autorizador, Fabrica);
         CasoCorregirMedioPago = new CorregirMedioPago(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoConfirmarVenta = new ConfirmarVenta(RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoPagos, Autorizador, Fabrica, RepoAuditoria, RepoCaja, GeneradorIds, Reloj, RepoClientes, RepoCuentaCorriente, AutorizadorEnSesion);
         CasoAnularVenta = new AnularVenta(RepoVentas, RepoMovimientos, RepoCaja, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj, RepoCambios, RepoCuentaCorriente);
         ConsultasVentas = new ConsultasVentas(RepoVentas, RepoPagos, Gestor, Fabrica);
         CasoGenerarTicket = new GenerarTicketVenta(ConsultasVentas);
-        CasoRegistrarCambio = new RegistrarCambio(RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj, RepoCuentaCorriente);
+        CasoRegistrarCambio = new RegistrarCambio(RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj, RepoCuentaCorriente, RepoPagos, RepoMercadoPago);
         ConsultasCambios = new ConsultasCambios(Autorizador, Fabrica, RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, Reloj);
         CasoGenerarTicketCambio = new GenerarTicketCambio(Autorizador, Fabrica, RepoCambios);
         RepoReportes = new RepositorioReportes();
         ConsultasReportes = new ConsultasReportes(RepoReportes, RepoCaja, Autorizador, Fabrica);
+        var dirSecretosMp = DirSecretosMercadoPago(RutaBaseDatos);
+        CredencialMercadoPago = new CredencialPropiaDpapi(dirSecretosMp);
+        ConfigMercadoPagoStore = new AlmacenConfigMercadoPago(dirSecretosMp);
+        var httpMp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        ClienteMercadoPago = new MercadoPagoPointClient(httpMp);
+        CasoDescubrirTerminales = new DescubrirTerminales(CredencialMercadoPago, ClienteMercadoPago, Autorizador);
+        CasoConfigurarMercadoPago = new ConfigurarMercadoPago(CredencialMercadoPago, ConfigMercadoPagoStore, ClienteMercadoPago, Autorizador, RepoAuditoria, Fabrica, GeneradorIds, Reloj);
+        CasoIniciarCobroPoint = new IniciarCobroPoint(RepoMercadoPago, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, CredencialMercadoPago, ConfigMercadoPagoStore, ClienteMercadoPago, Autorizador, Fabrica, GeneradorIds, Reloj);
+        CasoConsultarCobroPoint = new ConsultarCobroPoint(RepoMercadoPago, RepoVentas, CasoConfirmarVenta, CredencialMercadoPago, ClienteMercadoPago, Fabrica, Reloj);
+        CasoCancelarCobroPoint = new CancelarCobroPoint(RepoMercadoPago, CredencialMercadoPago, ClienteMercadoPago, Fabrica, Reloj);
+        CasoReembolsarMercadoPago = new ReembolsarMercadoPago(RepoMercadoPago, RepoVentas, RepoPagos, CredencialMercadoPago, ClienteMercadoPago, Autorizador, Fabrica, GeneradorIds, Reloj);
+        CasoReconciliarMercadoPago = new ReconciliarMercadoPago(RepoMercadoPago, CasoConsultarCobroPoint, CredencialMercadoPago, ClienteMercadoPago, Fabrica, Reloj, CasoReembolsarMercadoPago);
+    }
+
+    /// <summary>
+    /// Secretos MP junto a la DB en uso: en producción van a Secrets/
+    /// productivos; con --dev-db van junto a la DB temporal y NUNCA tocan
+    /// la credencial productiva.
+    /// </summary>
+    private static string DirSecretosMercadoPago(string rutaBaseDatos)
+    {
+        var dir = Path.GetDirectoryName(Path.GetFullPath(rutaBaseDatos))!;
+        if (dir.Equals(LocalInfantil.Infrastructure.Persistence.Sqlite.RutaBaseDatosProductiva.ObtenerDirDatos(), StringComparison.OrdinalIgnoreCase))
+            return LocalInfantil.Infrastructure.Persistence.Sqlite.RutaBaseDatosProductiva.ObtenerDirSecretos();
+        return Path.Combine(dir, "Secrets");
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =
@@ -231,5 +271,6 @@ public sealed class ServiciosComerciales
         .. PermisosCaja.Todos,
         .. PermisosRespaldos.Todos,
         .. PermisosReportes.Todos,
+        .. PermisosMercadoPago.Todos,
     ];
 }

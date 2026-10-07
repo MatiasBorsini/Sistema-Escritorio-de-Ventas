@@ -17,6 +17,7 @@
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
         <infra:MinorToArsConverter x:Key="MinorToArs"/>
         <infra:MinorConSignoToArsConverter x:Key="MinorConSignoToArs"/>
+        <infra:MedioPagoAEtiquetaConverter x:Key="MedioAEtiqueta"/>
         <infra:CeroVisibleConverter x:Key="CeroVisible"/>
         <infra:CajaTextoHumanoConverter x:Key="CajaTextoHumano"/>
         <DataTemplate DataType="{x:Type viewModels:InicioViewModel}">
@@ -93,6 +94,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:ActualizacionesViewModel}">
             <views:ActualizacionesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ConfiguracionMercadoPagoViewModel}">
+            <views:ConfiguracionMercadoPagoView />
         </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>

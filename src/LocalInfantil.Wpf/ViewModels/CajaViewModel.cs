@@ -65,6 +65,7 @@ public sealed class CajaViewModel : ViewModelBase
         new(MediosCaja.Debito, "Débito"),
         new(MediosCaja.Credito, "Crédito"),
         new(MediosCaja.Billetera, "Billetera virtual"),
+        new(MediosPago.MercadoPago, "Mercado Pago Point"),
     ];
 
     public ICommand AbrirCommand { get; }
@@ -143,6 +144,7 @@ public sealed class CajaViewModel : ViewModelBase
     public string DebitoTexto => FormatearImporte(SumaMedio(MediosCaja.Debito));
     public string CreditoTexto => FormatearImporte(SumaMedio(MediosCaja.Credito));
     public string BilleteraTexto => FormatearImporte(SumaMedio(MediosCaja.Billetera));
+    public string MercadoPagoTexto => FormatearImporte(SumaMedio(MediosPago.MercadoPago));
     public bool EnlaceCategoriaPropietarioVisible => CategoriaSeleccionada?.Valor == CategoriasMovimientoCaja.RetiroPropietario && !PuedeRetirar;
 
     public async Task CargarAsyncPublic() => await CargarAsync();

@@ -154,6 +154,21 @@ public sealed class AppRootViewModel : ViewModelBase
                 permisosReportes.Contains(LocalInfantil.Application.Features.Reportes.PermisosReportes.Caja),
                 permisosReportes.Contains(LocalInfantil.Application.Features.Reportes.PermisosReportes.Inventario))
             : null;
+        var permisosMp = await _servicios.Autorizador.ObtenerPermisosEfectivosAsync(Sesion.IdSesion, LocalInfantil.Application.Features.MercadoPago.PermisosMercadoPago.Todos);
+        ConfiguracionMercadoPagoViewModel? configMp = permisosMp.Contains(LocalInfantil.Application.Features.MercadoPago.PermisosMercadoPago.Configurar)
+            ? new ConfiguracionMercadoPagoViewModel(_servicios, () => Sesion.IdSesion)
+            : null;
+        if (configMp is not null) await configMp.CargarAsync();
+        string? avisoMp = null;
+        try
+        {
+            var reconciliacion = await _servicios.CasoReconciliarMercadoPago.EjecutarAsync(Sesion.IdSesion);
+            if (reconciliacion.PendientesDeVerificar > 0)
+                avisoMp = reconciliacion.HayInternet
+                    ? "Hay un cobro de Mercado Pago pendiente de verificar."
+                    : "Hay un cobro de Mercado Pago pendiente de verificar. Revisá la conexión.";
+        }
+        catch { }
         var resumenInicio = await _servicios.ConsultasInicio.ObtenerAsync(Sesion.IdSesion);
         var permisosActualizaciones = await _servicios.Autorizador.ObtenerPermisosEfectivosAsync(Sesion.IdSesion, [LocalInfantil.Application.Features.Actualizaciones.PermisosActualizaciones.Instalar]);
         var actualizaciones = new ActualizacionesViewModel(_servicios, () => Sesion.IdSesion, _esProduccion,
@@ -162,11 +177,11 @@ public sealed class AppRootViewModel : ViewModelBase
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones);
+            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones, configMp, avisoMp);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones);
+            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones, avisoMp);
         }
     }
 }
@@ -193,6 +208,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public RespaldosViewModel? Respaldos { get; }
     public ReportesViewModel? Reportes { get; }
     public ActualizacionesViewModel? Actualizaciones { get; }
+    public ConfiguracionMercadoPagoViewModel? ConfigMercadoPago { get; private set; }
+    public string? AvisoMercadoPago { get; private set; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
     public string VersionApp => "Versión " + Infra.VersionAplicacion.Obtener();
@@ -202,9 +219,11 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     {
     }
 
-    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null)
+    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null, ConfiguracionMercadoPagoViewModel? configMp = null, string? avisoMp = null)
     {
         Sesion = sesion;
+        ConfigMercadoPago = configMp;
+        AvisoMercadoPago = avisoMp;
         Administracion = admin;
         Catalogo = catalogo;
         Proveedores = prov;
@@ -292,6 +311,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public RespaldosViewModel? Respaldos { get; }
     public ReportesViewModel? Reportes { get; }
     public ActualizacionesViewModel? Actualizaciones { get; }
+    public string? AvisoMercadoPago { get; private set; }
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
     public string VersionApp => "Versión " + Infra.VersionAplicacion.Obtener();
@@ -301,9 +321,10 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     {
     }
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null, string? avisoMp = null)
     {
         Sesion = sesion;
+        AvisoMercadoPago = avisoMp;
         Catalogo = catalogo;
         Proveedores = prov;
         Recepcion = rec;

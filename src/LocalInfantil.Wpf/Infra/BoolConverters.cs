@@ -111,6 +111,7 @@ public sealed class CajaTextoHumanoConverter : IValueConverter
             MediosCaja.Debito => "Débito",
             MediosCaja.Credito => "Crédito",
             MediosCaja.Billetera => "Billetera virtual",
+            MediosPago.MercadoPago => "Mercado Pago",
             "abierta" => "Abierta",
             "cerrada" => "Cerrada",
             "venta" => "Venta",

@@ -1,0 +1,60 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.ConfiguracionMercadoPagoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel MaxWidth="640">
+        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Mercado Pago" />
+        <TextBlock Margin="0,4,0,0" Foreground="#4B5563" TextWrapping="Wrap"
+                   Text="Cobro con Point integrado. La credencial queda protegida en este equipo y nunca se muestra." />
+
+        <Border Margin="0,14,0,0" Padding="12" Background="#F9FAFB" BorderBrush="#D1D5DB" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock FontWeight="SemiBold" Text="Estado" />
+                <TextBlock Grid.Column="1" Text="{Binding EstadoTexto}" />
+                <TextBlock Grid.Row="1" FontWeight="SemiBold" Text="Terminal" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TerminalTexto}" />
+                <TextBlock Grid.Row="2" FontWeight="SemiBold" Text="Modo" />
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ModoTexto}" />
+                <TextBlock Grid.Row="3" FontWeight="SemiBold" Text="Sucursal/caja" />
+                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SucursalTexto}" />
+                <TextBlock Grid.Row="4" FontWeight="SemiBold" Text="Última comprobación" />
+                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding UltimaComprobacionTexto}" />
+            </Grid>
+        </Border>
+
+        <TextBlock Margin="0,12,0,4" FontWeight="SemiBold" Text="Credencial" />
+        <StackPanel Orientation="Horizontal">
+            <PasswordBox x:Name="CajaCredencial" Width="300" />
+            <Button Width="200" Margin="8,0,0,0" Content="Conectar / cambiar" Command="{Binding ConectarCommand}" />
+        </StackPanel>
+
+        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+            <Button Width="160" Content="Buscar terminales" Command="{Binding BuscarTerminalesCommand}" />
+            <Button Width="160" Margin="8,0,0,0" Content="Seleccionar" Command="{Binding SeleccionarCommand}" />
+            <Button Width="170" Margin="8,0,0,0" Content="Activar modo integrado" Command="{Binding ActivarModoCommand}" IsEnabled="{Binding PuedeActivarModo}" />
+        </StackPanel>
+        <ComboBox Margin="0,8,0,0" ItemsSource="{Binding Terminales}" SelectedItem="{Binding TerminalSeleccionada}" DisplayMemberPath="Id" />
+        <TextBlock Margin="0,4,0,0" Foreground="#4B5563" TextWrapping="Wrap"
+                   Text="Si la terminal no está en modo integrado, activalo antes de cobrar." />
+
+        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+            <Button Width="160" Content="Probar conexión" Command="{Binding ProbarCommand}" />
+            <Button Width="160" Margin="8,0,0,0" Content="Desconectar" Command="{Binding DesconectarCommand}" />
+        </StackPanel>
+
+        <TextBlock Margin="0,8,0,0" Foreground="#047857" TextWrapping="Wrap" Text="{Binding Mensaje}" />
+        <TextBlock Margin="0,8,0,0" Foreground="#B91C1C" TextWrapping="Wrap" Text="{Binding Error}" />
+        <TextBlock Margin="0,8,0,0" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap"
+                   Text="{Binding TerminalDetalle}" ToolTip="Detalle técnico para soporte" />
+    </StackPanel>
+</UserControl>

@@ -21,6 +21,8 @@ La aplicación utiliza navegación WPF/MVVM y opera localmente. Clientes permite
 
 F11 agrega alta de variantes por matriz, etiquetas Code128 basadas únicamente en el código interno existente y búsqueda exacta en POS compatible con lectores USB tipo teclado. Las etiquetas usan preview y el diálogo de impresión Windows; los tamaños iniciales son parámetros de desarrollo y no están calibrados para hardware del local. La impresión nunca modifica stock.
 
+F12 agrega cobro con Mercado Pago Point (modo PDV) por Orders API, sin SDK: descubrimiento dinámico de terminales (sin modelos hardcodeados), saga durable con idempotency key, reconciliación al arrancar, medio `mercado_pago` no efectivo y reembolsos con intención durable. La credencial propia va en DPAPI CurrentUser (`Secrets/mercadopago_token.bin`), nunca en SQLite ni en el repo; `--dev-db` usa secretos aislados. Solo Dueña configura; se requiere cuenta/terminal real pendiente (F12-T07). Ver [D-48](docs/DECISIONES.md) y [docs/MERCADO_PAGO.md](docs/MERCADO_PAGO.md). Producción NO habilitada.
+
 Sin argumentos, la aplicación de preproducción resuelve `%LOCALAPPDATA%\LocalInfantil\Data\localinfantil.db`; desarrollo requiere `--dev-db <ruta>` y diagnóstico histórico requiere `--prototype` explícito. Nunca se abre Prototype automáticamente. Aunque la ruta productiva de arranque está implementada, D-13 sigue pendiente como decisión definitiva y no se autoriza cargar datos reales. DB, WAL/SHM, respaldos, secretos y updates permanecen fuera del repositorio y del directorio de instalación.
 
 ## Respaldos F08 (implementación técnica; no producción)

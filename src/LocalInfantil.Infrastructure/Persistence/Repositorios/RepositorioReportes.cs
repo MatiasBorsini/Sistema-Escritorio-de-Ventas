@@ -212,7 +212,7 @@ public sealed class RepositorioReportes : IRepositorioReportes
                        COALESCE(v.ventas, 0), COALESCE(a.abonos, 0), COALESCE(cc.cobros, 0), COALESCE(r.reintegros, 0),
                        COALESCE(v.ventas, 0) + COALESCE(a.abonos, 0) + COALESCE(cc.cobros, 0) - COALESCE(r.reintegros, 0),
                        COALESCE(v.corregido, 0)
-                FROM (SELECT 'efectivo' AS medio UNION ALL SELECT 'transferencia' UNION ALL SELECT 'debito' UNION ALL SELECT 'credito' UNION ALL SELECT 'billetera') m
+                FROM (SELECT 'efectivo' AS medio UNION ALL SELECT 'transferencia' UNION ALL SELECT 'debito' UNION ALL SELECT 'credito' UNION ALL SELECT 'billetera' UNION ALL SELECT 'mercado_pago') m
                 LEFT JOIN (SELECT COALESCE(pc.medio_nuevo, p.medio) AS medio, SUM(p.importe_minor) AS ventas,
                                   MAX(pc.pago_id IS NOT NULL) AS corregido
                            FROM pago p LEFT JOIN pago_correccion pc ON pc.pago_id = p.id

@@ -138,7 +138,7 @@ public sealed class CajaTests
         }
         var actual = (await e.Servicios.ConsultasCaja.ObtenerActualAsync(e.Sesion))!;
         Assert.Equal(10000, actual.EfectivoEsperadoMinor);
-        Assert.Equal(5, actual.Movimientos.Count);
+        Assert.Equal(6, actual.Movimientos.Count);
         Assert.Equal(10000, actual.ResumenMedios.Single(x => x.Medio == MediosCaja.Efectivo).ImporteMinor);
         foreach (var medio in MediosCajaNoEfectivo())
             Assert.Equal(10000, actual.ResumenMedios.Single(x => x.Medio == medio).ImporteMinor);
@@ -486,7 +486,7 @@ public sealed class CajaTests
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
 
-    private static IReadOnlyList<string> MediosCajaNoEfectivo() => [MediosCaja.Transferencia, MediosCaja.Debito, MediosCaja.Credito, MediosCaja.Billetera];
+    private static IReadOnlyList<string> MediosCajaNoEfectivo() => [MediosCaja.Transferencia, MediosCaja.Debito, MediosCaja.Credito, MediosCaja.Billetera, MediosPago.MercadoPago];
     private static (string Directory, string Database) CrearBaseTemporal()
     {
         var dir = Path.Combine(Path.GetTempPath(), "LocalInfantil.Tests", Guid.NewGuid().ToString("N"));

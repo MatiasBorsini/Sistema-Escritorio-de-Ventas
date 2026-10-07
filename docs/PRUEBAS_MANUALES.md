@@ -184,3 +184,28 @@ Pendiente para F11-F: probar lector HID/teclado e impresora física elegidos par
 - Inno Setup 6.7.3 compiló el instalador `artifacts/installer/LocalInfantil-Setup-0.9.0-net10-win-x64.exe` sin error, 48.148.989 bytes. Esto valida generación del artefacto, no instalación/desinstalación.
 - Humo de proceso: el ejecutable publicado se inició con `--dev-db` apuntando a una DB única temporal; el proceso permaneció activo aproximadamente ocho segundos, creó la DB temporal y cerró normalmente. No hubo inspección visual ni comprobación de navegación/flujo manual desde esta ejecución.
 - Pendiente: instalación limpia, upgrade y uninstall en entorno realmente aislado; simulaciones de interrupción/reinicio y recuperación del instalador; configurar canal GitHub y clave productiva, publicar y verificar release real; prueba visual/manual WPF; PC local, edición/build/arquitectura Windows, impresora y lector reales; validación fiscal/comercial de Dueña y contador (D-01/D-03); OAuth/Drive/restore reales F08. No se modificaron DB reales. Producción NO habilitada.
+
+## F12 - Mercado Pago Point (pendiente de validación manual/real, 2026-10-07)
+
+Evidencia técnica: rama `feat/f12-mercado-pago` desde `70b8606`; build Debug 0 errores/0 warnings CS; suite 525/525; focalizada F12 49/49 (HTTP fake, sin internet); publish Release self-contained win-x64 por pipeline F10 (410 archivos, 145,1 MB; SQLite, ZXing, libsodium presentes; sin DB/configs/secretos) + instalador 48.196.634 bytes. Sin commit/push. Producción NO habilitada.
+
+### Requisitos previos (Dueña)
+1. Cuenta de Mercado Pago con Point físico compatible (modo PDV activable) y credencial de prueba. No usar credencial ni dinero productivos en esta validación.
+2. PC con Windows y la build publicada o `dotnet run` con `--dev-db` temporal.
+
+### Recorrido con dinero de prueba
+1. Como Dueña, abrir **Mercado Pago**: estado "No configurado". Pegar el Access Token de prueba en **Conectar** y verificar "Credencial configurada" (el token no vuelve a mostrarse).
+2. **Buscar terminales**: debe listar el Point real con su modo. **Seleccionar** la terminal. Si no está en PDV, usar **Activar modo integrado** y verificar el cambio; si MP lo rechaza, debe mostrar el mensaje humano sin romper la configuración.
+3. **Probar conexión**: verificar "Conexión verificada".
+4. En POS, armar venta 100% Mercado Pago, presionar **Cobrar en Point** y aprobar en el Point físico: verificar "Pago aprobado", ticket, stock descontado una vez y movimiento de caja no efectivo.
+5. Repetir combinado (ej. $10.000 efectivo + resto MP): verificar sumas exactas, vuelto solo del efectivo y arqueo sin cambios por MP.
+6. Probar rechazo en el Point: verificar "Pago rechazado. No se registró venta." Probar cancelación antes de aprobar: verificar cancelación sin venta.
+7. Con un cobro pendiente sin resolver, intentar cerrar caja: debe bloquearse con "pendiente de resolver".
+8. Registrar un cambio con reintegro por Mercado Pago: verificar crédito reconocido + botón **Reembolsar** ejecuta el refund; verificar que elegir otro medio advierte que no habrá reembolso automático.
+9. Intentar anular una venta con pago MP: debe redirigir a devolución, no anular directo.
+10. Cortar internet con un cobro incierto: verificar "pendiente de verificar", que el resto sigue operando y que al volver la conexión se reconcilia sin duplicar.
+
+### Live tests automatizados
+Definir `LOCALINFANTIL_MP_TEST_ACCESS_TOKEN` (credencial de prueba) para `LiveMpTests`; sin la variable se omiten. Nunca credencial productiva en tests.
+
+Pendiente F12-T07: todo lo anterior con hardware/cuenta reales, más PC del local y D-01/D-03. No usar datos comerciales reales.

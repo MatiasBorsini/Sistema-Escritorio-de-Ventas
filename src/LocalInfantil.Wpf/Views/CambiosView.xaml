@@ -42,7 +42,15 @@
                             <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Para diferencia a cobrar, cargá formas de pago que sumen el total exacto." TextWrapping="Wrap"/>
                             <Button HorizontalAlignment="Left" Style="{StaticResource EstiloBotonQuiet}" Content="+ Agregar forma de pago" Command="{Binding AgregarPagoCommand}"/>
                             <ItemsControl ItemsSource="{Binding Pagos}"><ItemsControl.ItemTemplate><DataTemplate><DockPanel Margin="0,2"><ComboBox Width="140" ItemsSource="{Binding DataContext.Medios, RelativeSource={RelativeSource AncestorType=UserControl}}" SelectedItem="{Binding Medio}"/><TextBox Width="100" Margin="5,0" Text="{Binding ImporteMinor, UpdateSourceTrigger=PropertyChanged}" ToolTip="Importe en centavos"/><TextBox Width="100" Text="{Binding RecibidoMinor, UpdateSourceTrigger=PropertyChanged}" ToolTip="Recibido en efectivo, centavos"/></DockPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                            <DockPanel Margin="0,6,0,0"><TextBlock VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Medio del reintegro (efectivo por defecto)"/><ComboBox Width="150" Margin="8,0" ItemsSource="{Binding Medios}" SelectedItem="{Binding MedioReintegro}"/></DockPanel>
+                            <DockPanel Margin="0,6,0,0"><TextBlock VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Medio del reintegro (efectivo por defecto)"/><ComboBox Width="170" Margin="8,0" ItemsSource="{Binding MediosReintegro}" SelectedItem="{Binding MedioReintegro}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Converter={StaticResource MedioAEtiqueta}}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox></DockPanel>
+                            <TextBlock Margin="0,4,0,0" Foreground="#92400E" TextWrapping="Wrap" Text="{Binding AvisoReintegroMp}" Visibility="{Binding AvisoReintegroMpVisible, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Margin="0,6,0,0" HorizontalAlignment="Left" Style="{StaticResource EstiloBotonSecundario}" Content="Reembolsar en Mercado Pago" Command="{Binding ReembolsarMpCommand}" Visibility="{Binding PuedeReembolsarMp, Converter={StaticResource BoolToVisibility}}"/>
                             <TextBox Style="{StaticResource EstiloCampoTexto}" Margin="0,5,0,0" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo obligatorio para reintegro"/>
                             <StackPanel Orientation="Horizontal" Visibility="{Binding RequiereAutorizacionPresencial, Converter={StaticResource BoolToVisibility}}" Margin="0,5,0,0">
                                 <TextBox Style="{StaticResource EstiloCampoTexto}" Width="160" Text="{Binding UsuarioAutorizante}" ToolTip="Usuario Dueña presente"/>

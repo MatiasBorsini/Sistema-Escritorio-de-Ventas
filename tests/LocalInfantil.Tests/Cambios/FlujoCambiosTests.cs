@@ -142,9 +142,7 @@ public sealed class FlujoCambiosTests
     {
         using var e=await VentasTests.EntornoVentas.CrearAsync();var (_,v1,v2)=await e.CatalogoConStockAsync();var p1=await e.PrecioDeAsync(v1);var p2=await e.PrecioDeAsync(v2);
         var venta=await VenderAsync(e,[(v1,5,p1)]);var ficha=await e.Servicios.ConsultasVentas.ObtenerFichaAsync(venta.VentaId,e.Sesion);var linea=Assert.Single(ficha!.Lineas);
-        for(var indice=0;indice<MediosPago.Todos.Count;indice++)
-        {
-            var medio=MediosPago.Todos[indice];
+        for(var indice=0;indice<MediosPago.Manuales.Count;indice++){var medio=MediosPago.Manuales[indice];
             IReadOnlyList<PagoDiferenciaCambio> pagos=medio==MediosPago.Efectivo
                 ?[new(medio,p2-p1,p2-p1+500)]
                 :medio==MediosPago.Credito

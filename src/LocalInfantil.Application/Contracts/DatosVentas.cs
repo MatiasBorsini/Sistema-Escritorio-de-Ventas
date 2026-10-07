@@ -9,7 +9,21 @@ public static class MediosPago
     public const string Credito = "credito";
     public const string Billetera = "billetera";
 
+    /// <summary>
+    /// Cobro acreditado por Mercado Pago vía Point (F12, Orders API). Nunca
+    /// es efectivo físico: no suma al esperado del arqueo. Solo lo genera el
+    /// flujo saga F12 con order processed; la UI no lo ofrece como registro
+    /// manual directo.
+    /// </summary>
+    public const string MercadoPago = "mercado_pago";
+
     public static readonly IReadOnlyList<string> Todos = new[]
+    {
+        Efectivo, Transferencia, Debito, Credito, Billetera, MercadoPago,
+    };
+
+    /// <summary>Medios que la UI ofrece como registro manual (sin integraciones).</summary>
+    public static readonly IReadOnlyList<string> Manuales = new[]
     {
         Efectivo, Transferencia, Debito, Credito, Billetera,
     };

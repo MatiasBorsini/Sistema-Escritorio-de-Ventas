@@ -106,6 +106,8 @@ public sealed class AnularVenta
         }
 
         var pagos = await _caja.ListarPagosActualesPorVentaAsync(sesion, ventaId, cancellationToken);
+        if (pagos.Any(p => p.MedioActual == MediosPago.MercadoPago))
+            throw new InvalidOperationException("La venta tiene un cobro de Mercado Pago. Realizá la devolución por Mercado Pago antes de anular.");
         var fecha = _reloj.UtcNow().ToString("o");
         var reintegrosIniciales = new List<(PagoCajaActual Pago, long Importe)>();
         foreach (var pago in pagos)

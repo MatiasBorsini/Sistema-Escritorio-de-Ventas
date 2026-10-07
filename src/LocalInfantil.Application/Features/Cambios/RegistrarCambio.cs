@@ -12,7 +12,8 @@ public sealed class RegistrarCambio(
     IRepositorioProductos productos, IRepositorioPrecios precios, IRepositorioMovimientos movimientos,
     IRepositorioApartados apartados, IRepositorioCaja caja, IAutorizador autorizador,
     IAutorizadorEnSesion autorizadorTx, IFabricaSesionesPersistencia fabrica,
-    IRepositorioAuditoria auditoria, IReloj reloj, IRepositorioCuentaCorriente? cuenta = null)
+    IRepositorioAuditoria auditoria, IReloj reloj, IRepositorioCuentaCorriente? cuenta = null,
+    IRepositorioPagos? pagos = null, IRepositorioMercadoPago? mp = null)
 {
     public async Task<ResultadoCambio> EjecutarAsync(DatosCambio datos, CancellationToken ct = default)
     {
@@ -118,6 +119,8 @@ public sealed class RegistrarCambio(
             }
         }
         if((diferencia>0 || importeReintegro>0) && await caja.ObtenerAbiertaAsync(tx,ct) is null) throw new InvalidOperationException("No hay una caja abierta para registrar la diferencia del cambio.");
+        if(importeReintegro>0 && reintegroMedio==MediosPago.MercadoPago)
+            await ExigirCoberturaMpAsync(tx,venta.Id,importeReintegro,ct);
         // operation_id is unique in the F06 journal and caja ledger.
 
         var datosPersistidos = datos with { MedioReintegro = importeReintegro > 0 ? reintegroMedio : null };
@@ -172,6 +175,22 @@ public sealed class RegistrarCambio(
         await auditoria.RegistrarAsync(tx,new(datos.OperacionId,"cambio.registrado",ActorAuditoria.Usuario,actor.Id,"cambio",cambioId,$"numero={numero}; venta={venta.Numero}; importe_entradas_minor={entradas}; importe_salidas_minor={importeSalidas}; diferencia_minor={diferencia}; cuenta_decision={datos.DecisionCuenta?.ToString()??"ninguna"}; cuenta_aplicado_minor={importeAplicado}; deuda_antes_minor={deudaVenta}; deuda_despues_minor={deudaVenta-importeAplicado}; reintegro_minor={importeReintegro}; caja={cajaId??"sin_movimiento"}"),ct);
         await tx.ConfirmarAsync(ct);
         return new ResultadoCambio.Registrado(cambioId,numero,entradas,importeSalidas,diferencia,fecha);
+    }
+
+    /// <summary>
+    /// El reintegro por MP registra crédito reconocido local; el dinero
+    /// remoto se devuelve en un paso explícito posterior. Solo se promete
+    /// lo que la venta original tiene cobrado por Point sin reembolsar.
+    /// </summary>
+    private async Task ExigirCoberturaMpAsync(ISesionPersistencia tx, string ventaId, long importeReintegro, CancellationToken ct)
+    {
+        if(pagos is null || mp is null) throw new InvalidOperationException("El reintegro por Mercado Pago no está configurado.");
+        var pagosVenta=await pagos.ListarPorVentaAsync(tx,ventaId,ct);
+        var cobradoMp=pagosVenta.Where(p=>p.Medio==MediosPago.MercadoPago).Sum(p=>p.ImporteMinor);
+        var reembolsado=(await mp.ListarReembolsosPorVentaAsync(tx,ventaId,ct))
+            .Where(r=>r.EstadoLocal!=EstadosLocalesReembolsoMp.Fallida).Sum(r=>r.ImporteMinor);
+        if(cobradoMp-reembolsado<importeReintegro)
+            throw new InvalidOperationException("La venta original no tiene cobro de Mercado Pago suficiente para este reintegro.");
     }
 
     private static void ValidarForma(DatosCambio d)

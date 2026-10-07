@@ -182,35 +182,168 @@ public sealed class MigradorBaseDatos
         var resultado = new List<int>();
         foreach (var migracion in pendientes)
         {
-            using var transaccion = conexion.BeginTransaction();
+            if (migracion.Sql.Contains("-- REQUIERE_FK_OFF", StringComparison.Ordinal))
+                await AplicarSinFkAsync(conexion, migracion, cancellationToken);
+            else
+                await AplicarEnTransaccionAsync(conexion, migracion, cancellationToken);
+            resultado.Add(migracion.Version);
+        }
+
+        return resultado;
+    }
+
+    /// <summary>
+    /// Ejecuta statement por statement (respetando cuerpos BEGIN...END de
+    /// triggers): un batch multi-statement puede detenerse silenciosamente
+    /// ante un statement fallido intermedio sin propagar el error,
+    /// registrando la versión sin haber aplicado todo (V13 sucia + V14).
+    /// Así cada statement corre y cualquier error aborta con rollback.
+    /// </summary>
+    private static async Task EjecutarPorPartesAsync(SqliteConnection conexion, SqliteTransaction transaccion, string sql, CancellationToken cancellationToken)
+    {
+        foreach (var sentencia in DividirSentencias(sql))
+        {
+            using var comando = CrearComando(conexion, sentencia);
+            comando.Transaction = transaccion;
+            await comando.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    private static List<string> DividirSentencias(string sql)
+    {
+        var resultado = new List<string>();
+        var actual = new System.Text.StringBuilder();
+        var enTrigger = false;
+        foreach (var linea in sql.Split('\n'))
+        {
+            actual.AppendLine(linea);
+            var recortada = linea.TrimStart();
+            if (!enTrigger && recortada.StartsWith("CREATE TRIGGER", StringComparison.OrdinalIgnoreCase))
+            {
+                var unaLinea = linea.Trim();
+                if (unaLinea.Contains("BEGIN", StringComparison.OrdinalIgnoreCase)
+                    && unaLinea.EndsWith("END;", StringComparison.OrdinalIgnoreCase))
+                {
+                    resultado.Add(actual.ToString());
+                    actual.Clear();
+                    continue;
+                }
+                enTrigger = true;
+            }
+            if (enTrigger && linea.Trim().Equals("END;", StringComparison.OrdinalIgnoreCase))
+            {
+                resultado.Add(actual.ToString());
+                actual.Clear();
+                enTrigger = false;
+            }
+            else if (!enTrigger && linea.TrimEnd().EndsWith(';'))
+            {
+                resultado.Add(actual.ToString());
+                actual.Clear();
+            }
+        }
+        var resto = actual.ToString().Trim();
+        if (!string.IsNullOrEmpty(resto))
+            resultado.Add(resto);
+        return resultado;
+    }
+
+    private static async Task AplicarEnTransaccionAsync(SqliteConnection conexion, Migracion migracion, CancellationToken cancellationToken)
+    {
+        using var transaccion = conexion.BeginTransaction();
+        try
+        {
+            await EjecutarPorPartesAsync(conexion, transaccion, migracion.Sql, cancellationToken);
+            await RegistrarVersionAsync(conexion, transaccion, migracion, cancellationToken);
+            transaccion.Commit();
+        }
+        catch
+        {
+            transaccion.Rollback();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds que tocan tablas padre con hijas con datos, en dos fases:
+    /// las FKs del esquema son NOT DEFERRABLE, así que DROP TABLE del padre
+    /// falla con enforcement inmediato. Fase 1 (FK ON, verificada): DROPs de
+    /// triggers, CREATEs temporales (con NOMBRES FINALES en todas sus FKs,
+    /// que resuelven contra las tablas originales con mismos IDs) y copia
+    /// 1:1. Fase 2 (FK OFF, fuera de transacción el cambio de pragma):
+    /// DROPs de viejas, RENAMEs (no reescriben nada porque todo ya usa
+    /// nombres finales), índices, triggers y tablas nuevas. Se verifica
+    /// integridad antes y después. El marcador "-- FASE_FK_OFF" divide ambas
+    /// partes dentro del mismo SQL versionado.
+    /// </summary>
+    private static async Task AplicarSinFkAsync(SqliteConnection conexion, Migracion migracion, CancellationToken cancellationToken)
+    {
+        if (await ContarViolacionesFkAsync(conexion, null, cancellationToken) > 0)
+            throw new InvalidOperationException("La base tiene violaciones de integridad previas. No se puede migrar.");
+
+        var partes = migracion.Sql.Split(new[] { "-- FASE_FK_OFF" }, StringSplitOptions.None);
+        if (partes.Length != 2)
+            throw new InvalidOperationException("La migración con FK OFF debe tener exactamente dos fases.");
+
+        using (var fase1 = conexion.BeginTransaction())
+        {
             try
             {
-                using (var ddl = CrearComando(conexion, migracion.Sql))
-                {
-                    ddl.Transaction = transaccion;
-                    await ddl.ExecuteNonQueryAsync(cancellationToken);
-                }
-
-                using (var registro = CrearComando(conexion, "INSERT INTO schema_migrations (version, nombre, aplicada_en) VALUES ($version, $nombre, $aplicadaEn);"))
-                {
-                    registro.Transaction = transaccion;
-                    registro.Parameters.AddWithValue("$version", migracion.Version);
-                    registro.Parameters.AddWithValue("$nombre", migracion.Nombre);
-                    registro.Parameters.AddWithValue("$aplicadaEn", DateTime.UtcNow.ToString("o"));
-                    await registro.ExecuteNonQueryAsync(cancellationToken);
-                }
-
-                transaccion.Commit();
-                resultado.Add(migracion.Version);
+                await EjecutarPorPartesAsync(conexion, fase1, partes[0], cancellationToken);
+                fase1.Commit();
             }
             catch
             {
-                transaccion.Rollback();
+                fase1.Rollback();
                 throw;
             }
         }
 
-        return resultado;
+        using (var off = CrearComando(conexion, "PRAGMA foreign_keys = OFF;"))
+            await off.ExecuteNonQueryAsync(cancellationToken);
+        try
+        {
+            using var fase2 = conexion.BeginTransaction();
+            try
+            {
+                await EjecutarPorPartesAsync(conexion, fase2, partes[1], cancellationToken);
+                await RegistrarVersionAsync(conexion, fase2, migracion, cancellationToken);
+                fase2.Commit();
+            }
+            catch
+            {
+                fase2.Rollback();
+                throw;
+            }
+        }
+        finally
+        {
+            using (var on = CrearComando(conexion, "PRAGMA foreign_keys = ON;"))
+                await on.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (await ContarViolacionesFkAsync(conexion, null, cancellationToken) > 0)
+            throw new InvalidOperationException("La migración dejó violaciones de integridad. Restaurá el respaldo previo.");
+    }
+
+    private static async Task<long> ContarViolacionesFkAsync(SqliteConnection conexion, SqliteTransaction? transaccion, CancellationToken cancellationToken)
+    {
+        using var comando = CrearComando(conexion, "PRAGMA foreign_key_check;");
+        if (transaccion is not null) comando.Transaction = transaccion;
+        var filas = 0L;
+        await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+        while (await lector.ReadAsync(cancellationToken)) filas++;
+        return filas;
+    }
+
+    private static async Task RegistrarVersionAsync(SqliteConnection conexion, SqliteTransaction transaccion, Migracion migracion, CancellationToken cancellationToken)
+    {
+        using var registro = CrearComando(conexion, "INSERT INTO schema_migrations (version, nombre, aplicada_en) VALUES ($version, $nombre, $aplicadaEn);");
+        registro.Transaction = transaccion;
+        registro.Parameters.AddWithValue("$version", migracion.Version);
+        registro.Parameters.AddWithValue("$nombre", migracion.Nombre);
+        registro.Parameters.AddWithValue("$aplicadaEn", DateTime.UtcNow.ToString("o"));
+        await registro.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static SqliteCommand CrearComando(SqliteConnection conexion, string sql)

@@ -106,7 +106,13 @@
                                 <DataTemplate>
                                     <Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,0,6">
                                         <StackPanel>
-                                            <ComboBox Style="{StaticResource EstiloCombo}" ItemsSource="{Binding DataContext.MediosDisponibles, RelativeSource={RelativeSource AncestorType=UserControl}}" SelectedItem="{Binding Medio}"/>
+                                            <ComboBox Style="{StaticResource EstiloCombo}" ItemsSource="{Binding DataContext.MediosDisponibles, RelativeSource={RelativeSource AncestorType=UserControl}}" SelectedItem="{Binding Medio}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Converter={StaticResource MedioAEtiqueta}}"/>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
                                             <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding ImporteTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Importe imputado (Ej: 1234,50)" Margin="0,6,0,0"/>
                                             <StackPanel Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}">
                                                 <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding RecibidoTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Efectivo entregado por el cliente" Margin="0,6,0,0"/>
@@ -144,6 +150,9 @@
                             </StackPanel>
                         </Border>
                         <Button Style="{StaticResource EstiloBotonPrimario}" Content="Confirmar venta" Command="{Binding ConfirmarCommand}" IsEnabled="{Binding PuedeConfirmar}" HorizontalAlignment="Stretch" Margin="0,10,0,0" MinHeight="{StaticResource AlturaToolbar}"/>
+                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Cobrar en Point" Command="{Binding CobrarEnPointCommand}" IsEnabled="{Binding PuedeCobrarPoint}" HorizontalAlignment="Stretch" Margin="0,8,0,0" MinHeight="{StaticResource AlturaToolbar}" Visibility="{Binding TieneMercadoPago, Converter={StaticResource BoolToVisibility}}"/>
+                        <Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar cobro" Command="{Binding CancelarCobroPointCommand}" IsEnabled="{Binding PuedeCancelarCobro}" HorizontalAlignment="Stretch" Margin="0,8,0,0" Visibility="{Binding CobroEnCurso, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding EstadoCobroMp}" TextWrapping="Wrap" Visibility="{Binding EstadoCobroMp, Converter={StaticResource NullToVisibility}}"/>
                         <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Al confirmar se descuenta stock Disponible. No hay venta en espera." TextWrapping="Wrap"/>
                     </StackPanel>
                 </ScrollViewer>
