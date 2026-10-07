@@ -10,6 +10,7 @@
                     <Menu Background="Transparent" VerticalAlignment="Center">
                         <MenuItem Header="_Perfil" Foreground="{StaticResource Color.CanvasBrush}">
                             <MenuItem Header="{Binding Identidad, Mode=OneWay}" IsEnabled="False" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+                            <MenuItem Header="{Binding VersionApp, Mode=OneWay}" IsEnabled="False" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
                             <MenuItem Header="Cerrar sesión" Foreground="{StaticResource Color.TextBrush}" Click="Cerrar_Click"/>
                         </MenuItem>
                     </Menu>
@@ -46,6 +47,7 @@
                     <MenuItem Header="Usuarios" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Administracion}"/>
                     <MenuItem Header="Respaldos" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding Respaldos, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Respaldos}"/>
                     <MenuItem Header="_Reportes" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Reportes, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Reportes}"/>
+                    <MenuItem Header="Actualizaciones" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Actualizaciones}"/>
                     </MenuItem>
                 </Menu>
             </DockPanel>

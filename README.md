@@ -1,6 +1,6 @@
 # LocalInfantil
 
-Aplicación WPF de escritorio para un único local de ropa infantil. En la rama actual se implementa F08 de respaldos locales cifrados, cola de Google Drive y recuperación, sobre F07 (clientes/cuenta corriente). F08 tiene validación automatizada local; OAuth/Drive real y la restauración visual/manual siguen pendientes. No está habilitada para producción ni contiene datos reales del comercio.
+Aplicación WPF de escritorio para un único local de ropa infantil. La rama actual contiene F11 (variantes por matriz, etiquetas Code128 y búsqueda POS) y el trabajo de preproducción F10 trasladado sobre F11. El actualizador y el instalador requieren configuración y verificaciones externas pendientes. F08 conserva pendientes OAuth/Drive real y restauración manual. No está habilitada para producción ni debe usarse con datos comerciales reales todavía.
 
 ## Requisitos provisionales
 
@@ -21,7 +21,7 @@ La aplicación utiliza navegación WPF/MVVM y opera localmente. Clientes permite
 
 F11 agrega alta de variantes por matriz, etiquetas Code128 basadas únicamente en el código interno existente y búsqueda exacta en POS compatible con lectores USB tipo teclado. Las etiquetas usan preview y el diálogo de impresión Windows; los tamaños iniciales son parámetros de desarrollo y no están calibrados para hardware del local. La impresión nunca modifica stock.
 
-La base SQLite, sus archivos WAL/SHM, respaldos, logs y secretos se mantienen fuera del repositorio. Solo para el prototipo, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`; no es una decisión de producción. La ruta definitiva de datos depende de D-13 y se resolverá antes de guardar datos reales.
+Sin argumentos, la aplicación de preproducción resuelve `%LOCALAPPDATA%\LocalInfantil\Data\localinfantil.db`; desarrollo requiere `--dev-db <ruta>` y diagnóstico histórico requiere `--prototype` explícito. Nunca se abre Prototype automáticamente. Aunque la ruta productiva de arranque está implementada, D-13 sigue pendiente como decisión definitiva y no se autoriza cargar datos reales. DB, WAL/SHM, respaldos, secretos y updates permanecen fuera del repositorio y del directorio de instalación.
 
 ## Respaldos F08 (implementación técnica; no producción)
 
@@ -51,18 +51,32 @@ dotnet publish src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj --configuration Re
 .\artifacts\publish\net10-f08-win-x64\LocalInfantil.Wpf.exe
 ```
 
-La carpeta publicada se puede eliminar sin borrar datos de usuario porque la comprobación SQLite usa `%LOCALAPPDATA%\LocalInfantil\Prototype\`, fuera de `artifacts\publish`. Para borrar solo la publicación de prueba:
+## F10: instalador y actualizaciones (preproducción)
+
+`installer/Build-Installer.ps1` publica Release self-contained `win-x64`, comprueba que no haya DB/respaldos/secretos/símbolos y, si está instalado Inno Setup 6, genera un instalador por usuario con nombre estable y desinstalación que no elimina los datos. `ISCC.exe` no está disponible en todos los entornos; sin él la generación del instalador queda pendiente. La instalación clean/upgrade/uninstall debe hacerse en una VM/perfil aislado antes de cerrar F10-T01.
+
+El actualizador usa manifiesto Ed25519 canónico, tamaño y SHA-256; una versión superior se descarga y valida automáticamente, pero nunca se instala automáticamente. Requiere canal HTTPS y clave pública reales todavía no configurados. Clave privada solo fuera del repositorio/instalador/PC; consultar [ACTUALIZACIONES](docs/ACTUALIZACIONES.md). `--dev-db` deshabilita las rutas productivas del updater. No hay V16; V15 sigue siendo el schema más reciente.
+
+```powershell
+.\installer\Build-Installer.ps1
+# Crear manifest.json + manifest.sig cuando exista canal/clave aprobados:
+.\tools\Crear-ManifiestoActualizacion.ps1 -Instalador <exe> -UrlHttps <url> -PublicadoUtc <ISO-UTC> -VersionMinima 0.9.0 -Notas <texto> -ClavePrivadaFueraDelRepo <ruta-segura> -Salida <carpeta>
+```
+
+Ver [guía de uso](docs/GUIA_USO.md), [checklist PC real](docs/CHECKLIST_PC_REAL.md) y [procedimiento de piloto](docs/PRUEBA_PILOTO.md). Ninguno está ejecutado ni sustituye la validación manual.
+
+La carpeta publicada se puede eliminar sin borrar datos de usuario porque la base de preproducción usa `%LOCALAPPDATA%\LocalInfantil\Data\`, fuera de `artifacts\publish`. Para borrar solo la publicación de prueba:
 
 ```powershell
 Remove-Item -LiteralPath .\artifacts\publish\net10-f08-win-x64 -Recurse
 ```
 
-## Instalador de prueba (F00-T06, Inno Setup 6)
+## Instalador de prueba anterior (F00-T06, Inno Setup 6)
 
-El instalador de prueba se genera con Inno Setup 6 a partir de la publicación anterior. Solo están versionados `installer/inno/LocalInfantil-Prototype.iss` y `installer/Build-PrototypeInstaller.ps1`; el Setup generado queda en `artifacts/installer/` (fuera de git). Instala por usuario (sin admin) en `%LOCALAPPDATA%\Programs\LocalInfantil-Prototype`, crea acceso directo en el menú Inicio y se desinstala desde Configuración > Aplicaciones instaladas sin tocar `%LOCALAPPDATA%\LocalInfantil` (D-13 sigue pendiente; la ruta SQLite provisional no cambia). Requiere tener instalado Inno Setup 6 (`ISCC.exe`). No incluye actualizaciones automáticas ni afirma compatibilidad con la PC del local.
+El procedimiento y script del prototipo F00 se conservan como renombres/histórico del trabajo de F10 en WIP; el instalador vigente está descrito arriba. Requiere Inno Setup 6 (`ISCC.exe`). Ninguno afirma compatibilidad con la PC del local.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\installer\Build-PrototypeInstaller.ps1
+powershell -ExecutionPolicy Bypass -File .\installer\Build-Installer.ps1
 ```
 
 El procedimiento de prueba manual con datos ficticios aislados está en `docs/PRUEBAS_MANUALES.md`. No ejecutar instalación/desinstalación sin leerlo: protege la base provisional existente.
@@ -72,9 +86,10 @@ El procedimiento de prueba manual con datos ficticios aislados está en `docs/PR
 - Código y documentación en español cuando describan el negocio; nombres de tipos y APIs de .NET se mantienen claros y consistentes.
 - `Nullable` e `ImplicitUsings` están habilitados en todos los proyectos.
 - Las dependencias siguen el sentido indicado en `ESTRUCTURA.md`; WPF nunca accede a SQLite directamente.
-- El único paquete de SQLite incorporado para F00-T04 es `Microsoft.Data.Sqlite` 10.0.12; no se utiliza Entity Framework ni otro ORM.
+- El único paquete de SQLite incorporado es `Microsoft.Data.Sqlite` 10.0.12; no se utiliza Entity Framework ni otro ORM.
 - F11 usa `ZXing.Net` 0.16.11 solo en Infrastructure para codificar Code128; WPF dibuja el resultado en vector. No se agregó una migración de base para barcode ni seriales.
+- F10 reutiliza `Sodium.Core` 1.4.1 para firmas Ed25519. No se agregan paquetes para updater; la clave productiva no se ha creado/configurado.
 
 ## Estado
 
-Consultar `PLAN.md` para el estado por tarea y `docs/DECISIONES.md` para decisiones. F08-T01–T03, T05 y T07 están implementadas y verificadas técnicamente; T04 sigue parcial por falta de OAuth/Drive real y T06 por falta de restauración manual y prueba en PC nueva. Build Debug 0/0, suite completa 409/409 y pruebas focalizadas de respaldos 38/38; la publicación self-contained win-x64 (409 archivos, 151.021.404 bytes) inició y cerró, sin inspección visual de la ventana. F07 visual/manual y F08 visual/manual siguen pendientes; F00-T02/PC real permanece bloqueada. Producción NO habilitada.
+Consultar `PLAN.md` para el estado por tarea y `docs/DECISIONES.md` para decisiones. F11-A–E tienen validación técnica publicada; F11-F y validación visual/manual siguen pendientes. F10 continúa en curso: publicación e instalador de prueba se generaron, pero faltan instalación limpia/upgrade/desinstalación en un entorno aislado, canal firmado y clave/release productivos, simulación de interrupciones, PC del local y validación Dueña/contador (D-01/D-03). La suite actual posterior a F10 pasó 476/476 en 4,7494 minutos; las pruebas focalizadas F10 15/15 y subconjuntos relevantes de F11 39/39. El build Debug final terminó con 0 errores y 8 advertencias: NU1900 por el índice remoto de vulnerabilidades no accesible y cinco warnings nullable/xUnit preexistentes de reportes. V15 es el schema más reciente; no se agrega V16. F00-T02 y D-13 siguen pendientes. F11-F y validación manual visual/hardware siguen pendientes. Producción NO habilitada.

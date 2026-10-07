@@ -11,6 +11,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Única fuente de la versión visible y del instalador (F10-T01). Preproducción: 0.9.0. -->
+    <Version>0.9.0</Version>
   </PropertyGroup>
 
 </Project>

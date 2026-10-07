@@ -435,3 +435,40 @@ No se tomaron decisiones sobre facturación, permisos, cuentas corrientes, promo
   9. No se agrega permiso de impresión específico; la gestión batch queda protegida por el permiso existente `catalogo.variantes.gestionar`. No se alteran permisos comerciales de POS.
 - Validación automatizada de esta iteración: ver resultados del cierre en PLAN y las pruebas aisladas en `docs/PRUEBAS_MANUALES.md`. Las bases de tests son temporales; no se cambió V1–V15 ni la DB del usuario.
 - Pendiente: apertura/recorrido visual WPF y diálogo PDF en sesión interactiva; lector e impresora física, tamaño/calibración/legibilidad en PC local. El entorno de automatización no expuso aplicaciones abiertas (`apps: []`), por lo que no hay capturas ni se afirma prueba visual. Hardware/Windows del local sigue sin confirmar y producción permanece NO habilitada.
+
+## D-45 — F10: arranque normal y separación de datos
+
+- Estado: decisión técnica de preproducción; no aprueba instalación en la PC del local ni habilita producción.
+- Fecha: 2026-10-07.
+- Fuente: autorización de implementación F10 y revisión del arranque sobre la base F11/V15.
+- Decisiones:
+  1. Sin argumentos inicia el modo comercial sobre `%LOCALAPPDATA%\LocalInfantil\Data\localinfantil.db`. `--dev-db <ruta>` requiere selección explícita; `--prototype` queda reservado al diagnóstico histórico explícito. La app nunca abre Prototype automáticamente.
+  2. El inicio crea/aplica migraciones antes del bootstrap/login. Si falla backup, migración, historial o apertura, no muestra una sesión comercial utilizable. La base heredada sin historial o con versiones desconocidas se rechaza por el migrador existente.
+  3. Los tests de inicialización usan rutas temporales aisladas. Ninguna prueba F10 abre ni altera la base de usuario.
+  4. La estructura propuesta de Data/Backups/Secrets/Updates deriva de LocalApplicationData. D-13 sigue pendiente como decisión definitiva de almacenamiento; no cargar datos reales hasta resolverla y validar PC/perfil/backup.
+
+## D-46 — F10: actualización firmada y versionado de preproducción
+
+- Estado: protocolo técnico implementado y probado localmente; canal público, clave de producción y release real no configurados.
+- Fecha: 2026-10-07.
+- Fuente: autorización de F10 y auditoría del payload firmado existente.
+- Decisiones:
+  1. Versión de preproducción: `0.9.0`, tomada de `<Version>` del proyecto WPF; no usar `1.0.0`. El instalador recibe esa versión desde el proyecto.
+  2. El payload Ed25519 es binario canónico `LocalInfantil.UpdateManifest\0canonical-v1`, seguido por ocho campos UTF-8 cada uno precedido por longitud Int32 big-endian: `manifest_version`, versión, URL, SHA-256 normalizado, tamaño, fecha, versión mínima y notas. No se firma JSON/whitespace arbitrario. Cambiar el formato requiere versión/protocolo nuevo.
+  3. Solo se acepta HTTPS en producción; el manifiesto y el instalador se validan por firma, tamaño y SHA-256 antes de colocarlos en `Updates/listos`. El par instalador/manifiesto se vuelve a validar al iniciar. Los parciales se eliminan y nunca se ejecutan.
+  4. Una comprobación con versión superior inicia descarga en background; no hay instalación automática. La instalación exige acción/confirmación humana.
+  5. El firmador de release toma la clave privada fuera del repositorio y no la copia a artefactos. La clave pública productiva debe configurarse separadamente antes de publicar. Sin URL+clave se informa «Canal de actualizaciones no configurado».
+
+## D-47 — F10: puerta de instalación, permisos y límites de plataforma
+
+- Estado: protección y permisos implementados; las pruebas físicas de instalación/Windows local están pendientes.
+- Fecha: 2026-10-07.
+- Fuente: autorización de F10 y revisión de riesgos de actualización.
+- Decisiones:
+  1. Se agrega `actualizaciones.instalar`, Dueña permitida y Empleada denegada por matriz. La interfaz permite administrar actualizaciones solo a Dueña; Application comprueba además la sesión Dueña y vuelve a evaluar el permiso efectivo antes de adquirir la puerta. Las concesiones individuales no permiten a una Empleada instalar; ocultar/deshabilitar WPF no es la barrera de seguridad.
+  2. Antes de confirmar se abre una sesión SQLite `BEGIN IMMEDIATE`, se comprueba caja cerrada y ausencia de locks de backup/restauración, y se conserva la sesión hasta cancelación o lanzamiento del instalador. No se cierra la caja automáticamente ni se persiste un lock comercial.
+  3. `--dev-db` no crea el coordinador productivo, no abre configuración/canal, no crea `Updates/` y no instala. El estado muestra que las actualizaciones están deshabilitadas en desarrollo.
+  4. Publicación objetivo para prueba del desarrollador: Release self-contained `win-x64`; no supone la arquitectura/edición del local. Según la [tabla oficial de sistemas Windows compatibles](https://learn.microsoft.com/en-us/dotnet/core/install/windows), .NET 10 enumera solo ediciones/builds Windows 10 LTSC/Enterprise específicos; otras ediciones/versiones requieren validación y no se consideran soportadas por inferencia de que el ejecutable quizá arranque. .NET 10 es LTS con soporte hasta noviembre de 2028 según la [política oficial de soporte de .NET](https://learn.microsoft.com/dotnet/core/releases-and-support). F00-T02 sigue pendiente.
+  5. No se añade migración: V15 permanece como última versión de schema. D-01/D-03, D-13, PC real, Drive real y aprobación de producción siguen pendientes.
+
+- Evidencia técnica al 2026-10-07: restore serial y build Debug estándar completaron con concurrencia limitada; NU1900 indica que el entorno no pudo consultar `https://api.nuget.org/v3/index.json` para auditoría de vulnerabilidades. Build estándar: 0 errores con advertencias NU1900; build final `--no-restore`: 0 errores/8 advertencias (3 NU1900 y 5 warnings nullable/analyzers preexistentes en tests de reportes). Suite detallada completa: 476/476 (4,7494 min); subconjuntos focalizados F10 15/15 y F11 (barcode/lotes/POS) 39/39. Publicación Release self-contained win-x64: 410 archivos, 151.798.645 bytes; instalador Inno Setup 6.7.3 generado correctamente: 48.148.989 bytes. Escaneo de publicación: cero bases, backups, símbolos y secretos; SQLite, ZXing y libsodium presentes. La ejecución de proceso WPF aislada con `--dev-db` no fue inspección visual. No se probaron instalación limpia, upgrade ni uninstall en un perfil aislado; ver `docs/PRUEBAS_MANUALES.md`.

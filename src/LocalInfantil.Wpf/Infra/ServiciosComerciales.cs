@@ -11,6 +11,7 @@ using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Application.Features.Cambios;
 using LocalInfantil.Application.Features.Clientes;
 using LocalInfantil.Application.Features.CuentaCorriente;
+using LocalInfantil.Application.Features.Actualizaciones;
 using LocalInfantil.Application.Features.Respaldos;
 using LocalInfantil.Infrastructure.Identificadores;
 using LocalInfantil.Infrastructure.Seguridad;
