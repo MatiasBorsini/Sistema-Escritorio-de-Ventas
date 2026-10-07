@@ -4,7 +4,7 @@
 
 F10 implementa la estructura técnica del actualizador, pero no hay un canal público configurado ni una clave de firma productiva. La pantalla debe indicar **Canal de actualizaciones no configurado** hasta que se proporcionen ambos. La descarga y verificación no equivalen a publicar ni instalar una versión. La instalación es manual, confirmada por la Dueña y bloqueada mientras la caja o una operación de backup/restauración esté activa. En `--dev-db`, toda operación de actualización está deshabilitada y no se crea ni consulta el almacenamiento productivo `Updates/`.
 
-La versión de preproducción es `0.9.0` y procede de `<Version>` en el proyecto WPF. No representa una versión aprobada para producción. Schema vigente: V15; no existe V16 para configuración o actualizaciones.
+La versión de preproducción es `0.9.0` y procede de `<Version>` en el proyecto WPF. No representa una versión aprobada para producción. El schema vigente es V16, agregado por F12/D-48 para persistencia durable y reconciliación de operaciones Mercado Pago Point; no guarda credenciales ni Access Token. F10 no agrega migraciones para configuración o actualizaciones. Producción NO habilitada.
 
 ## Manifiesto firmado
 
