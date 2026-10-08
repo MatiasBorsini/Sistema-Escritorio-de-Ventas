@@ -2,14 +2,14 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Imprimir etiquetas" Width="1030" Height="660" MinWidth="900" MinHeight="560"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{StaticResource Color.BackgroundBrush}">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{StaticResource Color.SurfaceBrush}">
     <DockPanel Margin="18">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
             <TextBlock Text="Imprimir etiquetas" FontSize="21" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}"/>
             <TextBlock Text="{Binding NombreProducto}" Margin="0,2,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.DangerTextBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
                 <Button Content="Poner stock disponible" Style="{StaticResource EstiloBotonSecundario}" Command="{Binding PonerStockDisponibleCommand}" Margin="0,0,6,0"/>
                 <Button Content="Limpiar cantidades" Style="{StaticResource EstiloBotonQuiet}" Command="{Binding LimpiarCantidadesCommand}" Margin="0,0,14,0"/>

@@ -12,8 +12,8 @@ namespace LocalInfantil.Tests.Wpf;
 /// </summary>
 public sealed class VistasRecursosTests
 {
-    private static readonly Regex UsoRecurso = new(@"\{StaticResource\s+([A-Za-z0-9_]+)\}", RegexOptions.Compiled);
-    private static readonly Regex ClaveDefinida = new(@"x:Key=""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
+    private static readonly Regex UsoRecurso = new(@"\{StaticResource\s+([A-Za-z0-9_.]+)\}", RegexOptions.Compiled);
+    private static readonly Regex ClaveDefinida = new(@"x:Key=""([A-Za-z0-9_.]+)""", RegexOptions.Compiled);
 
     private static string RaizRepo()
     {
@@ -184,9 +184,9 @@ public sealed class VistasRecursosTests
     {
         var wpf = Path.Combine(RaizRepo(), "src", "LocalInfantil.Wpf");
         var globales = ClavesGlobales(wpf);
-        var vistas = Directory.GetFiles(Path.Combine(wpf, "Views"), "*.xaml")
-            .Concat(new[] { Path.Combine(wpf, "MainWindow.xaml"), Path.Combine(wpf, "DevMainWindow.xaml") })
-            .Where(File.Exists)
+        var vistas = Directory.GetFiles(Path.Combine(wpf, "Views"), "*.xaml", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(wpf, "*.xaml"))
+            .Distinct()
             .OrderBy(f => f)
             .ToList();
         Assert.NotEmpty(vistas);

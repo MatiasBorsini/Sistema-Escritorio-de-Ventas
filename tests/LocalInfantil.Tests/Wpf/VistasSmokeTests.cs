@@ -174,6 +174,34 @@ public sealed class VistasSmokeTests
         });
     }
 
+    [Fact]
+    public async Task EtiquetasWindow_carga_y_enlaza_sin_excepciones_ni_efectos()
+    {
+        using var e = await EntornoCaja.CrearAsync();
+        var vm = new EtiquetasViewModel(e.Servicios, () => e.Sesion, "producto-inexistente");
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new EtiquetasWindow(vm);
+            Medir(vista);
+            Assert.Same(vm, vista.DataContext);
+        });
+    }
+
+    [Fact]
+    public async Task MatrizVariantesWindow_carga_y_enlaza_sin_excepciones_ni_efectos()
+    {
+        using var e = await EntornoCaja.CrearAsync();
+        var vm = new MatrizVariantesViewModel(e.Servicios, () => e.Sesion, "producto-inexistente");
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new MatrizVariantesWindow(vm);
+            Medir(vista);
+            Assert.Same(vm, vista.DataContext);
+        });
+    }
+
     public static IEnumerable<object[]> VistasPrincipales()
     {
         var ensamblado = typeof(CajaView).Assembly;

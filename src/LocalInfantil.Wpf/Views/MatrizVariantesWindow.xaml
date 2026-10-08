@@ -2,14 +2,14 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Crear variantes" Width="760" Height="560" MinWidth="680" MinHeight="480"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{StaticResource Color.BackgroundBrush}">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{StaticResource Color.SurfaceBrush}">
     <DockPanel Margin="18">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="Variantes por matriz" FontSize="21" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}"/>
             <TextBlock Text="Escribí talles y colores separados por coma o línea. No se modifica el stock." Margin="0,3,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.DangerTextBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap"/>
             <TextBlock Text="{Binding Mensaje}" Foreground="{StaticResource Color.TextSecondaryBrush}" Margin="0,3,0,6"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Cerrar" Style="{StaticResource EstiloBotonQuiet}" Command="{Binding CerrarCommand}"/>
