@@ -12,12 +12,11 @@
                     <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TituloVentana, Mode=OneWay}"/>
                     <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SubtituloVentana, Mode=OneWay}"/>
                 </StackPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonQuiet}" Content="✕" Width="32" Click="Cerrar_Click" ToolTip="Cerrar (Esc)" HorizontalAlignment="Right"/>
             </DockPanel>
         </Border>
         <Border DockPanel.Dock="Bottom" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Padding="12,6">
             <DockPanel>
-                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Ventana de consulta: no bloquea Recepciones. Podés seguir consultando otras recepciones. Esc o ✕ para salir."/>
+                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Ventana de consulta: no bloquea Recepciones. Podés seguir consultando otras recepciones. Presioná Esc o usá la X de Windows para salir."/>
             </DockPanel>
         </Border>
         <StackPanel DockPanel.Dock="Top" Margin="12,8,12,0">

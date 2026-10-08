@@ -380,6 +380,52 @@
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
     </Style>
+    <!-- Ítem de primer nivel de la barra superior: tipografía y estados propios
+         (nunca el highlight azul del tema Windows). El indicador de sección
+         activa (subrayado Accent) lo dibuja cada cabecera con DataTrigger. -->
+    <Style x:Key="EstiloItemMenuPrincipal" TargetType="MenuItem">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource EstiloFocoTeclado}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
+                        </Border>
+                        <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                               AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                            <Border Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4" MinWidth="220">
+                                <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" MaxHeight="480">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                <Setter Property="Background" Value="{StaticResource Color.PrimaryDarkBrush}"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Color.PrimaryDarkBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
+            </Trigger>
+            <Trigger Property="IsSubmenuOpen" Value="True">
+                <Setter Property="Background" Value="{StaticResource Color.PrimaryDarkBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+                <Setter Property="Background" Value="{StaticResource Color.PrimaryDarkBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
     <!-- Aviso informativo compacto (recepción, inventario, proveedores). -->
     <Style x:Key="EstiloAvisoInfo" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Color.InfoBgBrush}"/>

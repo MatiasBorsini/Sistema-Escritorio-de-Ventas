@@ -170,8 +170,13 @@ public sealed class WpfStocktakeRecoveryTests
         Assert.Single(vm.Conteos);
         vm.Seleccionado = vm.Conteos.First();
         Assert.NotNull(vm.Informe);
-        vm.FilasSeleccion.First().CantidadTexto = "15";
         await vm.CorregirAsyncPublic();
+        Assert.Single(vm.LineasCorreccion);
+        Assert.Equal("12", vm.LineasCorreccion[0].CantidadTexto);
+        vm.LineasCorreccion[0].CantidadTexto = "15";
+        await vm.SolicitarGuardarCorreccionAsyncPublic();
+        Assert.True(vm.ConfirmacionCorreccionVisible);
+        await vm.GuardarCorreccionAsyncPublic();
         Assert.Null(vm.Error);
         await vm.SolicitarAprobarAsyncPublic();
         Assert.True(vm.ConfirmacionAprobarVisible);

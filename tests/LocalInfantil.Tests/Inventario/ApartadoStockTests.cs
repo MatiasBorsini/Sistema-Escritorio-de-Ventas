@@ -622,7 +622,7 @@ public sealed class ApartadoStockTests
             var crearConteo = new CrearConteo(conteoRepo, varRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);
             var corregir = new CorregirConteo(conteoRepo, autorizador, fabrica, auditoria, ids);
             var aprobar = new AprobarConteo(conteoRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);
-            var consultas = new ConsultasInventario(movRepo, varRepo, conteoRepo, apartRepo, sesiones, fabrica);
+            var consultas = new ConsultasInventario(movRepo, varRepo, conteoRepo, apartRepo, prodRepo, sesiones, fabrica);
             var catalogo = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var consultasConteos = new ConsultasConteos(conteoRepo, sesiones, fabrica);
             var crearProv = new CrearProveedor(provRepo, autorizador, fabrica, auditoria, ids, reloj);

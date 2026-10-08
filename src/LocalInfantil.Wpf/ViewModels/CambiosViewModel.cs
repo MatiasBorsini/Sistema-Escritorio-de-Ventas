@@ -127,7 +127,7 @@ public sealed class CambiosViewModel : ViewModelBase
             if (result is ResultadoCambio.DecisionCuentaRequerida or ResultadoCambio.ConfirmacionCuenta) return result;
             var confirmado=(ResultadoCambio.Registrado)result;CambioIdReciente=confirmado.CambioId;Mensaje=$"Cambio {confirmado.Numero} registrado: {diferenciaTexto}";
             if(Diferencia<0 && MedioReintegro==MediosPago.MercadoPago && Venta is not null)
-            {_reintegroMpPendiente=(Venta.Resumen.Id,-Diferencia);Mensaje+=$". Crédito reconocido. Reintegro por Mercado Pago pendiente: ejecutalo con Reembolsar.";OnPropertyChanged(nameof(PuedeReembolsarMp));}
+            {_reintegroMpPendiente=(Venta.Resumen.Id,-Diferencia);Mensaje+=$". CrÃ©dito reconocido. Reintegro por Mercado Pago pendiente: ejecutalo con Reembolsar.";OnPropertyChanged(nameof(PuedeReembolsarMp));}
             _operacionPendiente = null;
             await CargarAsync();
             return result;

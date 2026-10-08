@@ -11,6 +11,19 @@
                 </StackPanel>
             </StackPanel>
         </DataTemplate>
+        <DataTemplate x:Key="PlantillaVarianteAgregar">
+            <Grid Margin="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CodigoInterno}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding NombreProducto}"/>
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DetalleTalleColor, StringFormat= · \{0\}}"/>
+                    </StackPanel>
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource EstiloBotonQuiet}" Content="Agregar" Padding="7,2" MinHeight="26" Margin="8,0,0,0" Focusable="False" Click="AgregarButton_Click"/>
+            </Grid>
+        </DataTemplate>
         <DataTemplate x:Key="PlantillaProducto">
             <StackPanel Margin="2">
                 <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto}"/>

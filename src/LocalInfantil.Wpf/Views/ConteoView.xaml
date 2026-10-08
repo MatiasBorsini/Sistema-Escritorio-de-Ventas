@@ -1,7 +1,8 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.ConteoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:views="clr-namespace:LocalInfantil.Wpf.Views">
+             xmlns:views="clr-namespace:LocalInfantil.Wpf.Views"
+             Loaded="ConteoView_Loaded">
     <DockPanel Background="{StaticResource Color.CanvasBrush}">
         <StackPanel DockPanel.Dock="Top" Margin="20,12,20,0">
             <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Conteo físico" Margin="0,0,0,0"/>
@@ -11,6 +12,11 @@
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource EstiloBotonQuiet}">
                             <Style.Triggers>
+                                <DataTrigger Binding="{Binding Paso1Listo}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Color.SuccessBgBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding Paso1Activo}" Value="True">
                                     <Setter Property="Background" Value="{StaticResource Color.PrimaryBrush}"/>
                                     <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
@@ -24,7 +30,12 @@
                     <Button Command="{Binding IrAPasoCommand}" CommandParameter="2" Content="{Binding Paso2Texto}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource EstiloBotonQuiet}">
-                            <Style.Triggers>
+                        <Style.Triggers>
+                                <DataTrigger Binding="{Binding Paso2Listo}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Color.SuccessBgBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding Paso2Activo}" Value="True">
                                     <Setter Property="Background" Value="{StaticResource Color.PrimaryBrush}"/>
                                     <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
@@ -38,7 +49,12 @@
                     <Button Command="{Binding IrAPasoCommand}" CommandParameter="3" Content="{Binding Paso3Texto}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource EstiloBotonQuiet}">
-                            <Style.Triggers>
+                        <Style.Triggers>
+                                <DataTrigger Binding="{Binding Paso3Listo}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Color.SuccessBgBrush}"/>
+                                    <Setter Property="Foreground" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                </DataTrigger>
                                 <DataTrigger Binding="{Binding Paso3Activo}" Value="True">
                                     <Setter Property="Background" Value="{StaticResource Color.PrimaryBrush}"/>
                                     <Setter Property="Foreground" Value="{StaticResource Color.CanvasBrush}"/>
@@ -68,37 +84,61 @@
             <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="20,2,20,12">
-            <Border Style="{StaticResource EstiloTarjeta}" HorizontalAlignment="Stretch" Margin="0" Padding="{StaticResource RellenoPanel}">
+            <Border Style="{StaticResource EstiloTarjeta}" HorizontalAlignment="Stretch" MaxWidth="1150" Margin="0" Padding="{StaticResource RellenoPanel}">
                 <StackPanel>
                     <StackPanel Visibility="{Binding Paso1Visible, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="1 · Seleccioná qué variantes vas a contar" FontSize="16"/>
-                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Solo las variantes elegidas formarán parte del conteo. Escribí un código interno por fila."/>
-                        <ItemsControl ItemsSource="{Binding FilasSeleccion}">
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Seleccionar variantes" FontSize="16"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Buscá por código o nombre. Elegí Agregar en un resultado para sumarlo a este conteo."/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Buscar variante" Margin="0,8,0,2"/>
+                        <views:BuscadorAsistido x:Name="BuscadorPaso1" Modo="VarianteAgregar" Motor="{Binding MotorBusquedaPaso1}"
+                                                SeleccionCommand="{Binding AgregarVarianteCommand}" LimpiarAlSeleccionar="True"
+                                                ToolTip="Código interno o nombre de producto"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Margin="0,14,0,2" Text="{Binding TextoVariantesSeleccionadas}"/>
+                        <TextBlock Style="{StaticResource EstiloEstadoVacio}" Text="Todavía no agregaste variantes. Buscá un código o nombre arriba."
+                                   Visibility="{Binding VariantesElegidas, Converter={StaticResource CeroVisible}}"/>
+                        <Grid Margin="0,4,0,0" Visibility="{Binding HayVariantesElegidas, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/><ColumnDefinition Width="3*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="110"/><ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Código"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Producto"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Talle"/>
+                            <TextBlock Grid.Column="3" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Color"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding VariantesSeleccionadas}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="0,4">
+                                    <Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="4,6">
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
-                                            <views:BuscadorAsistido Grid.Column="0" Modo="Variante" Motor="{Binding MotorVariantes}"
-                                                                      SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
-                                                                      ToolTip="Código interno o nombre de producto"/>
-                                            <TextBlock Grid.Column="1" Margin="8,4,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Detalle}" TextTrimming="CharacterEllipsis"/>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="150"/><ColumnDefinition Width="3*"/><ColumnDefinition Width="100"/><ColumnDefinition Width="110"/><ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Sku}"/>
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="13" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto, TargetNullValue=Pendiente de validar}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Talle, TargetNullValue=—}"/>
+                                            <TextBlock Grid.Column="3" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Color, TargetNullValue=—}"/>
+                                            <Button Grid.Column="4" Style="{StaticResource EstiloBotonQuiet}" Content="Quitar" Margin="8,0,0,0"
+                                                    Command="{Binding DataContext.QuitarVarianteSeleccionadaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="+ Fila" Command="{Binding AgregarFilaCommand}"/>
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="− Fila" Command="{Binding QuitarFilaCommand}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0" HorizontalAlignment="Right">
-                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Continuar al conteo →" Command="{Binding SiguientePasoCommand}"/>
-                        </StackPanel>
+                        <DockPanel Margin="0,16,0,0">
+                            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Agregá al menos una variante para continuar." Visibility="{Binding PuedeContinuarPaso1, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="{Binding TextoContinuarPaso1}" IsEnabled="{Binding PuedeContinuarPaso1}" Command="{Binding SiguientePasoCommand}"/>
+                        </DockPanel>
                     </StackPanel>
                     <StackPanel Visibility="{Binding Paso2Visible, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="2 · Registrá lo que realmente ves" FontSize="16"/>
-                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Ingresá el número físico para cada variante seleccionada. Tab avanza, Enter baja de fila."/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="2 · Contar unidades" FontSize="16"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Ingresá la cantidad física. El esperado se fija al crear el borrador y se compara en Revisar. Tab avanza entre cantidades."/>
+                        <Grid Margin="0,8,0,2">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="120"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Código o variante"/>
+                            <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Contado (u.)"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Producto · talle · color"/>
+                        </Grid>
                         <ItemsControl ItemsSource="{Binding FilasSeleccion}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -109,18 +149,18 @@
                                                                       SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
                                                                       ToolTip="Código interno o nombre de producto"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Contado" Margin="0,0,6,0"/>
+                                                <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="unid." Margin="0,0,6,0"/>
                                                 <TextBox Style="{StaticResource EstiloCampoTexto}" Width="66" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad física contada, cero o más"/>
                                             </StackPanel>
-                                            <TextBlock Grid.Column="2" Margin="8,4,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Detalle}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Margin="8,4,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Detalle, TargetNullValue=Sin elegir todavía}" TextTrimming="CharacterEllipsis"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="+ Fila" Command="{Binding AgregarFilaCommand}"/>
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="− Fila" Command="{Binding QuitarFilaCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="+ Agregar variante" Command="{Binding AgregarFilaCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Quitar última fila" Command="{Binding QuitarFilaCommand}"/>
                         </StackPanel>
                         <DockPanel Margin="0,16,0,0">
                             <Button DockPanel.Dock="Left" Style="{StaticResource EstiloBotonQuiet}" Content="← Volver" Command="{Binding AnteriorPasoCommand}"/>
@@ -131,30 +171,84 @@
                         <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="3 · Revisá las diferencias" FontSize="16"/>
                         <TextBlock Style="{StaticResource EstiloAyuda}" Text="El sistema compara lo esperado con lo contado antes de ajustar stock."/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Refrescar borradores" Command="{Binding RefrescarCommand}"/>
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anteriores" Command="{Binding AnteriorCommand}"/>
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguientes ▶" Command="{Binding SiguienteCommand}"/>
-                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Corregir borrador" Command="{Binding CorregirCommand}" ToolTip="Corrige el borrador con las filas del paso 2"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Actualizar conteos" Command="{Binding RefrescarCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anteriores" Command="{Binding AnteriorCommand}" IsEnabled="{Binding PuedeIrPaginaAnterior}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguientes ▶" Command="{Binding SiguienteCommand}" IsEnabled="{Binding PuedeIrPaginaSiguiente}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Corregir borrador" Command="{Binding CorregirCommand}" IsEnabled="{Binding PuedeCorregirBorrador}" ToolTip="Solo se pueden corregir conteos en curso"/>
                         </StackPanel>
-                        <ListBox Style="{StaticResource EstiloLista}" MaxHeight="110" ItemsSource="{Binding Conteos}" SelectedItem="{Binding Seleccionado}">
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Conteos guardados" Margin="0,4,0,2"/>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding EstadoPaginaConteos}"/>
+                        <TextBlock Style="{StaticResource EstiloEstadoVacio}" Text="Todavía no hay conteos guardados. Los borradores aparecen al crear uno en el paso Contar."
+                                   Visibility="{Binding Conteos.Count, Converter={StaticResource CeroVisible}}"/>
+                        <ListBox Style="{StaticResource EstiloLista}" MaxHeight="150" ItemsSource="{Binding Conteos}" SelectedItem="{Binding Seleccionado}">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" Margin="4">
                                         <TextBlock FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Estado}" Width="90"/>
-                                        <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CreadoEn}" Width="170"/>
+                                        <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CreadoEn, Converter={StaticResource FechaCorta}}" Width="120"/>
                                         <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CantidadVariantes, StringFormat=\{0\} var.}" Width="80"/>
                                         <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CreadoPorNombre, FallbackValue=—}" Width="100"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        <Border Style="{StaticResource EstiloTarjeta}" Padding="12" Margin="0,10,0,0"
+                                Visibility="{Binding ModoCorreccion, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Corregir conteo" FontSize="15"/>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" Text="Esperado es el snapshot original. Contado muestra el valor guardado y se puede editar."/>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2.4*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="1.2*"/></Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" FontWeight="SemiBold" FontSize="12" Text="Variante"/>
+                                    <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="12" Text="Esperado"/>
+                                    <TextBlock Grid.Column="2" FontWeight="SemiBold" FontSize="12" Text="Contado"/>
+                                    <TextBlock Grid.Column="3" FontWeight="SemiBold" FontSize="12" Text="Nueva cantidad"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding LineasCorreccion}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="2.4*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="1.2*"/></Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding Sku}"/>
+                                                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding IdentificacionHumana}" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding Esperado, StringFormat={}{0} u.}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding ContadoOriginal, StringFormat={}{0} u.}" VerticalAlignment="Center"/>
+                                                <TextBox Grid.Column="3" Style="{StaticResource EstiloCampoTexto}" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" MinWidth="90"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <DockPanel Margin="0,10,0,0">
+                                    <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Text="Cambios: " FontWeight="SemiBold"/>
+                                    <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Text="{Binding CambiosCorreccion}" FontWeight="SemiBold"/>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarCorreccionCommand}"/>
+                                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Guardar corrección" Command="{Binding GuardarCorreccionCommand}" IsEnabled="{Binding PuedeGuardarCorreccion}" Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <Border Margin="0,8,0,0" Padding="10" Background="{StaticResource Color.WarningBgBrush}" BorderBrush="{StaticResource Color.WarningTextBrush}" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionCorreccionVisible, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel>
+                                        <TextBlock Foreground="{StaticResource Color.WarningTextBrush}" TextWrapping="Wrap" Text="{Binding TextoConfirmacionCorreccion}"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Confirmar corrección" Command="{Binding ConfirmarCorreccionCommand}"/>
+                                            <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarCorreccionCommand}" Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Variante"/>
-                            <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Esperado"/>
-                            <TextBlock Grid.Column="2" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Contado"/>
-                            <TextBlock Grid.Column="3" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Diferencia"/>
+                            <TextBlock Grid.Column="1" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Esperado (u.)"/>
+                            <TextBlock Grid.Column="2" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Contado (u.)"/>
+                            <TextBlock Grid.Column="3" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="Diferencia (u.)"/>
                         </Grid>
+                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Elegí un conteo guardado de la lista para ver el detalle." Margin="0,4,0,0" Visibility="{Binding Informe.Count, Converter={StaticResource CeroVisible}}"/>
+                        <TextBlock Style="{StaticResource EstiloEstadoVacio}" Text="No hay diferencias: el conteo coincide con lo esperado."
+                                   Visibility="{Binding SinDiferenciasEnInforme, Converter={StaticResource BoolToVisibility}}"/>
                         <ItemsControl ItemsSource="{Binding Informe}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -162,9 +256,9 @@
                                         <Grid>
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" FontFamily="Consolas" FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Sku}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Grid.Column="1" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Esperado}"/>
-                                            <TextBlock Grid.Column="2" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Contado}"/>
-                                            <TextBlock Grid.Column="3" FontWeight="Bold" Foreground="{Binding Diferencia, Converter={StaticResource DiferenciaColor}}" Text="{Binding Diferencia, StringFormat={}{0:+#;-#;0}}"/>
+                                            <TextBlock Grid.Column="1" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Esperado, StringFormat={}{0} u.}"/>
+                                            <TextBlock Grid.Column="2" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Contado, StringFormat={}{0} u.}"/>
+                                            <TextBlock Grid.Column="3" FontWeight="Bold" Foreground="{Binding Diferencia, Converter={StaticResource DiferenciaColor}}" Text="{Binding Diferencia, StringFormat={}{0:+#;-#;0} u.}"/>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -172,11 +266,12 @@
                         </ItemsControl>
                         <DockPanel Margin="0,16,0,0">
                             <Button DockPanel.Dock="Left" Style="{StaticResource EstiloBotonQuiet}" Content="← Volver al conteo" Command="{Binding AnteriorPasoCommand}"/>
-                            <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="Continuar a aprobación →" Command="{Binding SiguientePasoCommand}"/>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="Continuar a aprobación →" Command="{Binding SiguientePasoCommand}"
+                                    IsEnabled="{Binding PuedeCorregirBorrador}" ToolTip="Solo los borradores pueden avanzar a aprobación"/>
                         </DockPanel>
                     </StackPanel>
                     <StackPanel Visibility="{Binding Paso4Visible, Converter={StaticResource BoolToVisibility}}" MaxWidth="760" HorizontalAlignment="Center">
-                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="4 · Aprobar ajuste de inventario" FontSize="16"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="4 · Confirmar ajuste de inventario" FontSize="16"/>
                         <TextBlock Style="{StaticResource EstiloAyuda}" Text="Al aprobar, se registran los ajustes derivados de las diferencias encontradas."/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,8,0" MinWidth="130">
@@ -202,14 +297,13 @@
                             <TextBlock Foreground="{StaticResource Color.InfoTextBrush}" FontSize="13" TextWrapping="Wrap" Text="Si el stock cambió desde que empezaste el conteo, la aprobación se rechaza y hay que registrar uno nuevo. No se actualiza nada silenciosamente."/>
                         </Border>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Solicitar aprobación" Command="{Binding SolicitarAprobarCommand}"/>
-                            <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarAprobarCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Revisar aprobación" Command="{Binding SolicitarAprobarCommand}" IsEnabled="{Binding PuedeCorregirBorrador}"/>
                         </StackPanel>
                         <Border Margin="0,8,0,0" Padding="12" Background="{StaticResource Color.WarningBgBrush}" BorderBrush="{StaticResource Color.WarningTextBrush}" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionAprobarVisible, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
                                 <TextBlock Foreground="{StaticResource Color.WarningTextBrush}" TextWrapping="Wrap" Text="¿Confirmás aprobar este conteo? Revisá las diferencias antes: no se puede deshacer desde esta pantalla."/>
                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                    <Button Style="{StaticResource EstiloBotonPrimario}" Content="Confirmar aprobación" Command="{Binding AprobarCommand}"/>
+                                    <Button Style="{StaticResource EstiloBotonDestructivo}" Content="Confirmar y aplicar ajustes" Command="{Binding AprobarCommand}"/>
                                     <Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar" Command="{Binding CancelarAprobarCommand}"/>
                                 </StackPanel>
                             </StackPanel>

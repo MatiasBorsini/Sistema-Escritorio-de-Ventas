@@ -235,6 +235,46 @@ public sealed class RepositorioConteos : IRepositorioConteos
         }
     }
 
+    public async Task<IReadOnlyList<LineaCorreccionConteo>> ListarLineasCorreccionAsync(ISesionPersistencia sesion, string conteoId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = """
+                SELECT d.variante_id, v.codigo_interno, p.nombre, v.talle, v.color,
+                       d.existencia_esperada, d.cantidad_contada,
+                       d.cantidad_contada - d.existencia_esperada
+                FROM conteo_detalle d
+                JOIN variante v ON v.id = d.variante_id
+                JOIN producto p ON p.id = v.producto_id
+                WHERE d.conteo_id = $conteo ORDER BY v.codigo_interno;
+                """;
+            comando.Parameters.AddWithValue("$conteo", conteoId);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<LineaCorreccionConteo>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(new LineaCorreccionConteo(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.IsDBNull(2) ? null : lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.IsDBNull(4) ? null : lector.GetString(4),
+                    lector.GetInt64(5),
+                    lector.GetInt64(6),
+                    lector.GetInt64(7)));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     private static ISesionSqlite Sesion(ISesionPersistencia sesion)
     {
         if (sesion is not ISesionSqlite s)

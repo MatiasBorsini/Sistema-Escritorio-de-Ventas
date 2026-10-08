@@ -18,6 +18,7 @@ public sealed class ConsultasInventario
     private readonly IRepositorioVariantes _variantes;
     private readonly IRepositorioConteos _conteos;
     private readonly IRepositorioApartados _apartados;
+    private readonly IRepositorioProductos _productos;
     private readonly GestorSesiones _sesiones;
     private readonly IFabricaSesionesPersistencia _fabrica;
 
@@ -26,6 +27,7 @@ public sealed class ConsultasInventario
         IRepositorioVariantes variantes,
         IRepositorioConteos conteos,
         IRepositorioApartados apartados,
+        IRepositorioProductos productos,
         GestorSesiones sesiones,
         IFabricaSesionesPersistencia fabrica)
     {
@@ -33,6 +35,7 @@ public sealed class ConsultasInventario
         _variantes = variantes;
         _conteos = conteos;
         _apartados = apartados;
+        _productos = productos;
         _sesiones = sesiones;
         _fabrica = fabrica;
     }
@@ -79,7 +82,9 @@ public sealed class ConsultasInventario
 
         var fisico = await _movimientos.SumarPorVarianteAsync(sesion, variante.Id, cancellationToken);
         var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, variante.Id, cancellationToken);
-        return new ExistenciaClasificada(variante.Id, variante.CodigoInterno, fisico, fisico - apartado, apartado);
+        var producto = await _productos.ObtenerPorIdAsync(sesion, variante.ProductoId, cancellationToken);
+        return new ExistenciaClasificada(variante.Id, variante.CodigoInterno, fisico, fisico - apartado, apartado,
+            producto?.Nombre ?? string.Empty, variante.Talle, variante.Color);
     }
 
     public async Task<IReadOnlyList<ApartadoHistorial>> HistorialApartadosPorSkuAsync(string codigo, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)

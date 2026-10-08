@@ -189,6 +189,7 @@ public sealed class AppRootViewModel : ViewModelBase
 public sealed class ShellDuenaViewModel : ViewModelBase
 {
     private ViewModelBase _vistaActual;
+    private string _seccionActiva = NavegacionSecciones.Inicio;
 
     public SesionUsuario Sesion { get; }
     public PortadaViewModel Portada { get; }
@@ -210,6 +211,13 @@ public sealed class ShellDuenaViewModel : ViewModelBase
     public ActualizacionesViewModel? Actualizaciones { get; }
     public ConfiguracionMercadoPagoViewModel? ConfigMercadoPago { get; private set; }
     public string? AvisoMercadoPago { get; private set; }
+    public string SeccionActiva
+    {
+        get => _seccionActiva;
+        private set => SetProperty(ref _seccionActiva, value);
+    }
+    public bool HayVentas => Pos is not null || Ventas is not null || Cambios is not null;
+    public bool HayClientes => Clientes is not null || CuentaCorriente is not null;
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol}) — Dueña";
     public string VersionApp => "Versión " + Infra.VersionAplicacion.Obtener();
@@ -243,6 +251,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
+        SeccionActiva = NavegacionSecciones.Inicio;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
         IrAApartadoCommand = new RelayCommand(IrAApartado);
     }
@@ -262,6 +271,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         if (vista is ViewModelBase viewModel)
         {
             VistaActual = viewModel;
+            SeccionActiva = NavegacionSecciones.ResolverSeccion(vista);
         }
 
         if (vista is CatalogoViewModel catalogo)
@@ -284,6 +294,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
         if (accion is string nombre)
             Apartado.SeleccionarAccionCommand.Execute(nombre);
         VistaActual = Apartado;
+        SeccionActiva = NavegacionSecciones.Mercaderia;
     }
 
     private static LocalInfantil.Application.Contracts.ResumenInicio ResumenVacio()
@@ -293,6 +304,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase
 public sealed class ShellEmpleadaViewModel : ViewModelBase
 {
     private ViewModelBase _vistaActual;
+    private string _seccionActiva = NavegacionSecciones.Inicio;
 
     public SesionUsuario Sesion { get; }
     public PortadaViewModel Portada { get; }
@@ -312,6 +324,13 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
     public ReportesViewModel? Reportes { get; }
     public ActualizacionesViewModel? Actualizaciones { get; }
     public string? AvisoMercadoPago { get; private set; }
+    public string SeccionActiva
+    {
+        get => _seccionActiva;
+        private set => SetProperty(ref _seccionActiva, value);
+    }
+    public bool HayVentas => Pos is not null || Ventas is not null || Cambios is not null;
+    public bool HayClientes => Clientes is not null || CuentaCorriente is not null;
     public Func<Task> CerrarSesion { get; }
     public string Identidad => $"{Sesion.Nombre} ({Sesion.Rol})";
     public string VersionApp => "Versión " + Infra.VersionAplicacion.Obtener();
@@ -343,6 +362,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
         _vistaActual = Portada;
+        SeccionActiva = NavegacionSecciones.Inicio;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
         IrAApartadoCommand = new RelayCommand(IrAApartado);
     }
@@ -362,6 +382,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         if (vista is ViewModelBase viewModel)
         {
             VistaActual = viewModel;
+            SeccionActiva = NavegacionSecciones.ResolverSeccion(vista);
         }
 
         if (vista is CatalogoViewModel catalogo)
@@ -384,6 +405,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase
         if (accion is string nombre)
             Apartado.SeleccionarAccionCommand.Execute(nombre);
         VistaActual = Apartado;
+        SeccionActiva = NavegacionSecciones.Mercaderia;
     }
 
     private static LocalInfantil.Application.Contracts.ResumenInicio ResumenVacio()

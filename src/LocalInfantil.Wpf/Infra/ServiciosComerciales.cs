@@ -185,7 +185,7 @@ public sealed class ServiciosComerciales
         CasoCrearConteo = new CrearConteo(RepoConteos, RepoVariantes, RepoMovimientos, RepoApartados, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoCorregirConteo = new CorregirConteo(RepoConteos, Autorizador, Fabrica, RepoAuditoria, GeneradorIds);
         CasoAprobarConteo = new AprobarConteo(RepoConteos, RepoMovimientos, RepoApartados, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
-        ConsultasInventario = new ConsultasInventario(RepoMovimientos, RepoVariantes, RepoConteos, RepoApartados, Gestor, Fabrica);
+        ConsultasInventario = new ConsultasInventario(RepoMovimientos, RepoVariantes, RepoConteos, RepoApartados, RepoProductos, Gestor, Fabrica);
         ConsultasInicio = new ConsultasInicio(Autorizador, RepoInicio, Fabrica);
         CasoApartarStock = new ApartarStock(RepoApartados, RepoVariantes, RepoMovimientos, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoReincorporarStock = new ReincorporarStock(RepoApartados, RepoVariantes, Autorizador, Fabrica, RepoAuditoria, Reloj);

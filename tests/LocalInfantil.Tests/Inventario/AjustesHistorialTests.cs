@@ -218,7 +218,7 @@ public sealed class AjustesHistorialTests
             DesactivarVariante = new DesactivarVariante(variantes, autorizador, _fabrica, auditoria, _ids);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
             Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
-            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, _sesiones, _fabrica);
+            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, productos, _sesiones, _fabrica);
             Catalogo = new ConsultasCatalogo(productos, variantes, _sesiones, _fabrica);
         }
 

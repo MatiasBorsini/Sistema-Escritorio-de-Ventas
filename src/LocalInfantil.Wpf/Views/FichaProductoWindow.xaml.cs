@@ -32,8 +32,6 @@ public partial class FichaProductoWindow : Window
         };
     }
 
-    private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
-
     private async void CrearPorMatriz_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not FichaProductoViewModel vm || vm.ProductoId is null) return;

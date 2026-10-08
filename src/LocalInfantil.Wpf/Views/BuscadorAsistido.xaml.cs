@@ -32,6 +32,9 @@ public partial class BuscadorAsistido : UserControl
     public static readonly DependencyProperty PriorizarBusquedaDirectaEnEnterProperty =
         DependencyProperty.Register(nameof(PriorizarBusquedaDirectaEnEnter), typeof(bool), typeof(BuscadorAsistido), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty LimpiarAlSeleccionarProperty =
+        DependencyProperty.Register(nameof(LimpiarAlSeleccionar), typeof(bool), typeof(BuscadorAsistido), new PropertyMetadata(false));
+
     public BuscadorAsistido() => InitializeComponent();
 
     public MotorSugerencias<SugerenciaVariante>? Motor
@@ -66,6 +69,12 @@ public partial class BuscadorAsistido : UserControl
         set => SetValue(PriorizarBusquedaDirectaEnEnterProperty, value);
     }
 
+    public bool LimpiarAlSeleccionar
+    {
+        get => (bool)GetValue(LimpiarAlSeleccionarProperty);
+        set => SetValue(LimpiarAlSeleccionarProperty, value);
+    }
+
     private void AlCambiarMotor(MotorSugerencias<SugerenciaVariante>? anterior, MotorSugerencias<SugerenciaVariante>? nuevo)
     {
         if (anterior is not null)
@@ -92,7 +101,9 @@ public partial class BuscadorAsistido : UserControl
         if (Lista is null) return;
         Lista.ItemTemplate = string.Equals(Modo, "Producto", StringComparison.OrdinalIgnoreCase)
             ? (DataTemplate)Resources["PlantillaProducto"]
-            : (DataTemplate)Resources["PlantillaVariante"];
+            : string.Equals(Modo, "VarianteAgregar", StringComparison.OrdinalIgnoreCase)
+                ? (DataTemplate)Resources["PlantillaVarianteAgregar"]
+                : (DataTemplate)Resources["PlantillaVariante"];
     }
 
     private void Caja_TextChanged(object sender, TextChangedEventArgs e)
@@ -148,6 +159,11 @@ public partial class BuscadorAsistido : UserControl
     {
         if (Motor is null) return;
         var origen = e.OriginalSource as DependencyObject;
+        var botonAgregar = origen;
+        while (botonAgregar is not null && botonAgregar is not Button)
+            botonAgregar = VisualTreeHelper.GetParent(botonAgregar);
+        if (botonAgregar is Button { Content: "Agregar" }) return;
+
         while (origen is not null && origen is not ListBoxItem)
             origen = VisualTreeHelper.GetParent(origen);
         if (origen is ListBoxItem item && Lista.ItemContainerGenerator.IndexFromContainer(item) is int i && i >= 0)
@@ -164,8 +180,21 @@ public partial class BuscadorAsistido : UserControl
     private void Confirmar(SugerenciaVariante? item)
     {
         if (item is null || SeleccionCommand is null) return;
-        if (SeleccionCommand.CanExecute(item))
-            SeleccionCommand.Execute(item);
+        if (!SeleccionCommand.CanExecute(item)) return;
+        SeleccionCommand.Execute(item);
+        if (!LimpiarAlSeleccionar || Motor is null) return;
+        Motor.EstablecerTexto(string.Empty);
+        Motor.Limpiar();
+        Dispatcher.BeginInvoke(new Action(() => Caja.Focus()), System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void AgregarButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: SugerenciaVariante sugerencia })
+        {
+            Confirmar(sugerencia);
+            e.Handled = true;
+        }
     }
 
     private void Caja_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)

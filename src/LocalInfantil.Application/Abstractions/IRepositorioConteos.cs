@@ -20,5 +20,7 @@ public interface IRepositorioConteos
 
     Task<IReadOnlyList<InformeConteoLinea>> InformeAsync(ISesionPersistencia sesion, string conteoId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<LineaCorreccionConteo>> ListarLineasCorreccionAsync(ISesionPersistencia sesion, string conteoId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ConteoRegistrado>> ListarAsync(ISesionPersistencia sesion, int limite, int desplazamiento, CancellationToken cancellationToken = default);
 }

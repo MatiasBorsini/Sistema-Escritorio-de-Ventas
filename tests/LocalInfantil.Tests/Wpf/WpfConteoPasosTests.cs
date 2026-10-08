@@ -42,6 +42,7 @@ public sealed class WpfConteoPasosTests
         await vm.SiguientePasoAsyncPublic();
         Assert.Equal(3, vm.PasoActual);
         Assert.NotNull(vm.Seleccionado);
+        Assert.Contains("1 conteo guardado en esta página", vm.EstadoPaginaConteos);
         await EsperarAsync(() => vm.Informe.Count == 1);
         Assert.Equal(e.Codigo, vm.Informe[0].Sku);
 
@@ -84,6 +85,106 @@ public sealed class WpfConteoPasosTests
         vm.IrAPasoCommand.Execute("1");
         Assert.Equal(1, vm.PasoActual);
         Assert.Null(vm.Error);
+    }
+
+    [Fact]
+    public async Task Conteo_aprobado_no_avanza_a_una_segunda_aprobacion()
+    {
+        using var e = await Entorno.CrearAsync();
+        var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
+        vm.FilasSeleccion[0].Sku = e.Codigo;
+        vm.FilasSeleccion[0].CantidadTexto = "5";
+        await vm.SiguientePasoAsyncPublic();
+        await vm.SiguientePasoAsyncPublic();
+        await EsperarAsync(() => vm.Informe.Count == 1);
+        Assert.Equal(3, vm.PasoActual);
+
+        await vm.SolicitarAprobarAsyncPublic();
+        await vm.AprobarAsyncPublic();
+        Assert.Equal("aprobado", vm.Seleccionado?.Estado);
+
+        await vm.SiguientePasoAsyncPublic();
+        Assert.Equal(3, vm.PasoActual);
+        Assert.Contains("ya está aprobado", vm.Error ?? string.Empty);
+    }
+
+    [Fact]
+    public async Task Correccion_precarga_lineas_separa_estado_y_preserva_snapshot()
+    {
+        using var e = await Entorno.CrearAsync();
+        var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
+        vm.FilasSeleccion[0].Sku = e.Codigo;
+        vm.FilasSeleccion[0].CantidadTexto = "5";
+        await vm.SiguientePasoAsyncPublic();
+        await vm.SiguientePasoAsyncPublic();
+
+        await vm.CorregirAsyncPublic();
+
+        Assert.Single(vm.LineasCorreccion);
+        Assert.Equal(e.Codigo, vm.LineasCorreccion[0].Sku);
+        Assert.Equal("5", vm.LineasCorreccion[0].CantidadTexto);
+        Assert.NotSame(vm.FilasSeleccion[0], vm.LineasCorreccion[0]);
+        Assert.Equal(10, vm.LineasCorreccion[0].Esperado);
+        Assert.Equal(0, vm.CambiosCorreccion);
+
+        await vm.SolicitarGuardarCorreccionAsyncPublic();
+        Assert.False(vm.ConfirmacionCorreccionVisible);
+        Assert.Contains("No hay cambios", vm.Error ?? string.Empty);
+
+        vm.LineasCorreccion[0].CantidadTexto = "7";
+        Assert.Equal(1, vm.CambiosCorreccion);
+        await vm.SolicitarGuardarCorreccionAsyncPublic();
+        Assert.True(vm.ConfirmacionCorreccionVisible);
+        await vm.GuardarCorreccionAsyncPublic();
+
+        Assert.Null(vm.Error);
+        Assert.Equal("borrador", vm.Seleccionado?.Estado);
+        await EsperarAsync(() => vm.Informe.Count == 1 && vm.Informe[0].Contado == 7);
+        Assert.Equal(10, vm.Informe[0].Esperado);
+        Assert.Equal(7, vm.Informe[0].Contado);
+        Assert.Equal(-3, vm.Informe[0].Diferencia);
+    }
+
+    [Fact]
+    public async Task Cancelar_correccion_descarta_cambios_locales()
+    {
+        using var e = await Entorno.CrearAsync();
+        var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
+        vm.FilasSeleccion[0].Sku = e.Codigo;
+        vm.FilasSeleccion[0].CantidadTexto = "5";
+        await vm.SiguientePasoAsyncPublic();
+        await vm.SiguientePasoAsyncPublic();
+        await vm.CorregirAsyncPublic();
+        vm.LineasCorreccion[0].CantidadTexto = "7";
+
+        await vm.CancelarCorreccionAsyncPublic();
+        Assert.False(vm.ModoCorreccion);
+        var informe = await e.Servicios.ConsultasConteos.InformeAsync(vm.Seleccionado!.Id, e.Sesion);
+        Assert.Equal(5, informe[0].Contado);
+    }
+
+    [Fact]
+    public async Task Cambiar_borrador_limpia_el_estado_de_correccion_anterior()
+    {
+        using var e = await Entorno.CrearAsync();
+        var vm = new ConteoViewModel(e.Servicios, () => e.Sesion);
+        vm.FilasSeleccion[0].Sku = e.Codigo;
+        vm.FilasSeleccion[0].CantidadTexto = "5";
+        await vm.CrearAsyncPublic();
+        var primero = vm.Seleccionado!;
+
+        vm.FilasSeleccion[0].CantidadTexto = "6";
+        await vm.CrearAsyncPublic();
+        var segundo = vm.Seleccionado!;
+        Assert.NotEqual(primero.Id, segundo.Id);
+
+        await vm.CorregirAsyncPublic();
+        Assert.True(vm.ModoCorreccion);
+        vm.LineasCorreccion[0].CantidadTexto = "7";
+
+        vm.Seleccionado = primero;
+        Assert.False(vm.ModoCorreccion);
+        Assert.Empty(vm.LineasCorreccion);
     }
 
     private static async Task EsperarAsync(Func<bool> listo)

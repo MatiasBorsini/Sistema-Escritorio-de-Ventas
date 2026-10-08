@@ -19,11 +19,11 @@ namespace LocalInfantil.Tests.Wpf;
 
 /// <summary>
 /// Smoke tests WPF reales (hilo STA): cargan los ResourceDictionary de la
-/// aplicación, instancian vistas, asignan ViewModel y fuerzan layout para
+/// aplicaciÃ³n, instancian vistas, asignan ViewModel y fuerzan layout para
 /// que los BindingExpression se activen. Detectan XamlParseException,
 /// StaticResource inexistentes y bindings TwoWay contra propiedades
-/// read-only (crash real de Caja con IngresosTexto). Requiere sesión
-/// gráfica de Windows; no hace screenshots ni prueba estética.
+/// read-only (crash real de Caja con IngresosTexto). Requiere sesiÃ³n
+/// grÃ¡fica de Windows; no hace screenshots ni prueba estÃ©tica.
 /// </summary>
 public sealed class VistasSmokeTests
 {
@@ -38,7 +38,7 @@ public sealed class VistasSmokeTests
             if (File.Exists(Path.Combine(dir.FullName, "LocalInfantil.sln")))
                 return dir.FullName;
         }
-        throw new InvalidOperationException("No se encontró la raíz del repositorio (LocalInfantil.sln).");
+        throw new InvalidOperationException("No se encontrÃ³ la raÃ­z del repositorio (LocalInfantil.sln).");
     }
 
     private static void EjecutarEnSta(Action cuerpo)
@@ -59,7 +59,7 @@ public sealed class VistasSmokeTests
         hilo.SetApartmentState(ApartmentState.STA);
         hilo.Start();
         if (!hilo.Join(TimeSpan.FromMinutes(2)))
-            throw new TimeoutException("El smoke test WPF no terminó en 2 minutos.");
+            throw new TimeoutException("El smoke test WPF no terminÃ³ en 2 minutos.");
         if (error is not null)
             ExceptionDispatchInfo.Capture(error).Throw();
     }
@@ -215,10 +215,10 @@ public sealed class VistasSmokeTests
             "AdministracionUsuariosView", "LoginView", "BootstrapDuenaView",
             "EstadoPrototipoView", "ArqueoCajaView", "BuscadorCliente",
             "ShellDuenaView", "ShellEmpleadaView", "AppRootView",
-            // Diálogos con constructor con argumentos (FichaProductoWindow,
+            // DiÃ¡logos con constructor con argumentos (FichaProductoWindow,
             // MatrizVariantesWindow, DetalleRecepcionWindow, EtiquetasWindow,
             // Ticket*Window): no instanciables sin datos; cubiertos por el
-            // lint estático de VistasRecursosTests (parse XAML + StaticResource).
+            // lint estÃ¡tico de VistasRecursosTests (parse XAML + StaticResource).
         };
         foreach (var nombre in tipos)
         {
@@ -238,5 +238,75 @@ public sealed class VistasSmokeTests
             var vista = (FrameworkElement)Activator.CreateInstance(tipoVista)!;
             Medir(vista);
         });
+    }
+
+    [Theory]
+    [InlineData(1200, 750, 1.0, "Apartar")]
+    [InlineData(980, 620, 1.0, "Reincorporar")]
+    [InlineData(980, 620, 1.5, "Baja")]
+    public void Inventario_layout_etiquetas_y_render(int ancho, int alto, double escala, string accion)
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            // Presentation fixture only: no command calls or database access.
+            var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), "inventario-render-unused.db"));
+            var vm = new ApartadoViewModel(servicios, () => null)
+            {
+                Existencia = new ExistenciaClasificada("v", "BUZ-001-02", 5, 3, 2, "Buzo canguro", "L", "Azul")
+            };
+            vm.SeleccionarAccionCommand.Execute(accion);
+            var vista = new ApartadoView { DataContext = vm };
+            var shell = new ShellDuenaView
+            {
+                DataContext = new
+                {
+                    VistaActual = vista, SeccionActiva = "Mercaderia", HayVentas = true, HayClientes = true,
+                    Caja = new { PuedeVer = true }, Identidad = "Vista de prueba", VersionApp = "Fixture UX"
+                }
+            };
+            shell.Measure(new Size(ancho, alto));
+            shell.Arrange(new Rect(0, 0, ancho, alto));
+            shell.UpdateLayout();
+            var cantidad = Assert.IsType<TextBox>(vista.FindName("Cantidad" + accion));
+            var motivo = Assert.IsType<TextBox>(vista.FindName("Motivo" + accion));
+            Assert.Equal(Visibility.Visible, cantidad.Visibility);
+            Assert.Equal(Visibility.Visible, motivo.Visibility);
+            Assert.True(cantidad.ActualWidth >= 100);
+            Assert.True(motivo.ActualWidth >= 150);
+            var controles = Descendientes(vista).ToList();
+            Assert.Contains(controles.OfType<Label>(), l => ReferenceEquals(l.Target, cantidad));
+            Assert.Contains(controles.OfType<Label>(), l => ReferenceEquals(l.Target, motivo));
+            Assert.Equal("Buzo canguro · L · Azul", vm.DescripcionVariante);
+            Assert.Contains(controles.OfType<Button>(), b => (string?)b.Content ==
+                (accion == "Apartar" ? "Apartar prendas" : accion == "Reincorporar" ? "Reincorporar prendas" : "Confirmar baja definitiva"));
+            var menus = Descendientes(shell).OfType<Menu>().ToList();
+            var principal = menus.Single(m => m.Items.Count == 6);
+            var usuario = menus.Single(m => m.Items.Count == 1);
+            Assert.True(principal.TranslatePoint(new Point(principal.ActualWidth, 0), shell).X <= usuario.TranslatePoint(new Point(), shell).X);
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                (int)(ancho * escala), (int)(alto * escala), 96 * escala, 96 * escala, PixelFormats.Pbgra32);
+            bitmap.Render(shell);
+            Assert.Equal((int)(ancho * escala), bitmap.PixelWidth);
+            var salida = Environment.GetEnvironmentVariable("LOCALINFANTIL_UX_CAPTURE_DIR");
+            if (!string.IsNullOrWhiteSpace(salida))
+            {
+                Directory.CreateDirectory(salida);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                using var archivo = File.Create(Path.Combine(salida, $"inventario-{ancho}x{alto}-{accion}-{escala}.png"));
+                encoder.Save(archivo);
+            }
+        });
+    }
+
+    private static IEnumerable<DependencyObject> Descendientes(DependencyObject raiz)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(raiz); i++)
+        {
+            var hijo = VisualTreeHelper.GetChild(raiz, i);
+            yield return hijo;
+            foreach (var descendiente in Descendientes(hijo)) yield return descendiente;
+        }
     }
 }

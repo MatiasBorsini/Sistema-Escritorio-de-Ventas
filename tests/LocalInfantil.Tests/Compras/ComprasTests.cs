@@ -267,7 +267,7 @@ public sealed class ComprasTests
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
             Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
             Recepcion = new ConfirmarRecepcion(recepciones, proveedores, variantes, movimientos, autorizador, _fabrica, auditoria, reloj);
-            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, _sesiones, _fabrica);
+            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, productos, _sesiones, _fabrica);
             Proveedores = new JuegoProveedores
             {
                 CrearProveedor = new CrearProveedor(proveedores, autorizador, _fabrica, auditoria, _ids, reloj),

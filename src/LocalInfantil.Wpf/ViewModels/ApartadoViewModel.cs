@@ -61,8 +61,35 @@ public sealed class ApartadoViewModel : ViewModelBase
     }
     public string CantidadTexto { get => _cantidadTexto; set => SetProperty(ref _cantidadTexto, value); }
     public string Motivo { get => _motivo; set => SetProperty(ref _motivo, value); }
-    public ExistenciaClasificada? Existencia { get => _existencia; set => SetProperty(ref _existencia, value); }
-    public string? Error { get => _error; set => SetProperty(ref _error, value); }
+    public ExistenciaClasificada? Existencia { get => _existencia; set { if (SetProperty(ref _existencia, value)) OnPropertyChanged(nameof(DescripcionVariante)); } }
+    public string? DescripcionVariante
+    {
+        get
+        {
+            if (Existencia is null || string.IsNullOrWhiteSpace(Existencia.NombreProducto)) return null;
+            var partes = new List<string> { Existencia.NombreProducto };
+            if (!string.IsNullOrWhiteSpace(Existencia.Talle)) partes.Add(Existencia.Talle!);
+            if (!string.IsNullOrWhiteSpace(Existencia.Color)) partes.Add(Existencia.Color!);
+            return string.Join(" · ", partes);
+        }
+    }
+    public string? Error
+    {
+        get => _error;
+        set
+        {
+            if (SetProperty(ref _error, value))
+            {
+                OnPropertyChanged(nameof(ErrorCantidad));
+                OnPropertyChanged(nameof(ErrorMotivo));
+                OnPropertyChanged(nameof(ErrorGeneral));
+            }
+        }
+    }
+    // Presentation only; existing validation and messages remain unchanged.
+    public string? ErrorCantidad => Error?.StartsWith("Cantidad inválida", StringComparison.Ordinal) == true ? Error : null;
+    public string? ErrorMotivo => Error == "El motivo es obligatorio." ? Error : null;
+    public string? ErrorGeneral => ErrorCantidad is null && ErrorMotivo is null ? Error : null;
     public string? Mensaje { get => _mensaje; set => SetProperty(ref _mensaje, value); }
     public bool Ocupado { get => _ocupado; set => SetProperty(ref _ocupado, value); }
     public bool ConfirmacionBajaVisible { get => _confirmacionBajaVisible; set => SetProperty(ref _confirmacionBajaVisible, value); }
@@ -143,7 +170,6 @@ public sealed class ApartadoViewModel : ViewModelBase
             Historial.Clear();
             foreach (var h in await _servicios.ConsultasInventario.HistorialApartadosPorSkuAsync(SkuBusqueda.Trim(), 20, 0, _idSesion()))
                 Historial.Add(h);
-            Mensaje = $"Físico {ex.Fisico} = disponible {ex.Disponible} + apartado {ex.Apartado}.";
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }

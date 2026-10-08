@@ -22,6 +22,17 @@ public sealed record DetalleConteo(string VarianteId, long ExistenciaEsperada, l
 /// <summary>Línea de informe: esperado, contado y diferencia por SKU.</summary>
 public sealed record InformeConteoLinea(string VarianteId, string Sku, long Esperado, long Contado, long Diferencia);
 
+/// <summary>Línea editable de un borrador, con identificación humana y snapshot intacto.</summary>
+public sealed record LineaCorreccionConteo(
+    string VarianteId,
+    string Sku,
+    string? NombreProducto,
+    string? Talle,
+    string? Color,
+    long Esperado,
+    long Contado,
+    long Diferencia);
+
 /// <summary>Conteo físico registrado — datos humanos disponibles para la lista.</summary>
 public sealed record ConteoRegistrado(
     string Id,

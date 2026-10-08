@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Documents;
+using System.Windows.Input;
 using LocalInfantil.Wpf.Printing;
 
 namespace LocalInfantil.Wpf.Views;
@@ -17,7 +18,12 @@ public partial class VistaPreviaEtiquetasWindow : Window
         _refrescar = refrescar;
         Visor.Document = documento;
     }
-    private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        Close();
+        e.Handled = true;
+    }
     private async void Imprimir_Click(object sender, RoutedEventArgs e)
     {
         try

@@ -1,49 +1,214 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.ShellEmpleadaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" UseLayoutRounding="True" SnapsToDevicePixels="True">
     <DockPanel Background="{StaticResource Color.CanvasBrush}">
-        <Border DockPanel.Dock="Top" Background="{StaticResource Color.NavBrush}" Padding="12,6">
+        <Border DockPanel.Dock="Top" Background="{StaticResource Color.NavBrush}" Padding="12,8" MinHeight="44">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.CanvasBrush}" Text="LocalInfantil"/>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource Color.CanvasBrush}" Text="{Binding Sesion.Nombre, Mode=OneWay}"/>
-                    <Menu Background="Transparent" VerticalAlignment="Center">
-                        <MenuItem Header="_Perfil" Foreground="{StaticResource Color.CanvasBrush}">
-                            <MenuItem Header="{Binding Identidad, Mode=OneWay}" IsEnabled="False" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-                            <MenuItem Header="{Binding VersionApp, Mode=OneWay}" IsEnabled="False" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-                            <MenuItem Header="Cerrar sesión" Foreground="{StaticResource Color.TextBrush}" Click="Cerrar_Click"/>
-                        </MenuItem>
-                    </Menu>
-                </StackPanel>
+                <Menu DockPanel.Dock="Right" AutomationProperties.Name="Menú de usuario" Background="Transparent" VerticalAlignment="Center">
+                    <MenuItem Header="Empleada" Style="{StaticResource EstiloItemMenuPrincipal}">
+                        <MenuItem Header="{Binding Identidad, Mode=OneWay}" IsEnabled="False" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+                        <MenuItem Header="{Binding VersionApp, Mode=OneWay}" IsEnabled="False" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+                        <Separator/>
+                        <MenuItem Header="Cerrar sesión" Foreground="{StaticResource Color.TextBrush}" Click="Cerrar_Click"/>
+                    </MenuItem>
+                </Menu>
                 <Menu Margin="16,0,0,0" Background="Transparent" VerticalAlignment="Center">
-                    <MenuItem Header="_Inicio" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Portada}"/>
-                    <MenuItem Header="_Catálogo" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Catalogo}"/>
-                    <MenuItem Header="_Clientes" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Clientes, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Clientes}"/>
-                    <MenuItem Header="Cuenta corriente" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding CuentaCorriente, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding CuentaCorriente}"/>
-                    <MenuItem Header="_Ventas" Foreground="{StaticResource Color.CanvasBrush}">
+                    <MenuItem Style="{StaticResource EstiloItemMenuPrincipal}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Portada}">
+                        <MenuItem.Header>
+                            <StackPanel>
+                                <AccessText Text="_Inicio">
+                                    <AccessText.Style>
+                                        <Style TargetType="AccessText">
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Inicio">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </AccessText.Style>
+                                </AccessText>
+                                <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Color.AccentBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Inicio">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </StackPanel>
+                        </MenuItem.Header>
+                    </MenuItem>
+                    <MenuItem Style="{StaticResource EstiloItemMenuPrincipal}" Visibility="{Binding HayVentas, Converter={StaticResource BoolToVisibility}}">
+                        <MenuItem.Header>
+                            <StackPanel>
+                                <AccessText Text="_Ventas">
+                                    <AccessText.Style>
+                                        <Style TargetType="AccessText">
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Ventas">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </AccessText.Style>
+                                </AccessText>
+                                <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Color.AccentBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Ventas">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </StackPanel>
+                        </MenuItem.Header>
                         <MenuItem Header="Punto de venta" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Pos}"/>
                         <MenuItem Header="Consulta de ventas" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Ventas}"/>
+                        <MenuItem Header="Cambios y devoluciones" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding Cambios, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Cambios}"/>
                     </MenuItem>
-                    <MenuItem Header="_Caja" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Caja.PuedeVer, Converter={StaticResource BoolToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Caja}"/>
-                    <MenuItem Header="Respaldos" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Respaldos, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Respaldos}"/>
-                    <MenuItem Header="_Cambios" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Cambios, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Cambios}"/>
-                    <MenuItem Header="_Reportes" Foreground="{StaticResource Color.CanvasBrush}" Visibility="{Binding Reportes, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Reportes}"/>
-                    <MenuItem Header="Actualizaciones" Foreground="{StaticResource Color.CanvasBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Actualizaciones}"/>
-                    <MenuItem Header="Co_mpras" Foreground="{StaticResource Color.CanvasBrush}">
-                        <MenuItem Header="PROVEEDORES" Style="{StaticResource EstiloItemSeccionMenu}"/>
+                    <MenuItem Style="{StaticResource EstiloItemMenuPrincipal}" Visibility="{Binding Caja.PuedeVer, Converter={StaticResource BoolToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Caja}">
+                        <MenuItem.Header>
+                            <StackPanel>
+                                <AccessText Text="_Caja">
+                                    <AccessText.Style>
+                                        <Style TargetType="AccessText">
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Caja">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </AccessText.Style>
+                                </AccessText>
+                                <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Color.AccentBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Caja">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </StackPanel>
+                        </MenuItem.Header>
+                    </MenuItem>
+                    <MenuItem Style="{StaticResource EstiloItemMenuPrincipal}">
+                        <MenuItem.Header>
+                            <StackPanel>
+                                <AccessText Text="_Mercadería">
+                                    <AccessText.Style>
+                                        <Style TargetType="AccessText">
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Mercaderia">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </AccessText.Style>
+                                </AccessText>
+                                <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Color.AccentBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Mercaderia">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </StackPanel>
+                        </MenuItem.Header>
+                        <MenuItem Header="Catálogo" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Catalogo}"/>
+                        <MenuItem Header="COMPRAS" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Proveedores" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Proveedores}"/>
-                        <Separator/>
-                        <MenuItem Header="MERCADERÍA" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Recepción de mercadería" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Recepcion}"/>
                         <MenuItem Header="Consultas y reversiones" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Recepciones}"/>
-                    </MenuItem>
-                    <MenuItem Header="I_nventario" Foreground="{StaticResource Color.CanvasBrush}">
                         <MenuItem Header="STOCK" Style="{StaticResource EstiloItemSeccionMenu}"/>
                         <MenuItem Header="Consulta de inventario" Foreground="{StaticResource Color.TextBrush}" Command="{Binding IrAApartadoCommand}"/>
                         <MenuItem Header="Conteo físico" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Conteo}"/>
-                        <Separator/>
-                        <MenuItem Header="CLASIFICACIÓN" Style="{StaticResource EstiloItemSeccionMenu}"/>
-                        <MenuItem Header="No vendible" Foreground="{StaticResource Color.TextBrush}" Command="{Binding IrAApartadoCommand}" CommandParameter="Apartar"/>
+                    </MenuItem>
+                    <MenuItem Style="{StaticResource EstiloItemMenuPrincipal}" Visibility="{Binding HayClientes, Converter={StaticResource BoolToVisibility}}">
+                        <MenuItem.Header>
+                            <StackPanel>
+                                <AccessText Text="C_lientes">
+                                    <AccessText.Style>
+                                        <Style TargetType="AccessText">
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Clientes">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </AccessText.Style>
+                                </AccessText>
+                                <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Color.AccentBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Clientes">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </StackPanel>
+                        </MenuItem.Header>
+                        <MenuItem Header="Clientes" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding Clientes, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Clientes}"/>
+                        <MenuItem Header="Cuenta corriente" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding CuentaCorriente, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding CuentaCorriente}"/>
+                    </MenuItem>
+                    <MenuItem Style="{StaticResource EstiloItemMenuPrincipal}">
+                        <MenuItem.Header>
+                            <StackPanel>
+                                <AccessText Text="_Administración">
+                                    <AccessText.Style>
+                                        <Style TargetType="AccessText">
+                                            <Setter Property="FontWeight" Value="Normal"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Administracion">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </AccessText.Style>
+                                </AccessText>
+                                <Border Height="2" Margin="0,2,0,0" Background="{StaticResource Color.AccentBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeccionActiva}" Value="Administracion">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                            </StackPanel>
+                        </MenuItem.Header>
+                    <MenuItem Header="Respaldos" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding Respaldos, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Respaldos}"/>
+                    <MenuItem Header="Reportes" Foreground="{StaticResource Color.TextBrush}" Visibility="{Binding Reportes, Converter={StaticResource NullToVisibility}}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Reportes}"/>
+                    <MenuItem Header="Actualizaciones" Foreground="{StaticResource Color.TextBrush}" Command="{Binding MostrarVistaCommand}" CommandParameter="{Binding Actualizaciones}"/>
                     </MenuItem>
                 </Menu>
             </DockPanel>

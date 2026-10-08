@@ -12,7 +12,6 @@
                     <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TituloVentana, Mode=OneWay}"/>
                     <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SubtituloVentana, Mode=OneWay}"/>
                 </StackPanel>
-                <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonQuiet}" Content="✕" Width="32" Click="Cerrar_Click" ToolTip="Cerrar (Esc)" HorizontalAlignment="Right"/>
             </DockPanel>
         </Border>
         <Border DockPanel.Dock="Bottom" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">

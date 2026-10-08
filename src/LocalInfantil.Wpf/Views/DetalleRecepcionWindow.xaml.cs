@@ -25,5 +25,4 @@ public partial class DetalleRecepcionWindow : Window
         };
     }
 
-    private void Cerrar_Click(object sender, RoutedEventArgs e) => Close();
 }

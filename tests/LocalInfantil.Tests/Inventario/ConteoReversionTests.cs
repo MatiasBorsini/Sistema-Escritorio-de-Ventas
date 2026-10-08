@@ -333,7 +333,7 @@ public sealed class ConteoReversionTests
             CorregirConteo = new CorregirConteo(conteos, autorizador, _fabrica, auditoria, _ids);
             AprobarConteo = new AprobarConteo(conteos, movimientos, apartados, autorizador, _fabrica, auditoria, _ids, reloj);
             Revertir = new RevertirRecepcion(recepciones, movimientos, apartados, autorizador, _fabrica, auditoria, reloj);
-            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(_ids), apartados, _sesiones, _fabrica);
+            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(_ids), apartados, productos, _sesiones, _fabrica);
             Proveedores = new JuegoProveedores(proveedores, autorizador, _fabrica, auditoria, _ids, reloj);
             Permisos = new ConfigurarPermiso(permisos, usuarios, autorizador, _fabrica, auditoria, _ids, reloj);
             Recepcion = new ConfirmarRecepcion(recepciones, proveedores, variantes, movimientos, autorizador, _fabrica, auditoria, reloj);
