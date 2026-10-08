@@ -59,7 +59,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
                                         <TextBlock Text="Ingresos / egresos" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-                                        <TextBlock><Run Text="{Binding IngresosTexto}"/><Run Text=" / "/><Run Text="{Binding EgresosTexto}"/></TextBlock>
+                                        <TextBlock><Run Text="{Binding IngresosTexto, Mode=OneWay}"/><Run Text=" / "/><Run Text="{Binding EgresosTexto, Mode=OneWay}"/></TextBlock>
                                     </StackPanel>
                                     <StackPanel Grid.Row="0" Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
                                         <TextBlock Text="Efectivo esperado" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
@@ -106,9 +106,9 @@
                                             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <TextBlock Grid.Row="0" Text="Tipo" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding TiposMovimiento}" SelectedItem="{Binding TipoMovimientoSeleccionado}" Style="{StaticResource EstiloComboBox}" Margin="0,0,0,8"/>
+                                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding TiposMovimiento}" SelectedItem="{Binding TipoMovimientoSeleccionado}" Style="{StaticResource EstiloCombo}" Margin="0,0,0,8"/>
                                         <TextBlock Grid.Row="1" Text="Categoría" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding CategoriasDisponibles}" DisplayMemberPath="Texto" SelectedItem="{Binding CategoriaSeleccionada}" Style="{StaticResource EstiloComboBox}" Margin="0,0,0,8"/>
+                                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding CategoriasDisponibles}" DisplayMemberPath="Texto" SelectedItem="{Binding CategoriaSeleccionada}" Style="{StaticResource EstiloCombo}" Margin="0,0,0,8"/>
                                         <TextBlock Grid.Row="2" Text="Importe" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center"/>
                                         <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ImporteMovimientoTexto, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}" Margin="0,0,0,8"/>
                                         <TextBlock Grid.Row="3" Text="Motivo" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center"/>
@@ -133,7 +133,7 @@
                                             </DataGrid.Columns>
                                         </DataGrid>
                                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                                            <ComboBox ItemsSource="{Binding MediosDisponibles}" DisplayMemberPath="Texto" SelectedValuePath="Valor" SelectedValue="{Binding MedioNuevo}" Style="{StaticResource EstiloComboBox}" Width="170"/>
+                                            <ComboBox ItemsSource="{Binding MediosDisponibles}" DisplayMemberPath="Texto" SelectedValuePath="Valor" SelectedValue="{Binding MedioNuevo}" Style="{StaticResource EstiloCombo}" Width="170"/>
                                             <TextBox Text="{Binding MotivoCorreccion, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}" Width="220" Margin="8,0" ToolTip="Motivo obligatorio"/>
                                             <Button Content="Corregir" Command="{Binding CorregirMedioCommand}" Style="{StaticResource EstiloBotonSecundario}"/>
                                         </StackPanel>

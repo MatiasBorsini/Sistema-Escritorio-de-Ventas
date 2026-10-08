@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LocalInfantil — Ficha de producto / Variantes</title>
+<style>
+:root{--nav:#263D43;--canvas:#F2F1EC;--surface:#FFFDF9;--surface2:#F8F7F3;--primary:#286B66;--primaryDark:#1F5753;--text:#26343B;--muted:#52636A;--border:#CBD4CF;--soft:#DDE4E0;--okbg:#E8F3EC;--ok:#2E6D4A;--infobg:#EAF3F9;--info:#2A5C7A;--danger:#A83A3A;--dangerbg:#FFF1F1}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{font-family:"Segoe UI",system-ui,sans-serif;color:var(--text);background:var(--canvas);font-size:14px}.window{min-height:100vh;display:grid;grid-template-rows:50px 1fr 46px;background:var(--surface)}
+.titlebar{display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--soft)}.titlebar h1{font-size:18px;margin:0}.titlebar small{display:block;color:var(--muted);margin-top:2px}.close{width:34px;height:34px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:20px;color:var(--muted)}
+.main{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:0}.sidebar{border-right:1px solid var(--soft);background:var(--surface2);padding:20px 16px}.product-name{font-weight:700;font-size:18px}.product-state{color:var(--ok);font-size:13px;margin:3px 0 18px}.navbtn{width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;border:1px solid var(--border);border-radius:7px;background:var(--surface);font-weight:600;color:var(--text)}.navbtn.active{border-color:var(--primary);color:var(--primaryDark);background:#EEF6F4}.side-note{margin-top:18px;border:1px solid var(--soft);border-radius:8px;padding:12px;background:var(--surface);color:var(--muted);line-height:1.35}.side-note strong{display:block;color:var(--text);margin-bottom:3px}
+.content{min-width:0;padding:18px 22px;overflow:auto}.head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.head h2{margin:0;font-size:22px}.head p{margin:4px 0 0;color:var(--muted)}.btn{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;min-height:38px;padding:0 14px;font:inherit;cursor:pointer}.btn:hover{background:var(--surface2)}.btn.primary{background:var(--primary);border-color:var(--primary);color:white}.btn.primary:hover{background:var(--primaryDark)}.btn.danger{border-color:#D98A8A;color:var(--danger);background:white}.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.workspace{display:grid;grid-template-columns:minmax(560px,1.35fr) minmax(380px,.65fr);gap:16px;align-items:start}.panel{border:1px solid var(--border);background:var(--surface);border-radius:10px;overflow:hidden}.panel-head{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--soft)}.panel-head h3{margin:0;font-size:16px}.panel-head p{margin:3px 0 0;color:var(--muted);font-size:13px}.badge{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:700}.badge.ok{background:var(--okbg);color:var(--ok)}.badge.soft{background:var(--surface2);color:var(--muted)}
+.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:650px}th,td{padding:10px 12px;border-bottom:1px solid var(--soft);text-align:left;white-space:nowrap}th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);background:var(--surface2)}tbody tr{cursor:pointer}tbody tr:hover{background:#F4F8F7}tbody tr.selected{background:#E7F2F0}
+.detail{padding:16px}.detail-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--soft)}.eyebrow{text-transform:uppercase;font-size:11px;font-weight:700;color:var(--primary);letter-spacing:.04em}.detail-title{font-size:20px;font-weight:700;margin-top:3px}.detail-sub{color:var(--muted);margin-top:3px}.block{padding:14px 0;border-bottom:1px solid var(--soft)}.block:last-child{border-bottom:0}.block h4{margin:0 0 10px;font-size:15px}.block p{margin:0 0 10px;color:var(--muted);line-height:1.4}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:13px;font-weight:600}.field input{height:38px;border:1px solid var(--border);border-radius:5px;padding:0 10px;font:inherit;color:var(--text);background:white}.pricebox,.stockbox{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.stat{min-width:145px;padding:10px 12px;border-radius:7px;background:var(--surface2);border:1px solid var(--soft)}.stat span{display:block;color:var(--muted);font-size:12px}.stat strong{display:block;font-size:20px;margin-top:2px}.notice{padding:10px 12px;border:1px solid #A6C8DD;background:var(--infobg);color:var(--info);border-radius:7px;line-height:1.35;margin-bottom:10px}.notice strong{color:var(--text)}.help{margin-top:10px;padding:10px 12px;border-radius:7px;background:#F7F4EF;border:1px solid var(--soft);color:var(--muted);line-height:1.4}.help strong{color:var(--text)}.dangerzone{border:1px solid #E3AAAA;background:var(--dangerbg);border-radius:8px;padding:12px}.dangerrow{display:flex;align-items:center;justify-content:space-between;gap:12px}.dangerzone strong{color:var(--danger)}
+.new-form{display:none}.new-form.active{display:block}.detail-panel.hidden{display:none}.footer{border-top:1px solid var(--soft);display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--surface2);color:var(--muted);font-size:13px}@media(max-width:1050px){.workspace{grid-template-columns:1fr}.main{grid-template-columns:190px minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="window">
+<header class="titlebar"><div><h1>Producto · Pantalón Fase1</h1><small>Ficha y variantes</small></div><button class="close">×</button></header>
+<main class="main">
+<aside class="sidebar"><div class="product-name">Pantalón Fase1</div><div class="product-state">Producto activo</div><button class="navbtn">Datos generales</button><button class="navbtn active">Variantes</button><button class="navbtn">Estado y acciones</button><div class="side-note"><strong>Edición independiente</strong>La lista principal queda enfocada en buscar productos.</div></aside>
+<section class="content">
+  <div class="head"><div><h2>Variantes</h2><p>Gestioná talle, color, precio y stock inicial sin mezclar tareas.</p></div><button class="btn primary" id="newVariant">+ Nueva variante</button></div>
+  <div class="workspace">
+    <section class="panel">
+      <div class="panel-head"><div><h3>Variantes del producto</h3><p>Seleccioná una fila para editarla.</p></div><span class="badge soft">2 variantes</span></div>
+      <div class="tablewrap"><table><thead><tr><th>Código / SKU</th><th>Talle</th><th>Color</th><th>Stock</th><th>Precio vigente</th><th>Estado</th></tr></thead><tbody>
+        <tr class="selected" data-sku="FASE1-002" data-size="M" data-color="Rojo" data-stock="10" data-price="$ 24.990"><td><strong>FASE1-002</strong></td><td>M</td><td>Rojo</td><td>10 u.</td><td>$ 24.990</td><td><span class="badge ok">Activa</span></td></tr>
+        <tr data-sku="FASE1-003" data-size="L" data-color="Azul" data-stock="13" data-price="$ 24.990"><td><strong>FASE1-003</strong></td><td>L</td><td>Azul</td><td>13 u.</td><td>$ 24.990</td><td><span class="badge ok">Activa</span></td></tr>
+      </tbody></table></div>
+    </section>
+    <aside class="panel">
+      <div class="detail detail-panel" id="detailPanel">
+        <div class="detail-head"><div><div class="eyebrow">Variante seleccionada</div><div class="detail-title" id="skuTitle">FASE1-002</div><div class="detail-sub" id="variantSub">Talle M · Rojo</div></div><span class="badge ok">Activa</span></div>
+        <div class="block"><h4>Datos de la variante</h4><div class="grid2"><div class="field"><label>Talle</label><input id="editSize" value="M"></div><div class="field"><label>Color</label><input id="editColor" value="Rojo"></div></div><div style="margin-top:10px"><button class="btn primary">Guardar cambios</button></div></div>
+        <div class="block"><h4>Precio</h4><div class="pricebox"><div class="stat"><span>Precio vigente</span><strong id="currentPrice">$ 24.990</strong></div><div class="field" style="min-width:170px;flex:1"><label>Nuevo precio</label><input placeholder="$ 0,00"></div><button class="btn">Actualizar precio</button></div></div>
+        <div class="block"><h4>Existencia inicial</h4><div class="notice"><strong>Esta acción ESTABLECE el stock inicial.</strong><br>Para sumar mercadería después, usá una Recepción.</div><div class="stockbox"><div class="stat"><span>Stock físico actual</span><strong id="currentStock">10 u.</strong></div><div class="field" style="max-width:160px"><label>Cantidad inicial</label><input type="number" min="0" placeholder="Ej. 10"></div><button class="btn">Establecer stock inicial</button></div><div class="help"><strong>¿Cuándo usar esto?</strong> Solo cuando cargás por primera vez el stock de esta variante. Para ingresos posteriores, usá <b>Compras → Recepción de mercadería</b>.</div></div>
+        <div class="block"><div class="dangerzone"><div class="dangerrow"><div><strong>Desactivar variante</strong><div style="color:var(--muted);margin-top:2px">No elimina el historial.</div></div><button class="btn danger">Desactivar</button></div></div></div>
+      </div>
+      <div class="detail new-form" id="newForm">
+        <div class="detail-head"><div><div class="eyebrow">Alta</div><div class="detail-title">Nueva variante</div><div class="detail-sub">Completá solo los datos básicos.</div></div></div>
+        <div class="block"><div class="field"><label>Código / SKU</label><input id="newSku" placeholder="Ej. PAN-M-ROJO"></div><div style="font-size:12px;color:var(--muted);margin-top:5px">Debe ser único. Después de crear la variante no puede modificarse.</div></div>
+        <div class="block"><div class="grid2"><div class="field"><label>Talle</label><input placeholder="Ej. M"></div><div class="field"><label>Color</label><input placeholder="Ej. Rojo"></div></div></div>
+        <div class="block" style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="cancelNew">Cancelar</button><button class="btn primary" id="createNew">Agregar variante</button></div>
+      </div>
+    </aside>
+  </div>
+</section>
+</main>
+<footer class="footer"><div>Seleccioná una variante para editar sus datos, precio o existencia inicial.</div><button class="btn primary sm">Cerrar</button></footer>
+</div>
+<script>
+const rows=[...document.querySelectorAll('tbody tr')],d=document.getElementById('detailPanel'),n=document.getElementById('newForm');
+rows.forEach(r=>r.onclick=()=>{rows.forEach(x=>x.classList.remove('selected'));r.classList.add('selected');document.getElementById('skuTitle').textContent=r.dataset.sku;document.getElementById('variantSub').textContent=`Talle ${r.dataset.size} · ${r.dataset.color}`;document.getElementById('currentPrice').textContent=r.dataset.price;document.getElementById('currentStock').textContent=`${r.dataset.stock} u.`;document.getElementById('editSize').value=r.dataset.size;document.getElementById('editColor').value=r.dataset.color;n.classList.remove('active');d.classList.remove('hidden')});
+document.getElementById('newVariant').onclick=()=>{d.classList.add('hidden');n.classList.add('active');document.getElementById('newSku').focus()};
+document.getElementById('cancelNew').onclick=()=>{n.classList.remove('active');d.classList.remove('hidden')};
+document.getElementById('createNew').onclick=()=>alert('Prototipo: acá se crea la variante y luego queda seleccionada.');
+</script>
+</body></html>

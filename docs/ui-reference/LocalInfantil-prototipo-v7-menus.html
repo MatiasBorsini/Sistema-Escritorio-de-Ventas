@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>LocalInfantil — Prototipo UX/UI</title>
+<style>
+:root{
+  --nav:#263D43;
+  --canvas:#F2F1EC;
+  --surface:#FFFDF9;
+  --surface-2:#F8F7F3;
+  --primary:#286B66;
+  --primary-dark:#1F5753;
+  --accent:#D9A68C;
+  --text:#26343B;
+  --muted:#607178;
+  --border:#CBD4CF;
+  --border-soft:#E5E9E6;
+  --danger:#A83D47;
+  --danger-soft:#FFF1F2;
+  --warning:#9A6A17;
+  --warning-soft:#FFF4D8;
+  --info:#3A647D;
+  --info-soft:#EDF5FA;
+  --success:#1F6B4B;
+  --success-soft:#EAF5EE;
+  --shadow:0 10px 30px rgba(38,61,67,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--canvas);color:var(--text);font-family:Inter,"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
+body{min-width:1180px}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.dev-banner{height:34px;display:flex;align-items:center;padding:0 16px;background:#FFF1C9;color:#8A5B12;font-size:12px;border-bottom:1px solid #E8D48D}
+.app-header{height:58px;background:var(--nav);color:#fff;display:flex;align-items:center;padding:0 18px;gap:28px;position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.brand{font-weight:750;font-size:19px;white-space:nowrap}
+.main-nav{display:flex;gap:4px;flex:1;align-items:center}
+.nav-link,.ghost-link{border:0;background:transparent;color:#fff;padding:9px 11px;border-radius:8px;font-size:14px}
+.nav-link:hover,.ghost-link:hover{background:rgba(255,255,255,.08)}
+.nav-link.active{background:rgba(255,255,255,.12);font-weight:650}
+.user-area{display:flex;align-items:center;gap:10px;font-size:13px}
+.user-role{opacity:.82}
+.app-shell{padding:28px 28px 54px;max-width:1720px;margin:0 auto}
+.screen{display:none}
+.screen.active{display:block}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:22px}
+.page-header h1{margin:2px 0 6px;font-size:32px;line-height:1.1;letter-spacing:-.02em}
+.page-header p{margin:0;color:var(--muted);max-width:780px}
+.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:800;color:var(--primary);margin-bottom:5px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 0 rgba(38,61,67,.02)}
+.split-layout{display:grid;grid-template-columns:minmax(360px,.85fr) minmax(620px,1.65fr);gap:18px;align-items:start}
+.split-catalog{grid-template-columns:minmax(420px,.9fr) minmax(690px,1.55fr)}
+.narrow-list{grid-template-columns:minmax(360px,.72fr) minmax(680px,1.55fr)}
+.receipts-layout{grid-template-columns:minmax(360px,.72fr) minmax(720px,1.65fr)}
+.users-layout{grid-template-columns:minmax(360px,.75fr) minmax(700px,1.55fr)}
+.panel-list,.panel-detail,.inventory-main,.inventory-history{padding:18px}
+.panel-header,.section-head,.detail-header,.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.panel-header h2,.detail-header h2,.section-head h3,.workflow-head h2,.modal h2{margin:0}
+.panel-header h2,.detail-header h2{font-size:21px}
+.section-head h3{font-size:18px}
+.panel-header .muted,.section-head p,.detail-header p,.workflow-head p{color:var(--muted);font-size:13px;margin:4px 0 0}
+.title-line{display:flex;align-items:center;gap:10px}
+.btn{border-radius:9px;border:1px solid transparent;padding:10px 14px;font-weight:650;transition:.16s ease}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:#fff;color:var(--text);border-color:var(--border)}
+.btn-quiet{background:transparent;color:var(--text);border-color:var(--border)}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-danger-outline{background:#fff;color:var(--danger);border-color:#DCA4AA}
+.danger-text{color:var(--danger)}
+.icon-btn{width:40px;height:40px;border:1px solid var(--border);background:#fff;border-radius:9px;color:var(--text)}
+.search-row{display:flex;gap:9px;margin-top:16px}
+.grow{flex:1}
+.search-field{height:42px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:#fff;border-radius:9px;padding:0 11px}
+.search-field:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(40,107,102,.09)}
+.search-field input{border:0;outline:0;background:transparent;width:100%;color:var(--text)}
+.search-icon{color:var(--muted);font-size:18px}
+.filter-row{display:flex;gap:7px;margin:12px 0 14px;flex-wrap:wrap}
+.chip{border:1px solid var(--border);background:#fff;padding:7px 10px;border-radius:999px;color:var(--muted);font-size:12px}
+.chip.active{background:#E9F3F1;border-color:#AFCDC9;color:var(--primary);font-weight:700}
+.entity-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.entity-list.compact{gap:6px}
+.entity-row,.receipt-row{width:100%;border:1px solid var(--border-soft);background:#fff;border-radius:11px;padding:12px;text-align:left;display:flex;align-items:center;gap:11px;color:var(--text)}
+.entity-row:hover,.receipt-row:hover{border-color:#9FBDB9;background:#FCFFFE}
+.entity-row.selected,.receipt-row.selected{border-color:var(--primary);background:#F4FAF8;box-shadow:inset 3px 0 0 var(--primary)}
+.entity-avatar{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:12px;flex:0 0 auto}
+.entity-avatar.large{width:50px;height:50px;border-radius:13px}
+.peach{background:#F7E4DA;color:#A55E45}.blue{background:#E7F0F6;color:#466A81}.lilac{background:#EEE9F7;color:#695C87}.mint{background:#E7F3EC;color:#2C6B4D}
+.entity-main{min-width:0;flex:1}
+.entity-title{font-weight:750}
+.entity-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.entity-side{display:flex;align-items:flex-end;gap:5px;flex-direction:column}
+.entity-side strong{font-size:12px}
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:750;white-space:nowrap}
+.badge-success{background:var(--success-soft);color:var(--success)}
+.badge-warning{background:var(--warning-soft);color:var(--warning)}
+.badge-info{background:var(--info-soft);color:var(--info)}
+.badge-neutral{background:#EFF1F0;color:#59686E}
+.pagination{display:flex;justify-content:center;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-top:16px}
+.detail-header{margin-bottom:18px}
+.info-grid{display:grid;gap:12px}
+.info-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.info-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.field{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--text)}
+.field input,.field select,.field textarea{border:1px solid var(--border);border-radius:9px;background:#fff;padding:10px 11px;color:var(--text);outline:0}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(40,107,102,.09)}
+.static-field .static-value{height:42px;display:flex;align-items:center;padding:0 12px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border-soft)}
+.inline-actions{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
+.section-divider{height:1px;background:var(--border-soft);margin:20px 0}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:12px}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--border-soft);font-size:13px;white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#F3F5F3}
+tbody tr:last-child td{border-bottom:0}
+.kebab{border:0;background:transparent;color:var(--muted);font-weight:800}
+.color-dot{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid #BAC3BF;vertical-align:-1px;margin-right:5px}
+.color-dot.white{background:#fff}.color-dot.pink{background:#E9B5C2}
+.check-row{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--muted)}
+.notice{border-radius:10px;padding:12px 13px;display:flex;align-items:flex-start;gap:10px;margin:14px 0}
+.notice>span{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:800;flex:0 0 auto}
+.notice strong{display:block;font-size:13px}
+.notice p{margin:2px 0 0;font-size:12px}
+.notice-info{background:var(--info-soft);color:var(--info)}
+.notice-info>span{background:#DCEAF3}
+.notice-warning{background:var(--warning-soft);color:#7B5918}
+.notice-warning>span{background:#F5DEA6}
+.receipt-row{display:block}
+.receipt-top,.receipt-meta{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.receipt-title{font-weight:750;margin-top:9px}
+.receipt-meta{font-size:12px;color:var(--muted);margin-top:4px}
+.summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.summary-strip>div,.approval-summary>div{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:10px;padding:12px}
+.summary-strip span,.approval-summary span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.summary-strip strong,.approval-summary strong{font-size:17px}
+.danger-zone{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px;border:1px solid #E7C7CA;background:#FFF9F9;border-radius:10px}
+.danger-zone h3{margin:0;color:#7D333A;font-size:16px}
+.danger-zone p{margin:4px 0 0;color:#8B6467;font-size:12px}
+.reversal-box{margin-top:12px;padding:14px;border:1px solid #E7C7CA;border-radius:10px;background:#FFFDFD}
+.hidden{display:none!important}
+.stepper{display:flex;align-items:center;margin:2px 0 18px}
+.step{border:0;background:transparent;color:var(--muted);display:flex;align-items:center;gap:8px;padding:0;font-weight:650}
+.step span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#E7EAE8;color:#617077}
+.step.active{color:var(--text)}.step.active span{background:var(--accent);color:#fff}
+.step.done{color:var(--primary)}.step.done span{background:var(--primary);color:#fff}
+.step-line{height:1px;background:var(--border);flex:1;margin:0 14px;min-width:45px}
+.workflow-card{max-width:1040px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:var(--shadow)}
+.workflow-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+.workflow-head h2{font-size:21px}
+.selection-list{display:flex;flex-direction:column;gap:9px;margin:16px 0}
+.selection-list label{border:1px solid var(--border-soft);padding:11px 12px;border-radius:9px;background:#fff}
+.workflow-actions{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+.count-grid{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+.count-row{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border-soft);border-radius:10px;padding:12px}
+.count-row>div{display:flex;flex-direction:column;gap:4px}.count-row span{color:var(--muted);font-size:12px}
+.count-input{display:flex;align-items:center;gap:8px}.count-input input{width:95px;padding:9px;border:1px solid var(--border);border-radius:8px}
+.approval-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.inventory-layout{display:grid;grid-template-columns:minmax(720px,1.6fr) minmax(280px,.65fr);gap:18px;align-items:start}
+.selected-variant{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border-soft);border-radius:11px;background:#FCFDFC;margin-top:14px}
+.selected-variant>div:nth-child(2){display:flex;flex:1;flex-direction:column;gap:4px}.selected-variant span{color:var(--muted);font-size:12px}
+.stock-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.stock-card{padding:14px;border:1px solid var(--border);border-radius:11px;background:#fff}
+.stock-card.highlighted{border-color:#75A8A3;background:#F1F8F6}
+.stock-card span{display:block;color:var(--muted);font-size:12px}.stock-card strong{display:block;font-size:28px;margin:7px 0 3px}.stock-card small{color:var(--muted)}
+.segmented{display:inline-flex;background:#EEF1EF;padding:4px;border-radius:10px;gap:3px}
+.seg{border:0;background:transparent;padding:9px 12px;border-radius:8px;color:var(--muted);font-weight:650}
+.seg.active{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(38,61,67,.08)}
+.danger-seg{color:#8B3E45}
+.action-form{margin-top:14px;padding:14px;border:1px solid var(--border-soft);border-radius:11px;background:#FCFDFC}
+.timeline{margin-top:16px;position:relative}
+.timeline:before{content:"";position:absolute;left:7px;top:7px;bottom:7px;width:1px;background:var(--border)}
+.timeline-item{position:relative;display:flex;gap:12px;margin-bottom:18px}
+.timeline-dot{width:15px;height:15px;background:var(--primary);border:3px solid #E5F1EF;border-radius:50%;z-index:1}
+.timeline-item>div{display:flex;flex-direction:column;gap:4px}.timeline-item span{font-size:12px;color:var(--muted)}
+.permissions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+.permissions label{display:flex;align-items:center;gap:8px;padding:10px 11px;border:1px solid var(--border-soft);border-radius:9px;background:#fff;font-size:13px}
+.security-actions{display:flex;gap:9px}
+.modal-backdrop{position:fixed;inset:0;background:rgba(18,29,32,.38);display:grid;place-items:center;z-index:50;padding:30px}
+.modal{width:460px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:0 24px 70px rgba(20,37,42,.25)}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1260px){
+  body{min-width:1024px}
+  .split-layout,.split-catalog,.narrow-list,.receipts-layout,.users-layout{grid-template-columns:390px minmax(0,1fr)}
+  .inventory-layout{grid-template-columns:minmax(650px,1fr) 300px}
+  .summary-strip{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Catálogo optimizado para catálogos grandes */
+.catalog-list-panel{padding:14px}
+.catalog-list-panel .panel-header{align-items:center;margin-bottom:10px}
+.compact-count{font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:999px;padding:5px 8px}
+.catalog-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 165px 130px;gap:8px;align-items:center;margin-bottom:10px}
+.compact-select,.rows-per-page select{height:42px;border:1px solid var(--border);border-radius:9px;background:#fff;padding:0 10px;color:var(--text)}
+.catalog-table-head,.catalog-dense-row{display:grid;grid-template-columns:minmax(190px,1.5fr) minmax(90px,.72fr) 60px 88px;gap:10px;align-items:center}
+.catalog-table-head{padding:7px 10px;background:#F3F5F3;border:1px solid var(--border-soft);border-radius:8px 8px 0 0;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.catalog-dense-list{height:492px;overflow:auto;border-left:1px solid var(--border-soft);border-right:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);border-radius:0 0 8px 8px;background:#fff}
+.catalog-dense-row{width:100%;min-height:41px;padding:6px 10px;border:0;border-bottom:1px solid #EEF1EF;background:#fff;text-align:left;color:var(--text)}
+.catalog-dense-row:last-child{border-bottom:0}
+.catalog-dense-row:hover{background:#F7FBF9}
+.catalog-dense-row.selected{background:#EEF7F5;box-shadow:inset 3px 0 0 var(--primary)}
+.catalog-dense-row>span:not(.product-main){font-size:12px;color:var(--muted)}
+.catalog-dense-row .badge{justify-self:start;font-size:10px;padding:4px 7px}
+.product-main{display:flex;flex-direction:column;min-width:0;gap:1px}
+.product-main strong{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.product-main small{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-num{font-weight:800;color:var(--text)!important}
+.catalog-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px}
+.rows-per-page{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px}
+.rows-per-page select{height:32px;border-radius:7px;padding:0 8px}
+.compact-pagination{margin:0}
+.compact-pagination .btn{padding:7px 10px}
+.split-catalog{grid-template-columns:minmax(520px,.95fr) minmax(650px,1.25fr)}
+@media(max-width:1300px){
+  .catalog-toolbar{grid-template-columns:minmax(190px,1fr) 145px 120px}
+  .split-catalog{grid-template-columns:500px minmax(0,1fr)}
+}
+
+/* Recepciones — densidad de escritorio y detalle en ventana separada */
+.compact-page-header{margin-bottom:16px}
+.compact-page-header h1{font-size:29px}
+.desktop-receipts{grid-template-columns:minmax(500px,.95fr) minmax(620px,1.15fr)}
+.receipts-list-panel{padding:14px}
+.compact-panel-header{align-items:center}
+.compact-icon{width:34px;height:34px}
+.receipt-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 130px;gap:8px;margin:10px 0}
+.compact-search{height:38px}
+.receipt-filter{height:38px}
+.receipt-dense-list{height:350px;overflow:auto;border:1px solid var(--border-soft);border-radius:9px;background:#fff}
+.receipt-dense-row{width:100%;display:grid;grid-template-columns:100px minmax(130px,1fr) 58px 84px 82px;gap:8px;align-items:center;padding:8px 10px;border:0;border-bottom:1px solid #EEF1EF;background:#fff;color:var(--text);text-align:left}
+.receipt-dense-row:last-child{border-bottom:0}
+.receipt-dense-row:hover{background:#F7FBF9}
+.receipt-dense-row.selected{background:#EEF7F5;box-shadow:inset 3px 0 0 var(--primary)}
+.receipt-number{font-weight:800;font-size:12px}
+.receipt-provider{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.receipt-units,.receipt-date{font-size:11px;color:var(--muted)}
+.receipts-footer{margin-top:9px}
+.receipt-detail-panel{padding:16px}
+.compact-detail-header{margin-bottom:12px}
+.compact-detail-header h2{font-size:20px}
+.compact-summary{gap:8px;margin-bottom:14px}
+.compact-summary>div{padding:10px}
+.compact-summary strong{font-size:15px}
+.compact-section-head h3{font-size:16px}
+.receipt-preview-table{margin-top:9px}
+.receipt-preview-table th,.receipt-preview-table td{padding:8px 10px;font-size:12px}
+.receipt-more-row{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:8px}
+.receipt-more-row .btn{padding:7px 10px}
+.compact-divider{margin:14px 0}
+.compact-danger-zone{padding:11px 12px}
+.compact-danger-zone h3{font-size:15px}
+.window-backdrop{position:fixed;inset:0;background:rgba(22,34,38,.33);z-index:70;display:flex;align-items:center;justify-content:center;padding:26px}
+.desktop-window{width:min(1180px,94vw);height:min(760px,88vh);background:var(--surface);border:1px solid #AEBAB5;border-radius:10px;box-shadow:0 26px 80px rgba(20,35,40,.28);display:flex;flex-direction:column;overflow:hidden}
+.desktop-window-titlebar{height:56px;background:#EFF2F0;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+.desktop-window-titlebar>div{display:flex;flex-direction:column;gap:3px}
+.desktop-window-titlebar strong{font-size:14px}
+.desktop-window-titlebar span{font-size:11px;color:var(--muted)}
+.window-close{width:32px;height:32px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text)}
+.desktop-window-body{padding:14px;display:flex;flex-direction:column;min-height:0;flex:1}
+.desktop-window-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
+.detail-search{width:460px;height:38px}
+.window-stats{display:flex;gap:18px;color:var(--muted);font-size:12px}
+.window-stats strong{color:var(--text)}
+.desktop-detail-table{margin:0;flex:1;overflow:auto}
+.desktop-detail-table table{min-width:900px}
+.desktop-detail-table th,.desktop-detail-table td{padding:9px 10px}
+.desktop-window-footer{height:58px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:#FAFBFA}
+@media(max-width:1300px){
+  .desktop-receipts{grid-template-columns:480px minmax(0,1fr)}
+  .receipt-dense-row{grid-template-columns:94px minmax(120px,1fr) 52px 76px 72px}
+}
+
+/* Catálogo — master list de escritorio + ficha separada */
+.header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.catalog-master-panel{padding:14px}
+.catalog-master-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.catalog-master-top h2{margin:0;font-size:20px}
+.catalog-master-toolbar{display:grid;grid-template-columns:minmax(320px,1fr) 170px 150px auto;gap:8px;margin:12px 0}
+.catalog-master-search{height:40px}
+.catalog-master-table-wrap{border:1px solid var(--border-soft);border-radius:9px;overflow:hidden}
+.catalog-master-head,.catalog-master-row{display:grid;grid-template-columns:minmax(220px,1.6fr) 110px 110px 80px 85px 105px 95px;gap:10px;align-items:center}
+.catalog-master-head{padding:8px 11px;background:#F3F5F3;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.catalog-master-list{height:505px;overflow:auto;background:#fff}
+.catalog-master-row{width:100%;min-height:43px;padding:7px 11px;border:0;border-bottom:1px solid #EDF0EE;background:#fff;text-align:left;color:var(--text)}
+.catalog-master-row:hover{background:#F7FBF9}
+.catalog-master-row.selected{background:#EEF7F5;box-shadow:inset 3px 0 0 var(--primary)}
+.catalog-master-row>span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog-master-row .badge{justify-self:start;font-size:10px}
+.product-name-cell{display:flex;flex-direction:column;gap:1px}
+.product-name-cell strong{font-size:12.5px;color:var(--text)}
+.product-name-cell small{font-size:10px;color:var(--muted)}
+.master-footer{margin-top:10px}
+.product-editor-window{width:min(1240px,95vw);height:min(790px,90vh)}
+.product-editor-body{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:0;flex:1}
+.product-editor-sidebar{background:#F5F6F4;border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column}
+.product-editor-identity{display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--border-soft)}
+.product-editor-identity>div:last-child{display:flex;flex-direction:column;gap:3px}
+.product-editor-identity span{font-size:11px;color:var(--muted)}
+.editor-nav{display:flex;flex-direction:column;gap:5px;margin-top:14px}
+.editor-nav-item{border:0;background:transparent;text-align:left;padding:10px;border-radius:8px;color:var(--muted);font-weight:650}
+.editor-nav-item:hover{background:#ECEFED}
+.editor-nav-item.active{background:#E7F2F0;color:var(--primary)}
+.editor-side-note{margin-top:auto;padding:12px;background:#fff;border:1px solid var(--border-soft);border-radius:9px}
+.editor-side-note strong{font-size:12px}
+.editor-side-note p{font-size:11px;color:var(--muted);margin:4px 0 0}
+.product-editor-content{padding:20px;overflow:auto}
+.editor-description{margin-top:14px}
+.editor-variants-table{margin-top:14px}
+
+/* Recepciones — historial dominante y detalle vertical */
+.desktop-receipts{grid-template-columns:minmax(680px,1.35fr) minmax(390px,.75fr)}
+.receipts-list-panel{min-height:600px}
+.receipt-detail-panel{min-height:600px}
+.receipt-dense-list{height:455px}
+.receipt-dense-row{grid-template-columns:105px minmax(160px,1fr) 60px 88px 88px}
+.receipt-detail-panel .compact-summary{grid-template-columns:1fr 1fr}
+.receipt-detail-panel .summary-strip>div{min-height:62px}
+.receipt-detail-panel .receipt-preview-table table{min-width:0}
+.receipt-detail-panel .receipt-preview-table th:nth-child(3),
+.receipt-detail-panel .receipt-preview-table td:nth-child(3){display:none}
+.receipt-detail-panel .receipt-preview-table th,
+.receipt-detail-panel .receipt-preview-table td{white-space:normal}
+.receipt-more-row{align-items:flex-start;flex-direction:column;gap:6px}
+.compact-danger-zone{align-items:flex-start;flex-direction:column}
+.compact-danger-zone .btn{width:100%}
+@media(max-width:1350px){
+  .catalog-master-toolbar{grid-template-columns:minmax(260px,1fr) 150px 135px auto}
+  .catalog-master-head,.catalog-master-row{grid-template-columns:minmax(200px,1.5fr) 100px 95px 72px 75px 95px 88px}
+  .desktop-receipts{grid-template-columns:minmax(620px,1.25fr) minmax(380px,.75fr)}
+}
+
+/* V5 — Catálogo desktop: listado dominante + vista rápida no editable */
+.catalog-desktop-layout{display:grid;grid-template-columns:minmax(760px,1.65fr) minmax(300px,.58fr);gap:16px;align-items:start}
+.catalog-master-panel{min-height:655px}
+.catalog-preview-panel{padding:16px;min-height:655px;position:sticky;top:108px}
+.preview-kicker{text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:800;color:var(--primary);margin-bottom:6px}
+.preview-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--border-soft)}
+.preview-title-row h2{margin:0 0 3px;font-size:20px}
+.preview-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.preview-metrics>div{border:1px solid var(--border-soft);background:var(--surface-2);border-radius:9px;padding:10px}
+.preview-metrics>div:first-child{grid-column:1/-1}
+.preview-metrics span,.preview-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.preview-metrics strong{font-size:17px}
+.preview-section{padding:12px 0;border-top:1px solid var(--border-soft)}
+.preview-section-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.preview-variant-list{display:flex;flex-direction:column;margin-top:8px;border:1px solid var(--border-soft);border-radius:8px;overflow:hidden}
+.preview-variant-list>div{display:flex;justify-content:space-between;gap:8px;padding:8px 9px;border-bottom:1px solid var(--border-soft);font-size:11px;background:#fff}
+.preview-variant-list>div:last-child{border-bottom:0}
+.preview-hint{margin-top:12px;padding:10px;border-radius:8px;background:var(--info-soft);color:var(--info);font-size:11px;line-height:1.45}
+.preview-actions{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.preview-actions .btn{width:100%}
+.catalog-master-list{height:492px}
+@media(max-width:1320px){.catalog-desktop-layout{grid-template-columns:minmax(700px,1.55fr) minmax(285px,.6fr)}.catalog-master-head,.catalog-master-row{grid-template-columns:minmax(190px,1.5fr) 95px 90px 70px 75px 90px 84px}}
+
+/* V5 — Recepciones: historial claramente mayor a media pantalla; detalle vertical */
+.desktop-receipts{grid-template-columns:minmax(700px,1.45fr) minmax(390px,.72fr)!important}
+.receipt-detail-panel .compact-summary{grid-template-columns:1fr!important}
+.receipt-detail-panel .compact-summary>div{display:flex;align-items:center;justify-content:space-between;min-height:50px}
+.receipt-detail-panel .compact-summary span{margin:0}
+.receipt-detail-panel .compact-summary strong{font-size:14px}
+.receipt-detail-panel .receipt-preview-table th:nth-child(4),.receipt-detail-panel .receipt-preview-table td:nth-child(4){display:none}
+.receipt-detail-panel .receipt-preview-table td:first-child{max-width:210px}
+
+
+/* Login */
+.login-shell{
+  min-height:calc(100vh - 170px);
+  display:grid;
+  grid-template-columns:minmax(360px, 520px) minmax(380px, 460px);
+  justify-content:center;
+  align-items:center;
+  gap:42px;
+  padding:20px 10px;
+}
+.login-brand-panel{
+  padding:8px 6px;
+}
+.login-mini-badge{
+  display:inline-flex;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#E7F2F0;
+  color:var(--primary);
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  margin-bottom:18px;
+}
+.login-brand-panel h1{
+  margin:0 0 10px;
+  font-size:42px;
+  line-height:1.05;
+  letter-spacing:-.03em;
+}
+.login-brand-panel p{
+  margin:0;
+  color:var(--muted);
+  font-size:16px;
+  line-height:1.5;
+  max-width:500px;
+}
+.login-highlights{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:28px;
+}
+.login-highlight{
+  background:rgba(255,255,255,.58);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 16px;
+}
+.login-highlight strong{
+  display:block;
+  font-size:14px;
+  margin-bottom:4px;
+}
+.login-highlight span{
+  color:var(--muted);
+  font-size:13px;
+}
+.login-card{
+  width:100%;
+  max-width:460px;
+  padding:28px;
+  border-radius:18px;
+  box-shadow:0 18px 50px rgba(33,54,59,.10);
+}
+.login-card-head h2{
+  margin:2px 0 6px;
+  font-size:30px;
+}
+.login-card-head p{
+  margin:0;
+  color:var(--muted);
+}
+.login-form{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  margin-top:22px;
+}
+.login-form .field span{
+  font-size:13px;
+}
+.login-form .field input{
+  height:48px;
+  font-size:15px;
+}
+.login-meta-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:2px;
+}
+.compact-check{
+  margin-top:0;
+  font-size:12px;
+}
+.keyboard-hint{
+  color:var(--muted);
+  font-size:12px;
+}
+.login-submit{
+  width:100%;
+  height:48px;
+  font-size:15px;
+  margin-top:4px;
+}
+.login-footer{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid var(--border-soft);
+}
+.status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  align-self:flex-start;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#F4F7F5;
+  border:1px solid var(--border-soft);
+  color:var(--muted);
+  font-size:12px;
+  font-weight:650;
+}
+.status-dot{
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  background:var(--warning);
+}
+.login-help{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.4;
+}
+@media(max-width:1260px){
+  .login-shell{
+    grid-template-columns:1fr;
+    gap:24px;
+    max-width:720px;
+    margin:0 auto;
+  }
+  .login-brand-panel{
+    padding:0;
+  }
+  .login-brand-panel h1{
+    font-size:34px;
+  }
+}
+
+
+/* Navegación agrupada — estilo escritorio */
+.main-nav{overflow:visible}
+.nav-direct,
+.nav-menu-button{
+  height:38px;
+  border:0;
+  background:transparent;
+  color:#fff;
+  padding:0 11px;
+  border-radius:7px;
+  font-size:14px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.nav-direct:hover,
+.nav-menu-button:hover,
+.nav-direct.active,
+.nav-menu.active>.nav-menu-button{
+  background:rgba(255,255,255,.11);
+}
+.nav-direct.active,
+.nav-menu.active>.nav-menu-button{font-weight:700}
+.nav-caret{font-size:11px;opacity:.8;transition:transform .14s ease}
+.nav-menu.open .nav-caret{transform:rotate(180deg)}
+.nav-menu{position:relative}
+.desktop-dropdown{
+  display:none;
+  position:absolute;
+  top:42px;
+  left:0;
+  width:330px;
+  background:#FFFDF9;
+  color:var(--text);
+  border:1px solid #BFCAC5;
+  border-radius:9px;
+  box-shadow:0 14px 38px rgba(22,39,44,.18);
+  padding:9px;
+  z-index:60;
+}
+.nav-menu.open>.desktop-dropdown{display:block}
+.admin-dropdown{width:300px}
+.dropdown-section{display:flex;flex-direction:column;gap:3px}
+.dropdown-heading{
+  padding:7px 10px 5px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+  color:#748288;
+}
+.dropdown-separator{
+  height:1px;
+  background:var(--border-soft);
+  margin:7px 7px;
+}
+.dropdown-item{
+  width:100%;
+  min-height:50px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:var(--text);
+  padding:7px 9px;
+  display:grid;
+  grid-template-columns:32px minmax(0,1fr);
+  gap:9px;
+  align-items:center;
+  text-align:left;
+}
+.dropdown-item:hover,
+.dropdown-item.active{background:#EAF3F1}
+.dropdown-icon{
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:#EDF3F1;
+  color:var(--primary);
+  font-size:12px;
+  font-weight:850;
+}
+.dropdown-item>span:last-child{min-width:0}
+.dropdown-item strong{
+  display:block;
+  font-size:13px;
+  margin-bottom:2px;
+}
+.dropdown-item small{
+  display:block;
+  color:var(--muted);
+  font-size:10.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Recepción de mercadería */
+.receipt-entry-layout{
+  display:grid;
+  grid-template-columns:minmax(760px,1.65fr) minmax(300px,.55fr);
+  gap:18px;
+  align-items:start;
+}
+.receipt-entry-main,
+.receipt-entry-summary{padding:18px}
+.receipt-entry-context{
+  display:grid;
+  grid-template-columns:1.4fr .8fr;
+  gap:12px;
+}
+.receipt-entry-note{margin:14px 0}
+.receipt-entry-table th,
+.receipt-entry-table td{padding:9px 10px}
+.receipt-entry-table small{color:var(--muted)}
+.table-input{
+  width:82px;
+  height:34px;
+  padding:0 8px;
+  border:1px solid var(--border);
+  border-radius:7px;
+  outline:0;
+}
+.table-input:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(40,107,102,.10)}
+.table-input.money{width:105px}
+.receipt-empty-row td{color:var(--muted);background:#FAFBFA}
+.receipt-summary-list{display:flex;flex-direction:column;margin-top:14px}
+.receipt-summary-list>div{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:11px 0;
+  border-bottom:1px solid var(--border-soft);
+}
+.receipt-summary-list span,
+.receipt-total span{color:var(--muted);font-size:12px}
+.receipt-total{padding:18px 0 10px}
+.receipt-total strong{display:block;font-size:27px;margin-top:4px}
+.receipt-confirm-button{width:100%;margin-top:8px}
+@media(max-width:1280px){
+  .receipt-entry-layout{grid-template-columns:minmax(680px,1fr) 300px}
+}
+
+</style>
+</head>
+<body>
+<div class="dev-banner">Modo desarrollo — prototipo visual de LocalInfantil</div>
+<header class="app-header">
+<div class="brand">LocalInfantil</div>
+<nav aria-label="Navegación principal" class="main-nav">
+  <button class="nav-direct active" data-screen="catalogo" data-group="catalogo">Catálogo</button>
+
+  <div class="nav-menu" data-menu="compras">
+    <button class="nav-menu-button" type="button" aria-expanded="false">
+      Compras <span class="nav-caret">▾</span>
+    </button>
+    <div class="desktop-dropdown">
+      <div class="dropdown-section">
+        <div class="dropdown-heading">Proveedores</div>
+        <button class="dropdown-item" data-screen="proveedores" data-group="compras">
+          <span class="dropdown-icon">P</span>
+          <span>
+            <strong>Proveedores</strong>
+            <small>Alta, edición y estado</small>
+          </span>
+        </button>
+      </div>
+
+      <div class="dropdown-separator"></div>
+
+      <div class="dropdown-section">
+        <div class="dropdown-heading">Mercadería</div>
+        <button class="dropdown-item" data-screen="recepcion" data-group="compras">
+          <span class="dropdown-icon">＋</span>
+          <span>
+            <strong>Recepción de mercadería</strong>
+            <small>Registrar un nuevo ingreso</small>
+          </span>
+        </button>
+        <button class="dropdown-item" data-screen="recepciones" data-group="compras">
+          <span class="dropdown-icon">↺</span>
+          <span>
+            <strong>Consultas y reversiones</strong>
+            <small>Historial y detalle de recepciones</small>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-menu" data-menu="inventario">
+    <button class="nav-menu-button" type="button" aria-expanded="false">
+      Inventario <span class="nav-caret">▾</span>
+    </button>
+    <div class="desktop-dropdown">
+      <div class="dropdown-section">
+        <div class="dropdown-heading">Stock</div>
+        <button class="dropdown-item" data-screen="inventario" data-group="inventario">
+          <span class="dropdown-icon">S</span>
+          <span>
+            <strong>Consulta de inventario</strong>
+            <small>Stock y movimientos de una variante</small>
+          </span>
+        </button>
+        <button class="dropdown-item" data-screen="conteo" data-group="inventario">
+          <span class="dropdown-icon">✓</span>
+          <span>
+            <strong>Conteo físico</strong>
+            <small>Contar, revisar diferencias y aprobar</small>
+          </span>
+        </button>
+      </div>
+
+      <div class="dropdown-separator"></div>
+
+      <div class="dropdown-section">
+        <div class="dropdown-heading">Clasificación</div>
+        <button class="dropdown-item" data-screen="inventario" data-group="inventario" data-inventory-action="apartar">
+          <span class="dropdown-icon">N</span>
+          <span>
+            <strong>No vendible</strong>
+            <small>Apartar, reincorporar o dar de baja</small>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-menu" data-menu="administracion">
+    <button class="nav-menu-button" type="button" aria-expanded="false">
+      Administración <span class="nav-caret">▾</span>
+    </button>
+    <div class="desktop-dropdown admin-dropdown">
+      <div class="dropdown-section">
+        <div class="dropdown-heading">Accesos</div>
+        <button class="dropdown-item" data-screen="usuarios" data-group="administracion">
+          <span class="dropdown-icon">U</span>
+          <span>
+            <strong>Usuarios</strong>
+            <small>Empleados, permisos y seguridad</small>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>
+<div class="user-area">
+<span class="user-role">dueña</span>
+<button class="ghost-link">Perfil</button>
+</div>
+</header>
+<main class="app-shell">
+<!-- CATÁLOGO -->
+<section class="screen active" id="screen-catalogo">
+<div class="page-header compact-page-header">
+<div>
+<div class="eyebrow">Productos</div>
+<h1>Catálogo</h1>
+<p>Buscá, filtrá y administrá productos. Abrí la ficha completa solo cuando necesites editar o revisar variantes.</p>
+</div>
+<div class="header-actions">
+<button class="btn btn-primary" id="new-product">＋ Nuevo producto</button>
+<button class="btn btn-secondary" id="edit-selected-product">Editar seleccionado</button>
+<button class="btn btn-danger-outline" id="deactivate-product">Desactivar</button>
+</div>
+</div>
+<div class="catalog-desktop-layout"><section class="panel catalog-master-panel">
+<div class="catalog-master-top">
+<div>
+<h2>Productos</h2>
+<span class="muted">128 productos · 116 activos</span>
+</div>
+<div class="compact-count">128 productos</div>
+</div>
+<div class="catalog-master-toolbar">
+<label class="search-field catalog-master-search">
+<span class="sr-only">Buscar producto</span>
+<span class="search-icon">⌕</span>
+<input autocomplete="off" id="catalog-search" placeholder="Buscar por nombre o SKU..." type="search"/>
+</label>
+<select aria-label="Filtrar por categoría" class="compact-select" id="catalog-category">
+<option value="">Todas las categorías</option>
+<option>Remeras</option>
+<option>Buzos</option>
+<option>Calzas</option>
+<option>Abrigos</option>
+</select>
+<select aria-label="Filtrar por estado" class="compact-select" id="catalog-status">
+<option value="">Todos los estados</option>
+<option value="activo">Activos</option>
+<option value="bajo">Bajo stock</option>
+<option value="sin">Sin stock</option>
+</select>
+<button class="btn btn-quiet">Limpiar filtros</button>
+</div>
+<div class="catalog-master-table-wrap">
+<div class="catalog-master-head">
+<span>Producto</span>
+<span>SKU base</span>
+<span>Categoría</span>
+<span>Variantes</span>
+<span>Stock total</span>
+<span>Precio</span>
+<span>Estado</span>
+</div>
+<div class="catalog-master-list" id="product-list">
+<button class="catalog-master-row selected" data-category="Remeras" data-name="Remera Osito" data-sku="REM-OSI" data-status="activo">
+<span class="product-name-cell"><strong>Remera Osito</strong><small>Infantil · algodón</small></span>
+<span>REM-OSI</span><span>Remeras</span><span>4</span><span class="stock-num">18</span><span>$ 18.500</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Buzos" data-name="Buzo Estrellas" data-sku="BUZ-EST" data-status="activo">
+<span class="product-name-cell"><strong>Buzo Estrellas</strong><small>Frisa liviana</small></span>
+<span>BUZ-EST</span><span>Buzos</span><span>3</span><span class="stock-num">9</span><span>$ 29.900</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Calzas" data-name="Calza Rosa" data-sku="CAL-ROS" data-status="bajo">
+<span class="product-name-cell"><strong>Calza Rosa</strong><small>Algodón elastizado</small></span>
+<span>CAL-ROS</span><span>Calzas</span><span>2</span><span class="stock-num">3</span><span>$ 14.200</span><span class="badge badge-warning">Bajo stock</span>
+</button>
+<button class="catalog-master-row" data-category="Abrigos" data-name="Campera Nube" data-sku="CAM-NUB" data-status="activo">
+<span class="product-name-cell"><strong>Campera Nube</strong><small>Abrigo infantil</small></span>
+<span>CAM-NUB</span><span>Abrigos</span><span>5</span><span class="stock-num">12</span><span>$ 42.500</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Remeras" data-name="Body Rayas" data-sku="BOD-RAY" data-status="activo">
+<span class="product-name-cell"><strong>Body Rayas</strong><small>Primera puesta</small></span>
+<span>BOD-RAY</span><span>Remeras</span><span>4</span><span class="stock-num">21</span><span>$ 12.800</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Buzos" data-name="Buzo Bosque" data-sku="BUZ-BOS" data-status="activo">
+<span class="product-name-cell"><strong>Buzo Bosque</strong><small>Frisa media estación</small></span>
+<span>BUZ-BOS</span><span>Buzos</span><span>3</span><span class="stock-num">15</span><span>$ 31.000</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Calzas" data-name="Calza Gris" data-sku="CAL-GRI" data-status="sin">
+<span class="product-name-cell"><strong>Calza Gris</strong><small>Básica</small></span>
+<span>CAL-GRI</span><span>Calzas</span><span>2</span><span class="stock-num">0</span><span>$ 13.900</span><span class="badge badge-neutral">Sin stock</span>
+</button>
+<button class="catalog-master-row" data-category="Abrigos" data-name="Campera Sol" data-sku="CAM-SOL" data-status="activo">
+<span class="product-name-cell"><strong>Campera Sol</strong><small>Abrigo liviano</small></span>
+<span>CAM-SOL</span><span>Abrigos</span><span>4</span><span class="stock-num">7</span><span>$ 39.900</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Remeras" data-name="Remera Dino" data-sku="REM-DIN" data-status="activo">
+<span class="product-name-cell"><strong>Remera Dino</strong><small>Estampa infantil</small></span>
+<span>REM-DIN</span><span>Remeras</span><span>5</span><span class="stock-num">13</span><span>$ 17.900</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Buzos" data-name="Buzo Arcoíris" data-sku="BUZ-ARC" data-status="bajo">
+<span class="product-name-cell"><strong>Buzo Arcoíris</strong><small>Frisa estampada</small></span>
+<span>BUZ-ARC</span><span>Buzos</span><span>3</span><span class="stock-num">2</span><span>$ 30.500</span><span class="badge badge-warning">Bajo stock</span>
+</button>
+<button class="catalog-master-row" data-category="Calzas" data-name="Calza Negra" data-sku="CAL-NEG" data-status="activo">
+<span class="product-name-cell"><strong>Calza Negra</strong><small>Básica</small></span>
+<span>CAL-NEG</span><span>Calzas</span><span>4</span><span class="stock-num">17</span><span>$ 13.900</span><span class="badge badge-success">Activo</span>
+</button>
+<button class="catalog-master-row" data-category="Abrigos" data-name="Campera Polar" data-sku="CAM-POL" data-status="activo">
+<span class="product-name-cell"><strong>Campera Polar</strong><small>Invierno</small></span>
+<span>CAM-POL</span><span>Abrigos</span><span>4</span><span class="stock-num">10</span><span>$ 46.000</span><span class="badge badge-success">Activo</span>
+</button>
+</div>
+</div>
+<div class="catalog-footer master-footer">
+<div class="rows-per-page">
+<span>Filas por página</span>
+<select><option>20</option><option>50</option><option>100</option></select>
+</div>
+<span class="muted">Mostrando 1–20 de 128</span>
+<div class="pagination compact-pagination">
+<button class="btn btn-quiet">← Anterior</button>
+<span>Página 1 de 7</span>
+<button class="btn btn-quiet">Siguiente →</button>
+</div>
+</div>
+</section><aside class="panel catalog-preview-panel">
+<div class="preview-kicker">Vista rápida</div>
+<div class="preview-title-row">
+<div>
+<h2 id="preview-product-name">Remera Osito</h2>
+<span class="muted" id="preview-product-sku">REM-OSI</span>
+</div>
+<span class="badge badge-success" id="preview-product-status">Activo</span>
+</div>
+<div class="preview-metrics">
+<div><span>Precio</span><strong id="preview-product-price">$ 18.500</strong></div>
+<div><span>Stock total</span><strong id="preview-product-stock">18</strong></div>
+<div><span>Variantes</span><strong id="preview-product-variants">4</strong></div>
+</div>
+<div class="preview-section">
+<span class="preview-label">Categoría</span>
+<strong id="preview-product-category">Remeras</strong>
+</div>
+<div class="preview-section">
+<div class="preview-section-head">
+<span class="preview-label">Variantes principales</span>
+<span class="muted">Vista previa</span>
+</div>
+<div class="preview-variant-list">
+<div><span>Talle 2 · Blanco</span><strong>4 u.</strong></div>
+<div><span>Talle 4 · Blanco</span><strong>3 u.</strong></div>
+<div><span>Talle 4 · Rosa</span><strong>6 u.</strong></div>
+</div>
+</div>
+<div class="preview-hint">Doble clic en el producto para abrir su ficha completa, editarlo y administrar variantes.</div>
+<div class="preview-actions">
+<button class="btn btn-primary" id="open-selected-product">Abrir ficha completa</button>
+<button class="btn btn-danger-outline">Desactivar</button>
+</div>
+</aside></div>
+</section>
+<!-- PROVEEDORES -->
+<section class="screen" id="screen-proveedores">
+<div class="page-header">
+<div>
+<div class="eyebrow">Compras</div>
+<h1>Proveedores</h1>
+<p>Gestioná proveedores activos. Este módulo administra únicamente el nombre comercial.</p>
+</div>
+<button class="btn btn-primary" id="new-provider">＋ Nuevo proveedor</button>
+</div>
+<div class="split-layout narrow-list">
+<aside class="panel panel-list">
+<div class="panel-header">
+<div>
+<h2>Lista de proveedores</h2>
+<span class="muted">1 proveedor activo</span>
+</div>
+</div>
+<div class="search-row">
+<label class="search-field grow">
+<span class="search-icon">⌕</span>
+<input placeholder="Buscar por nombre comercial..." type="search"/>
+</label>
+</div>
+<label class="check-row">
+<input checked="" type="checkbox"/>
+<span>Mostrar solo activos</span>
+</label>
+<div class="entity-list compact">
+<button class="entity-row selected">
+<div class="entity-avatar mint">PH</div>
+<div class="entity-main">
+<div class="entity-title">Prov Humo</div>
+<div class="entity-meta">Proveedor comercial</div>
+</div>
+<span class="badge badge-success">Activo</span>
+</button>
+</div>
+</aside>
+<section class="panel panel-detail">
+<div class="detail-header">
+<div>
+<div class="eyebrow">Ficha del proveedor</div>
+<div class="title-line">
+<h2>Prov Humo</h2>
+<span class="badge badge-success">Activo</span>
+</div>
+<p>Los proveedores con historial no se eliminan: pueden desactivarse.</p>
+</div>
+</div>
+<div class="notice notice-info">
+<span>i</span>
+<div>
+<strong>Información acotada por diseño</strong>
+<p>No se muestran CUIT, domicilio ni teléfono porque este módulo no los administra.</p>
+</div>
+</div>
+<div class="info-grid two">
+<label class="field">
+<span>Nombre comercial</span>
+<input value="Prov Humo"/>
+</label>
+<div class="field static-field">
+<span>Estado</span>
+<div class="static-value"><span class="badge badge-success">Activo</span></div>
+</div>
+</div>
+<div class="inline-actions">
+<button class="btn btn-primary">Guardar nombre</button>
+<button class="btn btn-danger-outline">Desactivar proveedor</button>
+</div>
+</section>
+</div>
+</section>
+<!-- RECEPCIÓN DE MERCADERÍA -->
+<section class="screen" id="screen-recepcion">
+  <div class="page-header compact-page-header">
+    <div>
+      <div class="eyebrow">Compras · Mercadería</div>
+      <h1>Recepción de mercadería</h1>
+      <p>Registrá un ingreso recibido de un proveedor. Esta operación suma unidades al stock.</p>
+    </div>
+  </div>
+
+  <div class="receipt-entry-layout">
+    <section class="panel receipt-entry-main">
+      <div class="receipt-entry-context">
+        <label class="field">
+          <span>Proveedor</span>
+          <select>
+            <option>Prov Humo</option>
+            <option>Textiles Norte</option>
+            <option>Ropita Sur</option>
+          </select>
+        </label>
+        <div class="field static-field">
+          <span>Próximo registro</span>
+          <div class="static-value"><strong>Recepción Nº 000129</strong></div>
+        </div>
+      </div>
+
+      <div class="notice notice-info receipt-entry-note">
+        <span>i</span>
+        <div>
+          <strong>Recepción = sumar existencias</strong>
+          <p>La carga inicial es una operación distinta: establece la cantidad inicial.</p>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <div>
+          <h3>Mercadería recibida</h3>
+          <p>Buscá la variante, cargá cantidad y costo, y seguí con la siguiente fila.</p>
+        </div>
+        <button class="btn btn-secondary">＋ Agregar variante</button>
+      </div>
+
+      <div class="table-wrap receipt-entry-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Variante / SKU</th>
+              <th>Stock actual</th>
+              <th>+ Cantidad</th>
+              <th>Costo unitario</th>
+              <th>Quedará</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Remera Osito · Talle 2 · Blanco<br><small>REM-OSI-02-BLA</small></td>
+              <td>4</td>
+              <td><input class="table-input" value="12"></td>
+              <td><input class="table-input money" value="$ 4.200"></td>
+              <td><strong>16</strong></td>
+              <td>$ 50.400</td>
+            </tr>
+            <tr>
+              <td>Remera Osito · Talle 4 · Blanco<br><small>REM-OSI-04-BLA</small></td>
+              <td>3</td>
+              <td><input class="table-input" value="8"></td>
+              <td><input class="table-input money" value="$ 4.200"></td>
+              <td><strong>11</strong></td>
+              <td>$ 33.600</td>
+            </tr>
+            <tr class="receipt-empty-row">
+              <td>＋ Buscar otra variante…</td>
+              <td>—</td><td>—</td><td>—</td><td>—</td><td>$ 0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="panel receipt-entry-summary">
+      <div class="panel-header">
+        <div>
+          <h2>Resumen</h2>
+          <span class="muted">Antes de confirmar</span>
+        </div>
+      </div>
+
+      <div class="receipt-summary-list">
+        <div><span>Proveedor</span><strong>Prov Humo</strong></div>
+        <div><span>Líneas</span><strong>2</strong></div>
+        <div><span>Unidades a sumar</span><strong>20</strong></div>
+      </div>
+
+      <div class="receipt-total">
+        <span>Total estimado</span>
+        <strong>$ 84.000</strong>
+      </div>
+
+      <div class="notice notice-info">
+        <span>i</span>
+        <div>
+          <strong>Stock resultante</strong>
+          <p>Se sumarán 20 unidades; el stock existente no se reemplaza.</p>
+        </div>
+      </div>
+
+      <button class="btn btn-primary receipt-confirm-button">Confirmar y sumar 20 unidades</button>
+    </aside>
+  </div>
+</section>
+
+<!-- RECEPCIONES -->
+<section class="screen" id="screen-recepciones">
+<div class="page-header compact-page-header">
+<div>
+<div class="eyebrow">Compras</div>
+<h1>Recepciones</h1>
+<p>Consultá ingresos de mercadería y abrí el detalle completo solo cuando lo necesites.</p>
+</div>
+<button class="btn btn-primary">＋ Nueva recepción</button>
+</div>
+<div class="split-layout receipts-layout desktop-receipts">
+<aside class="panel panel-list receipts-list-panel">
+<div class="panel-header compact-panel-header">
+<div>
+<h2>Historial</h2>
+<span class="muted">128 recepciones</span>
+</div>
+<button class="icon-btn compact-icon" title="Refrescar">↻</button>
+</div>
+<div class="receipt-toolbar">
+<label class="search-field grow compact-search">
+<span class="search-icon">⌕</span>
+<input placeholder="Número o proveedor..." type="search"/>
+</label>
+<select class="compact-select receipt-filter">
+<option>Todos</option>
+<option>Confirmadas</option>
+<option>Revertidas</option>
+</select>
+</div>
+<div class="receipt-dense-list">
+<button class="receipt-dense-row selected">
+<span class="receipt-number">REC-000128</span>
+<span class="receipt-provider">Prov Humo</span>
+<span class="receipt-units">20 u.</span>
+<span class="badge badge-success">Confirmada</span>
+<span class="receipt-date">23/09 · 21:04</span>
+</button>
+<button class="receipt-dense-row">
+<span class="receipt-number">REC-000127</span>
+<span class="receipt-provider">Textiles Norte</span>
+<span class="receipt-units">12 u.</span>
+<span class="badge badge-success">Confirmada</span>
+<span class="receipt-date">23/09 · 18:42</span>
+</button>
+<button class="receipt-dense-row">
+<span class="receipt-number">REC-000126</span>
+<span class="receipt-provider">Ropita Sur</span>
+<span class="receipt-units">33 u.</span>
+<span class="badge badge-neutral">Revertida</span>
+<span class="receipt-date">22/09 · 16:30</span>
+</button>
+<button class="receipt-dense-row">
+<span class="receipt-number">REC-000125</span>
+<span class="receipt-provider">Prov Humo</span>
+<span class="receipt-units">8 u.</span>
+<span class="badge badge-success">Confirmada</span>
+<span class="receipt-date">22/09 · 11:18</span>
+</button>
+<button class="receipt-dense-row">
+<span class="receipt-number">REC-000124</span>
+<span class="receipt-provider">Textiles Norte</span>
+<span class="receipt-units">41 u.</span>
+<span class="badge badge-success">Confirmada</span>
+<span class="receipt-date">21/09 · 19:02</span>
+</button>
+<button class="receipt-dense-row">
+<span class="receipt-number">REC-000123</span>
+<span class="receipt-provider">Ropita Sur</span>
+<span class="receipt-units">17 u.</span>
+<span class="badge badge-success">Confirmada</span>
+<span class="receipt-date">21/09 · 14:11</span>
+</button>
+</div>
+<div class="catalog-footer receipts-footer">
+<div class="rows-per-page">
+<span>Filas</span>
+<select><option>20</option><option>50</option><option>100</option></select>
+</div>
+<div class="pagination compact-pagination">
+<button class="btn btn-quiet">←</button>
+<span>1 de 7</span>
+<button class="btn btn-quiet">→</button>
+</div>
+</div>
+</aside>
+<section class="panel panel-detail receipt-detail-panel">
+<div class="detail-header compact-detail-header">
+<div>
+<div class="eyebrow">Recepción seleccionada</div>
+<div class="title-line">
+<h2>REC-000128</h2>
+<span class="badge badge-success">Confirmada</span>
+</div>
+<p>Prov Humo · registrada por <strong>dueña</strong> · 23/09/2026 21:04</p>
+</div>
+<button class="btn btn-secondary" id="open-receipt-detail">Ver detalle completo</button>
+</div>
+<div class="summary-strip compact-summary">
+<div>
+<span>Proveedor</span>
+<strong>Prov Humo</strong>
+</div>
+<div>
+<span>Unidades</span>
+<strong>20</strong>
+</div>
+<div>
+<span>Importe</span>
+<strong>$ 84.000</strong>
+</div>
+<div>
+<span>Líneas</span>
+<strong>2</strong>
+</div>
+</div>
+<div class="section-head compact-section-head">
+<div>
+<h3>Resumen de mercadería</h3>
+<p>Vista rápida. El detalle completo se abre en una ventana aparte.</p>
+</div>
+</div>
+<div class="table-wrap receipt-preview-table">
+<table>
+<thead>
+<tr>
+<th>Variante</th>
+<th>Cant.</th>
+<th>Costo</th>
+<th>Subtotal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Remera Osito · Talle 2 · Blanco</td>
+<td>12</td>
+<td>$ 4.200</td>
+<td>$ 50.400</td>
+</tr>
+<tr>
+<td>Remera Osito · Talle 4 · Blanco</td>
+<td>8</td>
+<td>$ 4.200</td>
+<td>$ 33.600</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="receipt-more-row">
+<span>2 líneas visibles</span>
+<button class="btn btn-quiet" id="open-receipt-detail-secondary">Abrir detalle completo →</button>
+</div>
+<div class="section-divider compact-divider"></div>
+<div class="danger-zone compact-danger-zone">
+<div>
+<h3>Revertir recepción</h3>
+<p>Solo si necesitás deshacer por completo este ingreso.</p>
+</div>
+<button class="btn btn-danger-outline" id="toggle-reversal">Solicitar reversión</button>
+</div>
+<div class="reversal-box hidden" id="reversal-box">
+<div class="notice notice-warning">
+<span>!</span>
+<div>
+<strong>Acción sensible</strong>
+<p>La reversión resta todo lo ingresado y requiere un motivo.</p>
+</div>
+</div>
+<label class="field">
+<span>Motivo de la reversión</span>
+<textarea placeholder="Explicá brevemente por qué se revierte esta recepción..." rows="3"></textarea>
+</label>
+<div class="inline-actions">
+<button class="btn btn-danger">Confirmar reversión completa</button>
+<button class="btn btn-quiet" id="cancel-reversal">Cancelar</button>
+</div>
+</div>
+</section>
+</div>
+</section>
+<!-- CONTEO -->
+<section class="screen" id="screen-conteo">
+<div class="page-header">
+<div>
+<div class="eyebrow">Inventario</div>
+<h1>Conteo físico</h1>
+<p>Contá únicamente las variantes que ves. Lo que no selecciones queda fuera del conteo.</p>
+</div>
+</div>
+<div class="stepper" id="count-stepper">
+<button class="step done" data-step="1"><span>✓</span>Seleccionar variantes</button>
+<div class="step-line"></div>
+<button class="step active" data-step="2"><span>2</span>Contar</button>
+<div class="step-line"></div>
+<button class="step" data-step="3"><span>3</span>Revisar diferencias</button>
+<div class="step-line"></div>
+<button class="step" data-step="4"><span>4</span>Aprobar</button>
+</div>
+<div class="workflow-card">
+<div class="workflow-screen hidden" data-step-panel="1">
+<div class="workflow-head">
+<div>
+<h2>Seleccioná qué variantes vas a contar</h2>
+<p>Solo las variantes elegidas formarán parte del conteo.</p>
+</div>
+</div>
+<div class="search-row">
+<label class="search-field grow">
+<span class="search-icon">⌕</span>
+<input placeholder="Buscar variante por nombre o SKU..."/>
+</label>
+</div>
+<div class="selection-list">
+<label><input checked="" type="checkbox"/> Remera Osito · Talle 2 · Blanco</label>
+<label><input checked="" type="checkbox"/> Remera Osito · Talle 4 · Blanco</label>
+<label><input type="checkbox"/> Calza Rosa · Talle 4</label>
+</div>
+<div class="workflow-actions">
+<span></span>
+<button class="btn btn-primary next-step" data-next="2">Continuar al conteo →</button>
+</div>
+</div>
+<div class="workflow-screen" data-step-panel="2">
+<div class="workflow-head">
+<div>
+<h2>Registrá lo que realmente ves</h2>
+<p>Ingresá el número físico para cada variante seleccionada.</p>
+</div>
+<span class="badge badge-info">2 variantes</span>
+</div>
+<div class="count-grid">
+<div class="count-row">
+<div>
+<strong>Remera Osito · Talle 2 · Blanco</strong>
+<span>SKU REM-OSI-02-BLA</span>
+</div>
+<label class="count-input">
+<span>Contado</span>
+<input min="0" type="number" value="4"/>
+</label>
+</div>
+<div class="count-row">
+<div>
+<strong>Remera Osito · Talle 4 · Blanco</strong>
+<span>SKU REM-OSI-04-BLA</span>
+</div>
+<label class="count-input">
+<span>Contado</span>
+<input min="0" type="number" value="5"/>
+</label>
+</div>
+</div>
+<div class="workflow-actions">
+<button class="btn btn-quiet prev-step" data-prev="1">← Volver</button>
+<button class="btn btn-primary next-step" data-next="3">Revisar diferencias →</button>
+</div>
+</div>
+<div class="workflow-screen hidden" data-step-panel="3">
+<div class="workflow-head">
+<div>
+<h2>Revisá las diferencias</h2>
+<p>El sistema compara lo esperado con lo contado antes de ajustar stock.</p>
+</div>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Variante</th>
+<th>Esperado</th>
+<th>Contado</th>
+<th>Diferencia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Remera Osito · Talle 2 · Blanco</td>
+<td>4</td>
+<td>4</td>
+<td><span class="badge badge-neutral">0</span></td>
+</tr>
+<tr>
+<td>Remera Osito · Talle 4 · Blanco</td>
+<td>3</td>
+<td>5</td>
+<td><span class="badge badge-success">+2</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="workflow-actions">
+<button class="btn btn-quiet prev-step" data-prev="2">← Corregir conteo</button>
+<button class="btn btn-primary next-step" data-next="4">Continuar a aprobación →</button>
+</div>
+</div>
+<div class="workflow-screen hidden" data-step-panel="4">
+<div class="workflow-head">
+<div>
+<h2>Aprobar ajuste de inventario</h2>
+<p>Al aprobar, se registrarán los ajustes derivados de las diferencias encontradas.</p>
+</div>
+</div>
+<div class="approval-summary">
+<div>
+<span>Variantes contadas</span>
+<strong>2</strong>
+</div>
+<div>
+<span>Sin diferencia</span>
+<strong>1</strong>
+</div>
+<div>
+<span>Con ajuste</span>
+<strong>1</strong>
+</div>
+</div>
+<div class="notice notice-warning">
+<span>!</span>
+<div>
+<strong>Control de concurrencia</strong>
+<p>Si el stock cambió desde que empezaste el conteo, la aprobación puede rechazarse y tendrás que registrar uno nuevo.</p>
+</div>
+</div>
+<div class="workflow-actions">
+<button class="btn btn-quiet prev-step" data-prev="3">← Volver a revisar</button>
+<button class="btn btn-primary">Solicitar aprobación</button>
+</div>
+</div>
+</div>
+</section>
+<!-- INVENTARIO -->
+<section class="screen" id="screen-inventario">
+<div class="page-header">
+<div>
+<div class="eyebrow">Stock</div>
+<h1>Inventario</h1>
+<p>Consultá una variante y gestioná prendas temporalmente fuera de venta o dadas de baja.</p>
+</div>
+</div>
+<div class="inventory-layout">
+<section class="panel inventory-main">
+<div class="section-head">
+<div>
+<h2>Consultar variante</h2>
+<p>Buscá por SKU para ver stock y movimientos.</p>
+</div>
+</div>
+<div class="search-row">
+<label class="search-field grow">
+<span class="search-icon">⌕</span>
+<input value="REM-OSI-04-BLA"/>
+</label>
+<button class="btn btn-primary">Buscar</button>
+</div>
+<div class="selected-variant">
+<div class="entity-avatar peach large">RO</div>
+<div>
+<strong>Remera Osito · Talle 4 · Blanco</strong>
+<span>SKU REM-OSI-04-BLA</span>
+</div>
+<span class="badge badge-success">Activa</span>
+</div>
+<div class="stock-cards">
+<div class="stock-card">
+<span>Físico</span>
+<strong>11</strong>
+<small>Total existente</small>
+</div>
+<div class="stock-card highlighted">
+<span>Disponible para vender</span>
+<strong>8</strong>
+<small>Físico − apartado</small>
+</div>
+<div class="stock-card">
+<span>Apartado / no vendible</span>
+<strong>3</strong>
+<small>Retirado temporalmente</small>
+</div>
+</div>
+<div class="section-divider"></div>
+<div class="section-head">
+<div>
+<h3>Gestionar disponibilidad</h3>
+<p>Elegí la acción. Solo aparece el formulario necesario para esa operación.</p>
+</div>
+</div>
+<div class="segmented" id="inventory-actions">
+<button class="seg active" data-action="apartar">Apartar</button>
+<button class="seg" data-action="reincorporar">Reincorporar</button>
+<button class="seg danger-seg" data-action="baja">Baja definitiva</button>
+</div>
+<div class="action-form" data-action-form="apartar">
+<div class="notice notice-info">
+<span>i</span>
+<div>
+<strong>Apartar prendas</strong>
+<p>Retira unidades temporalmente de la venta. El stock físico no cambia.</p>
+</div>
+</div>
+<div class="info-grid two">
+<label class="field">
+<span>Cantidad</span>
+<input min="1" type="number" value="1"/>
+</label>
+<label class="field">
+<span>Motivo</span>
+<input placeholder="Ej. prenda reservada / control interno"/>
+</label>
+</div>
+<button class="btn btn-primary">Apartar prendas</button>
+</div>
+<div class="action-form hidden" data-action-form="reincorporar">
+<div class="notice notice-info">
+<span>i</span>
+<div>
+<strong>Reincorporar prendas</strong>
+<p>Devuelve unidades apartadas a la disponibilidad para venta.</p>
+</div>
+</div>
+<label class="field">
+<span>Cantidad</span>
+<input min="1" type="number" value="1"/>
+</label>
+<button class="btn btn-primary">Reincorporar</button>
+</div>
+<div class="action-form hidden" data-action-form="baja">
+<div class="notice notice-warning">
+<span>!</span>
+<div>
+<strong>Baja definitiva</strong>
+<p>Esta operación reduce el stock físico y debe usarse solo cuando la prenda ya no existe físicamente.</p>
+</div>
+</div>
+<div class="info-grid two">
+<label class="field">
+<span>Cantidad</span>
+<input min="1" type="number" value="1"/>
+</label>
+<label class="field">
+<span>Motivo obligatorio</span>
+<input placeholder="Ej. rotura / pérdida"/>
+</label>
+</div>
+<button class="btn btn-danger">Dar de baja</button>
+</div>
+</section>
+<aside class="panel inventory-history">
+<div class="panel-header">
+<div>
+<h2>Historial</h2>
+<span class="muted">Últimos movimientos</span>
+</div>
+</div>
+<div class="timeline">
+<div class="timeline-item">
+<span class="timeline-dot"></span>
+<div>
+<strong>Recepción +8</strong>
+<span>23/09/2026 · 21:04</span>
+</div>
+</div>
+<div class="timeline-item">
+<span class="timeline-dot"></span>
+<div>
+<strong>Apartado −3 disponibles</strong>
+<span>23/09/2026 · 21:18</span>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</section>
+<!-- USUARIOS -->
+<section class="screen" id="screen-usuarios">
+<div class="page-header">
+<div>
+<div class="eyebrow">Administración</div>
+<h1>Usuarios</h1>
+<p>Creá empleados, administrá permisos comerciales y gestioná el acceso sin mezclar acciones sensibles.</p>
+</div>
+<button class="btn btn-primary">＋ Crear empleado</button>
+</div>
+<div class="split-layout users-layout">
+<aside class="panel panel-list">
+<div class="panel-header">
+<div>
+<h2>Equipo</h2>
+<span class="muted">2 usuarios</span>
+</div>
+</div>
+<div class="search-row">
+<label class="search-field grow">
+<span class="search-icon">⌕</span>
+<input placeholder="Buscar usuario..."/>
+</label>
+</div>
+<div class="entity-list">
+<button class="entity-row selected">
+<div class="entity-avatar blue">AN</div>
+<div class="entity-main">
+<div class="entity-title">ana</div>
+<div class="entity-meta">Empleada</div>
+</div>
+<span class="badge badge-success">Activa</span>
+</button>
+<button class="entity-row">
+<div class="entity-avatar mint">DU</div>
+<div class="entity-main">
+<div class="entity-title">duena</div>
+<div class="entity-meta">Dueña</div>
+</div>
+<span class="badge badge-success">Activa</span>
+</button>
+</div>
+</aside>
+<section class="panel panel-detail">
+<div class="detail-header">
+<div>
+<div class="eyebrow">Cuenta seleccionada</div>
+<div class="title-line">
+<h2>ana</h2>
+<span class="badge badge-success">Activa</span>
+</div>
+<p>Empleada · acceso comercial</p>
+</div>
+</div>
+<div class="info-grid two">
+<label class="field">
+<span>Usuario</span>
+<input value="ana"/>
+</label>
+<div class="field static-field">
+<span>Rol</span>
+<div class="static-value"><strong>Empleada</strong></div>
+</div>
+</div>
+<div class="section-divider"></div>
+<div class="section-head">
+<div>
+<h3>Permisos comerciales</h3>
+<p>Ocultar una opción no reemplaza la validación del backend.</p>
+</div>
+</div>
+<div class="permissions">
+<label><input checked="" type="checkbox"/> Registrar ventas</label>
+<label><input checked="" type="checkbox"/> Consultar catálogo</label>
+<label><input checked="" type="checkbox"/> Consultar inventario</label>
+<label><input type="checkbox"/> Gestionar proveedores</label>
+<label><input type="checkbox"/> Aprobar conteos</label>
+<label><input type="checkbox"/> Administrar usuarios</label>
+</div>
+<div class="inline-actions">
+<button class="btn btn-primary">Guardar permisos</button>
+</div>
+<div class="section-divider"></div>
+<div class="section-head">
+<div>
+<h3>Seguridad de la cuenta</h3>
+<p>Estas acciones no forman parte de la edición cotidiana del usuario.</p>
+</div>
+</div>
+<div class="security-actions">
+<button class="btn btn-secondary">Restablecer contraseña</button>
+<button class="btn btn-danger-outline">Desactivar usuario</button>
+</div>
+</section>
+</div>
+</section>
+</main>
+<div class="window-backdrop hidden" id="product-editor-window">
+<div class="desktop-window product-editor-window">
+<div class="desktop-window-titlebar">
+<div>
+<strong id="product-window-title">Producto · Remera Osito</strong>
+<span id="product-window-subtitle">REM-OSI · ficha y variantes</span>
+</div>
+<button aria-label="Cerrar" class="window-close" id="close-product-editor">✕</button>
+</div>
+<div class="product-editor-body">
+<aside class="product-editor-sidebar">
+<div class="product-editor-identity">
+<div class="entity-avatar peach large">RO</div>
+<div>
+<strong id="product-editor-name">Remera Osito</strong>
+<span>Producto activo</span>
+</div>
+</div>
+<nav class="editor-nav">
+<button class="editor-nav-item active" data-editor-tab="datos">Datos generales</button>
+<button class="editor-nav-item" data-editor-tab="variantes">Variantes</button>
+<button class="editor-nav-item" data-editor-tab="estado">Estado y acciones</button>
+</nav>
+<div class="editor-side-note">
+<strong>Edición independiente</strong>
+<p>La lista principal queda limpia y enfocada en buscar productos.</p>
+</div>
+</aside>
+<section class="product-editor-content">
+<div class="editor-tab-panel" data-editor-panel="datos">
+<div class="section-head">
+<div>
+<h3>Datos generales</h3>
+<p>Editá la información comercial del producto.</p>
+</div>
+</div>
+<div class="info-grid three">
+<label class="field">
+<span>Nombre</span>
+<input id="product-editor-name-input" value="Remera Osito"/>
+</label>
+<label class="field">
+<span>Categoría</span>
+<select>
+<option>Remeras</option><option>Buzos</option><option>Calzas</option><option>Abrigos</option>
+</select>
+</label>
+<label class="field">
+<span>Precio de venta</span>
+<input value="$ 18.500"/>
+</label>
+</div>
+<label class="field editor-description">
+<span>Descripción interna</span>
+<textarea rows="4">Producto infantil con variantes por talle y color.</textarea>
+</label>
+<div class="inline-actions">
+<button class="btn btn-primary">Guardar cambios</button>
+<button class="btn btn-quiet">Descartar cambios</button>
+</div>
+</div>
+<div class="editor-tab-panel hidden" data-editor-panel="variantes">
+<div class="section-head">
+<div>
+<h3>Variantes</h3>
+<p>Administrá talle, color, SKU y stock inicial.</p>
+</div>
+<button class="btn btn-primary">＋ Nueva variante</button>
+</div>
+<div class="table-wrap editor-variants-table">
+<table>
+<thead>
+<tr>
+<th>SKU</th>
+<th>Talle</th>
+<th>Color</th>
+<th>Stock</th>
+<th>Estado</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr><td>REM-OSI-02-BLA</td><td>2</td><td>Blanco</td><td>4</td><td><span class="badge badge-success">Activa</span></td><td><button class="kebab">•••</button></td></tr>
+<tr><td>REM-OSI-04-BLA</td><td>4</td><td>Blanco</td><td>3</td><td><span class="badge badge-success">Activa</span></td><td><button class="kebab">•••</button></td></tr>
+<tr><td>REM-OSI-04-ROS</td><td>4</td><td>Rosa</td><td>6</td><td><span class="badge badge-success">Activa</span></td><td><button class="kebab">•••</button></td></tr>
+<tr><td>REM-OSI-06-ROS</td><td>6</td><td>Rosa</td><td>5</td><td><span class="badge badge-success">Activa</span></td><td><button class="kebab">•••</button></td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="editor-tab-panel hidden" data-editor-panel="estado">
+<div class="section-head">
+<div>
+<h3>Estado y acciones</h3>
+<p>Acciones poco frecuentes, separadas de la edición cotidiana.</p>
+</div>
+</div>
+<div class="notice notice-info">
+<span>i</span>
+<div>
+<strong>Producto activo</strong>
+<p>Las variantes activas siguen disponibles para operaciones del sistema.</p>
+</div>
+</div>
+<div class="danger-zone">
+<div>
+<h3>Desactivar producto</h3>
+<p>No elimina el historial. Evita nuevas operaciones con el producto según las reglas del sistema.</p>
+</div>
+<button class="btn btn-danger-outline">Desactivar producto</button>
+</div>
+</div>
+</section>
+</div>
+<div class="desktop-window-footer">
+<span class="muted">Doble clic en una fila del catálogo abre esta ficha.</span>
+<button class="btn btn-primary" id="close-product-editor-footer">Cerrar</button>
+</div>
+</div>
+</div>
+<div class="window-backdrop hidden" id="receipt-detail-window">
+<div class="desktop-window">
+<div class="desktop-window-titlebar">
+<div>
+<strong>Detalle de recepción · REC-000128</strong>
+<span>Prov Humo · 23/09/2026 21:04</span>
+</div>
+<button aria-label="Cerrar" class="window-close" id="close-receipt-detail">✕</button>
+</div>
+<div class="desktop-window-body">
+<div class="desktop-window-toolbar">
+<label class="search-field detail-search">
+<span class="search-icon">⌕</span>
+<input id="receipt-detail-search" placeholder="Buscar producto o SKU dentro de la recepción..." type="search"/>
+</label>
+<div class="window-stats">
+<span><strong>20</strong> unidades</span>
+<span><strong>8</strong> líneas</span>
+<span><strong>$ 84.000</strong> total</span>
+</div>
+</div>
+<div class="table-wrap desktop-detail-table">
+<table id="receipt-detail-table">
+<thead>
+<tr>
+<th>Producto / variante</th>
+<th>SKU</th>
+<th>Cantidad</th>
+<th>Costo unitario</th>
+<th>Subtotal</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>Remera Osito · Talle 2 · Blanco</td><td>REM-OSI-02-BLA</td><td>12</td><td>$ 4.200</td><td>$ 50.400</td></tr>
+<tr><td>Remera Osito · Talle 4 · Blanco</td><td>REM-OSI-04-BLA</td><td>8</td><td>$ 4.200</td><td>$ 33.600</td></tr>
+<tr><td>Buzo Estrellas · Talle 4 · Azul</td><td>BUZ-EST-04-AZU</td><td>6</td><td>$ 7.800</td><td>$ 46.800</td></tr>
+<tr><td>Calza Rosa · Talle 4</td><td>CAL-ROS-04</td><td>10</td><td>$ 3.100</td><td>$ 31.000</td></tr>
+<tr><td>Campera Nube · Talle 6</td><td>CAM-NUB-06</td><td>4</td><td>$ 11.500</td><td>$ 46.000</td></tr>
+<tr><td>Body Rayas · Talle 2</td><td>BOD-RAY-02</td><td>9</td><td>$ 3.900</td><td>$ 35.100</td></tr>
+<tr><td>Remera Dino · Talle 4</td><td>REM-DIN-04</td><td>7</td><td>$ 4.500</td><td>$ 31.500</td></tr>
+<tr><td>Calza Negra · Talle 6</td><td>CAL-NEG-06</td><td>5</td><td>$ 3.200</td><td>$ 16.000</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="desktop-window-footer">
+<span class="muted">Ventana de consulta: no bloquea el flujo principal de Recepciones.</span>
+<button class="btn btn-primary" id="close-receipt-detail-footer">Cerrar</button>
+</div>
+</div>
+</div>
+<div class="modal-backdrop hidden" id="modal-backdrop">
+<div class="modal">
+<div class="modal-head">
+<div>
+<div class="eyebrow">Alta rápida</div>
+<h2 id="modal-title">Nuevo elemento</h2>
+</div>
+<button class="icon-btn" id="modal-close">✕</button>
+</div>
+<label class="field">
+<span id="modal-field-label">Nombre</span>
+<input id="modal-input" placeholder="Escribí un nombre..."/>
+</label>
+<div class="modal-actions">
+<button class="btn btn-quiet" id="modal-cancel">Cancelar</button>
+<button class="btn btn-primary" id="modal-save">Crear</button>
+</div>
+</div>
+</div>
+<script>
+const screens = document.querySelectorAll('.screen');
+const navDirect = document.querySelectorAll('.nav-direct');
+const dropdownItems = document.querySelectorAll('.dropdown-item');
+const navMenus = document.querySelectorAll('.nav-menu');
+
+function closeNavMenus(){
+  navMenus.forEach(menu => {
+    menu.classList.remove('open');
+    menu.querySelector('.nav-menu-button')?.setAttribute('aria-expanded','false');
+  });
+}
+
+function setActiveNavigation(group, screenName){
+  navDirect.forEach(b => b.classList.toggle('active', b.dataset.group === group));
+  navMenus.forEach(menu => menu.classList.toggle('active', menu.dataset.menu === group));
+  dropdownItems.forEach(item => item.classList.toggle('active', item.dataset.screen === screenName && item.dataset.group === group));
+}
+
+function showScreen(name, group = name){
+  screens.forEach(s => s.classList.toggle('active', s.id === `screen-${name}`));
+  setActiveNavigation(group, name);
+  closeNavMenus();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+navDirect.forEach(btn => btn.addEventListener('click', () => showScreen(btn.dataset.screen, btn.dataset.group)));
+
+document.querySelectorAll('.nav-menu-button').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const menu = btn.closest('.nav-menu');
+    const willOpen = !menu.classList.contains('open');
+    closeNavMenus();
+    if(willOpen){
+      menu.classList.add('open');
+      btn.setAttribute('aria-expanded','true');
+    }
+  });
+});
+
+dropdownItems.forEach(item => {
+  item.addEventListener('click', () => {
+    showScreen(item.dataset.screen, item.dataset.group);
+    if(item.dataset.inventoryAction){
+      const action = item.dataset.inventoryAction;
+      const target = document.querySelector(`#inventory-actions .seg[data-action="${action}"]`);
+      target?.click();
+    }
+  });
+});
+
+document.addEventListener('click', e => {
+  if(!e.target.closest('.nav-menu')) closeNavMenus();
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closeNavMenus();
+});
+
+// Generic quick-create modal
+const modal = document.getElementById('modal-backdrop');
+const modalTitle = document.getElementById('modal-title');
+const modalFieldLabel = document.getElementById('modal-field-label');
+const modalInput = document.getElementById('modal-input');
+function openModal(title,label,placeholder){
+  if(!modal) return;
+  modalTitle.textContent=title; modalFieldLabel.textContent=label; modalInput.value=''; modalInput.placeholder=placeholder;
+  modal.classList.remove('hidden'); setTimeout(()=>modalInput.focus(),20);
+}
+function closeModal(){ modal?.classList.add('hidden'); }
+document.getElementById('new-product')?.addEventListener('click',()=>openModal('Nuevo producto','Nombre del producto','Ej. Vestido Flores'));
+document.getElementById('new-provider')?.addEventListener('click',()=>openModal('Nuevo proveedor','Nombre comercial','Ej. Textiles Norte'));
+document.getElementById('modal-close')?.addEventListener('click',closeModal);
+document.getElementById('modal-cancel')?.addEventListener('click',closeModal);
+document.getElementById('modal-save')?.addEventListener('click',closeModal);
+modal?.addEventListener('click',e=>{if(e.target===modal) closeModal();});
+
+// Catálogo master-detail (preview + editor in a separate desktop window)
+let selectedProductRow = document.querySelector('#product-list .catalog-master-row.selected');
+function rowValues(row){
+  const cells=[...row.children];
+  return {
+    name: row.dataset.name || cells[0]?.querySelector('strong')?.textContent?.trim() || 'Producto',
+    sku: row.dataset.sku || cells[1]?.textContent?.trim() || '',
+    category: row.dataset.category || cells[2]?.textContent?.trim() || '',
+    variants: cells[3]?.textContent?.trim() || '—',
+    stock: cells[4]?.textContent?.trim() || '—',
+    price: cells[5]?.textContent?.trim() || '—',
+    status: cells[6]?.textContent?.trim() || 'Activo',
+    statusClass: row.dataset.status === 'bajo' ? 'badge-warning' : row.dataset.status === 'sin' ? 'badge-neutral' : 'badge-success'
+  };
+}
+function updateProductPreview(row){
+  if(!row) return;
+  const v=rowValues(row);
+  const set=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  set('preview-product-name',v.name); set('preview-product-sku',v.sku); set('preview-product-category',v.category);
+  set('preview-product-variants',v.variants); set('preview-product-stock',v.stock); set('preview-product-price',v.price);
+  const status=document.getElementById('preview-product-status');
+  if(status){status.textContent=v.status; status.className=`badge ${v.statusClass}`;}
+}
+function selectProductRow(row){
+  document.querySelectorAll('#product-list .catalog-master-row').forEach(r=>r.classList.remove('selected'));
+  row.classList.add('selected'); selectedProductRow=row; updateProductPreview(row);
+}
+function openProductEditor(row=selectedProductRow){
+  if(!row) return; selectProductRow(row); const v=rowValues(row);
+  const title=document.getElementById('product-window-title'); if(title) title.textContent=`Producto · ${v.name}`;
+  const sub=document.getElementById('product-window-subtitle'); if(sub) sub.textContent=`${v.sku} · ficha y variantes`;
+  const name=document.getElementById('product-editor-name'); if(name) name.textContent=v.name;
+  const input=document.getElementById('product-editor-name-input'); if(input) input.value=v.name;
+  document.getElementById('product-editor-window')?.classList.remove('hidden');
+}
+function closeProductEditor(){ document.getElementById('product-editor-window')?.classList.add('hidden'); }
+document.querySelectorAll('#product-list .catalog-master-row').forEach(row=>{
+  row.addEventListener('click',()=>selectProductRow(row));
+  row.addEventListener('dblclick',()=>openProductEditor(row));
+});
+document.getElementById('edit-selected-product')?.addEventListener('click',()=>openProductEditor());
+document.getElementById('open-selected-product')?.addEventListener('click',()=>openProductEditor());
+document.getElementById('close-product-editor')?.addEventListener('click',closeProductEditor);
+document.getElementById('close-product-editor-footer')?.addEventListener('click',closeProductEditor);
+document.getElementById('product-editor-window')?.addEventListener('click',e=>{if(e.target.id==='product-editor-window')closeProductEditor();});
+document.querySelectorAll('.editor-nav-item').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.editor-nav-item').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  document.querySelectorAll('[data-editor-panel]').forEach(p=>p.classList.toggle('hidden',p.dataset.editorPanel!==btn.dataset.editorTab));
+}));
+function filterCatalog(){
+  const q=(document.getElementById('catalog-search')?.value||'').trim().toLowerCase();
+  const category=document.getElementById('catalog-category')?.value||'';
+  const status=document.getElementById('catalog-status')?.value||'';
+  document.querySelectorAll('#product-list .catalog-master-row').forEach(row=>{
+    const visible=(!q||row.textContent.toLowerCase().includes(q))&&(!category||row.dataset.category===category)&&(!status||row.dataset.status===status);
+    row.style.display=visible?'':'none';
+  });
+}
+document.getElementById('catalog-search')?.addEventListener('input',filterCatalog);
+document.getElementById('catalog-category')?.addEventListener('change',filterCatalog);
+document.getElementById('catalog-status')?.addEventListener('change',filterCatalog);
+updateProductPreview(selectedProductRow);
+
+// Reversión de recepción
+const reversalBox=document.getElementById('reversal-box');
+document.getElementById('toggle-reversal')?.addEventListener('click',()=>reversalBox?.classList.remove('hidden'));
+document.getElementById('cancel-reversal')?.addEventListener('click',()=>reversalBox?.classList.add('hidden'));
+
+// Ventana de detalle completo de recepción
+const receiptDetailWindow=document.getElementById('receipt-detail-window');
+function openReceiptDetail(){receiptDetailWindow?.classList.remove('hidden');setTimeout(()=>document.getElementById('receipt-detail-search')?.focus(),20);}
+function closeReceiptDetail(){receiptDetailWindow?.classList.add('hidden');}
+document.getElementById('open-receipt-detail')?.addEventListener('click',openReceiptDetail);
+document.getElementById('open-receipt-detail-secondary')?.addEventListener('click',openReceiptDetail);
+document.getElementById('close-receipt-detail')?.addEventListener('click',closeReceiptDetail);
+document.getElementById('close-receipt-detail-footer')?.addEventListener('click',closeReceiptDetail);
+receiptDetailWindow?.addEventListener('click',e=>{if(e.target===receiptDetailWindow)closeReceiptDetail();});
+document.getElementById('receipt-detail-search')?.addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#receipt-detail-table tbody tr').forEach(row=>row.style.display=row.textContent.toLowerCase().includes(q)?'':'none');
+});
+
+// Conteo físico por pasos
+function setCountStep(step){
+  document.querySelectorAll('[data-step-panel]').forEach(p=>p.classList.toggle('hidden',p.dataset.stepPanel!==String(step)));
+  document.querySelectorAll('#count-stepper .step').forEach(btn=>{
+    const n=Number(btn.dataset.step); btn.classList.toggle('active',n===step); btn.classList.toggle('done',n<step);
+    const bubble=btn.querySelector('span'); if(bubble) bubble.textContent=n<step?'✓':String(n);
+  });
+}
+document.querySelectorAll('.next-step').forEach(btn=>btn.addEventListener('click',()=>setCountStep(Number(btn.dataset.next))));
+document.querySelectorAll('.prev-step').forEach(btn=>btn.addEventListener('click',()=>setCountStep(Number(btn.dataset.prev))));
+document.querySelectorAll('#count-stepper .step').forEach(btn=>btn.addEventListener('click',()=>setCountStep(Number(btn.dataset.step))));
+
+// Inventario: una sola acción visible por vez
+const inventoryActions=document.querySelectorAll('#inventory-actions .seg');
+inventoryActions.forEach(btn=>btn.addEventListener('click',()=>{
+  inventoryActions.forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+  document.querySelectorAll('[data-action-form]').forEach(form=>form.classList.toggle('hidden',form.dataset.actionForm!==btn.dataset.action));
+}));
+
+// Cierre universal con Escape
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(receiptDetailWindow && !receiptDetailWindow.classList.contains('hidden')){closeReceiptDetail();return;}
+  const productWindow=document.getElementById('product-editor-window');
+  if(productWindow && !productWindow.classList.contains('hidden')){closeProductEditor();return;}
+  closeModal();
+});
+
+</script>
+</body>
+</html>
