@@ -1,82 +1,306 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.RespaldosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24" MaxWidth="1100" HorizontalAlignment="Left">
-            <TextBlock Text="Respaldos" FontSize="26" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}"/>
-            <TextBlock Text="Copia local cifrada; Google Drive se puede configurar cuando esté disponible." Margin="0,4,0,16" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-            <Border Padding="16" Margin="0,0,0,12" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8">
-                <StackPanel>
-                    <TextBlock Text="ESTADO" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Estado}" Margin="0,8,0,2" FontSize="16"/>
-                    <TextBlock Text="{Binding RutaLocal}" TextWrapping="Wrap" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-                    <TextBlock Text="Aviso: esta ubicación parece estar dentro de una carpeta sincronizada. Los respaldos no deben sincronizarse directamente; elegí una ruta local dedicada." Margin="0,7,0,0" TextWrapping="Wrap" Foreground="{StaticResource Color.ErrorTextBrush}" Visibility="{Binding RutaPuedeSincronizarse, Converter={StaticResource BoolToVisibility}}"/>
-                    <TextBlock Text="Google Drive todavía no está configurado. Definí el Desktop Client ID de OAuth para esta instalación." Margin="0,8,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}" Visibility="{Binding DriveConfigurado, Converter={StaticResource BoolToVisibilityInverted}}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <TextBlock Text="Google Drive:" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                        <TextBlock Text="Conectado" Margin="8,0,12,0" VerticalAlignment="Center" Visibility="{Binding DriveConectado, Converter={StaticResource BoolToVisibility}}"/>
-                        <TextBlock Text="Requiere conectar" Margin="8,0,12,0" VerticalAlignment="Center" Visibility="{Binding DriveConectado, Converter={StaticResource BoolToVisibilityInverted}}"/>
-                        <Button Content="Conectar Google Drive" Command="{Binding ConectarDriveCommand}" IsEnabled="{Binding PuedeConfigurar}" Visibility="{Binding DriveConfigurado, Converter={StaticResource BoolToVisibility}}" Padding="10,4"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-            <Border Padding="16" Margin="0,0,0,12" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Visibility="{Binding PuedeConfigurar, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock Text="CONFIGURACIÓN INICIAL" FontWeight="SemiBold"/>
-                    <TextBlock Text="Generá el código de recuperación y guardalo fuera de esta computadora. Sin él no se podrá abrir una copia en una PC nueva." Margin="0,6,0,12" TextWrapping="Wrap"/>
-                    <Button Content="Generar código de recuperación" Command="{Binding GenerarCodigoCommand}" HorizontalAlignment="Left" Padding="12,6"/>
-                    <TextBox Text="{Binding Codigo, Mode=OneWay}" IsReadOnly="True" Margin="0,10,0,8" FontSize="18" FontWeight="SemiBold"/>
-                    <Button Content="Imprimir hoja de recuperación…" Click="ImprimirHoja_Click" IsEnabled="{Binding HayCodigo}" HorizontalAlignment="Left" Padding="12,6"/>
-                    <TextBlock Text="{Binding Mensaje}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                    <TextBlock Text="Volvé a escribir el código para confirmar:" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding Confirmacion, UpdateSourceTrigger=PropertyChanged}" MaxWidth="500" HorizontalAlignment="Left"/>
-                    <Button Content="Confirmar y proteger en este Windows" Command="{Binding ConfirmarCodigoCommand}" Margin="0,8,0,0" HorizontalAlignment="Left" Padding="12,6"/>
-                    <TextBlock Text="En una PC nueva, pegá aquí el código original y elegí protegerlo para esta cuenta de Windows." Margin="0,12,0,4" TextWrapping="Wrap" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-                    <Button Content="Proteger código existente / recuperar esta PC" Command="{Binding ProtegerCodigoExistenteCommand}" HorizontalAlignment="Left" Padding="12,6"/>
-                </StackPanel>
-            </Border>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="Crear copia ahora" Command="{Binding CrearCopiaCommand}" IsEnabled="{Binding PuedeCrear}" Visibility="{Binding PuedeCrear, Converter={StaticResource BoolToVisibility}}" Padding="14,7"/>
-                <Button Content="Actualizar" Command="{Binding ActualizarCommand}" Margin="8,0,0,0" Padding="14,7"/>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="18" MaxWidth="1400" HorizontalAlignment="Stretch">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Respaldos"/>
+                <TextBlock Style="{StaticResource EstiloAyuda}" Margin="0"
+                           Text="Copia local cifrada; Google Drive se puede configurar cuando esté disponible."/>
             </StackPanel>
-            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-            <TextBlock Text="{Binding Mensaje}" Foreground="{StaticResource Color.SuccessTextBrush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-            <DataGrid ItemsSource="{Binding Copias}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MinHeight="180">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Fecha UTC" Binding="{Binding CreadoUtc}" Width="190"/>
-                    <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoHumano}" Width="130"/>
-                    <DataGridTextColumn Header="Estado local" Binding="{Binding EstadoLocal}" Width="140"/>
-                    <DataGridTextColumn Header="Drive" Binding="{Binding EstadoRemotoHumano}" Width="150"/>
-                    <DataGridTextColumn Header="Tamaño" Binding="{Binding TamanoBytes}" Width="110"/>
-                </DataGrid.Columns>
-            </DataGrid>
-            <Border Padding="16" Margin="0,12,0,0" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Visibility="{Binding PuedeRestaurar, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock Text="RESTAURAR UN RESPALDO" FontWeight="SemiBold"/>
-                    <TextBlock Text="Solo Dueña. Se requiere reautenticación, caja cerrada y código de recuperación. Se verificará una copia actual antes del reemplazo." Margin="0,5,0,10" TextWrapping="Wrap" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
-                    <TextBlock Text="Copias en Google Drive (útil al recuperar una PC nueva)" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <Button Content="Consultar copias remotas" Command="{Binding ActualizarDriveCommand}" Padding="10,5"/>
-                        <Button Content="Descargar seleccionada" Command="{Binding DescargarDriveCommand}" Margin="8,0,0,0" Padding="10,5"/>
+
+            <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                <TextBlock Style="{StaticResource EstiloMensajeError}"
+                           Text="{Binding Error}"
+                           Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}"/>
+                <TextBlock Style="{StaticResource EstiloMensajeExito}"
+                           Text="{Binding Mensaje}"
+                           Visibility="{Binding Mensaje, Converter={StaticResource NullToVisibility}}"/>
+            </StackPanel>
+
+            <Grid x:Name="Paneles" Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.95*"/>
+                    <ColumnDefinition Width="1.05*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Estado local y Google Drive -->
+                <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,12,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="ESTADO DEL RESPALDO" Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="ESTADO LOCAL"/>
+                        <TextBlock Text="{Binding Estado}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,2,0,4">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Color.WarningTextBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Estado}" Value="Respaldada en Drive">
+                                            <Setter Property="Foreground" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Estado}" Value="Copia local lista — pendiente de subir">
+                                            <Setter Property="Foreground" Value="{StaticResource Color.InfoTextBrush}"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Estado}" Value="Error de copia local">
+                                            <Setter Property="Foreground" Value="{StaticResource Color.ErrorTextBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Ubicación local" Margin="0,4,0,2"/>
+                        <TextBlock Text="{Binding RutaLocal}" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+                        <Border Style="{StaticResource EstiloAvisoInfo}"
+                                Background="{StaticResource Color.WarningBgBrush}"
+                                BorderBrush="{StaticResource Color.WarningTextBrush}"
+                                Padding="8" Margin="0,6,0,0"
+                                Visibility="{Binding RutaPuedeSincronizarse, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Esta ubicación parece estar sincronizada. Elegí una carpeta local dedicada para los respaldos."
+                                       Foreground="{StaticResource Color.WarningTextBrush}" TextWrapping="Wrap"/>
+                        </Border>
+                        <Border Style="{StaticResource EstiloSeparador}" Margin="0,10,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Google Drive" VerticalAlignment="Center" Margin="0"/>
+                            <TextBlock Grid.Column="1" Text="Conectado" VerticalAlignment="Center" Margin="10,0,6,0"
+                                       Foreground="{StaticResource Color.SuccessTextBrush}"
+                                       Visibility="{Binding DriveConectado, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Grid.Column="1" Text="Requiere conectar" VerticalAlignment="Center" Margin="10,0,6,0"
+                                       Foreground="{StaticResource Color.WarningTextBrush}"
+                                       Visibility="{Binding DriveConectado, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                            <Button Grid.Column="2" Style="{StaticResource EstiloBotonSecundario}"
+                                    Content="Conectar" Command="{Binding ConectarDriveCommand}"
+                                    IsEnabled="{Binding PuedeConfigurar}"
+                                    Visibility="{Binding DriveConfigurado, Converter={StaticResource BoolToVisibility}}"
+                                    ToolTip="Conectar Google Drive" Margin="0"/>
+                        </Grid>
+                        <TextBlock Text="Google Drive todavía no está configurado para esta instalación."
+                                   Style="{StaticResource EstiloAyuda}" Margin="0,4,0,0"
+                                   Visibility="{Binding DriveConfigurado, Converter={StaticResource BoolToVisibilityInverted}}"/>
                     </StackPanel>
-                    <DataGrid ItemsSource="{Binding CopiasDrive}" SelectedItem="{Binding CopiaDriveSeleccionada}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="180" Margin="0,0,0,10">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Fecha UTC" Binding="{Binding CreadoUtc}" Width="190"/>
-                            <DataGridTextColumn Header="Motivo" Binding="{Binding Motivo}" Width="130"/>
-                            <DataGridTextColumn Header="Tamaño" Binding="{Binding TamanoBytes}" Width="110"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="Seleccionar archivo .libackup" Command="{Binding SeleccionarArchivoCommand}" Padding="10,5"/>
-                        <TextBlock Text="{Binding ArchivoRestauracion}" Margin="10,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="500"/>
+                </Border>
+
+                <!-- Historial local -->
+                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel LastChildFill="False" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="HISTORIAL DE RESPALDOS" VerticalAlignment="Center" Margin="0"/>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Crear copia ahora"
+                                        Command="{Binding CrearCopiaCommand}"
+                                        Visibility="{Binding PuedeCrear, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="0,0,6,0">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource EstiloBotonPrimario}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Configurado}" Value="False">
+                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Ocupado}" Value="True">
+                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Actualizar"
+                                        Command="{Binding ActualizarCommand}" Margin="0"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <Grid>
+                            <DataGrid ItemsSource="{Binding Copias}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      MaxHeight="190" HorizontalScrollBarVisibility="Disabled">
+                                <DataGrid.Style>
+                                    <Style TargetType="DataGrid" BasedOn="{StaticResource EstiloGrillaOperativa}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Copias.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.Style>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Fecha (hora local)" Binding="{Binding CreadoUtc, Converter={StaticResource FechaCorta}}" Width="1.1*"/>
+                                    <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoHumano}" Width="0.85*"/>
+                                    <DataGridTextColumn Header="Estado local" Binding="{Binding EstadoLocal}" Width="0.95*"/>
+                                    <DataGridTextColumn Header="Drive" Binding="{Binding EstadoRemotoHumano}" Width="0.9*"/>
+                                    <DataGridTextColumn Header="Tamaño" Binding="{Binding TamanoBytes}" Width="0.8*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Border x:Name="EstadoVacioCopias" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderSoftBrush}"
+                                    BorderThickness="1" CornerRadius="4" Padding="12" MinHeight="54">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Copias.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="No hay respaldos para mostrar." Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                           VerticalAlignment="Center" TextAlignment="Center"/>
+                            </Border>
+                        </Grid>
                     </StackPanel>
-                    <TextBlock Text="Código de recuperación" Margin="0,10,0,3"/>
-                    <TextBox Text="{Binding CodigoRestauracion, UpdateSourceTrigger=PropertyChanged}" MaxWidth="500" HorizontalAlignment="Left"/>
-                    <TextBlock Text="Contraseña de Dueña para reautenticar" Margin="0,8,0,3"/>
-                    <PasswordBox x:Name="PasswordDuena" MaxWidth="500" HorizontalAlignment="Left"/>
-                    <Button Content="Verificar y restaurar" Click="Restaurar_Click" Margin="0,10,0,0" HorizontalAlignment="Left" Padding="12,6"/>
-                </StackPanel>
-            </Border>
-        </StackPanel>
+                </Border>
+
+                <!-- Configuración inicial -->
+                <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,12,12"
+                        Visibility="{Binding PuedeConfigurar, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="CONFIGURACIÓN INICIAL" Margin="0,0,0,2"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}"
+                                   Text="Generá el código de recuperación y guardalo fuera de esta computadora. Sin él no se podrá abrir una copia en una PC nueva."/>
+
+                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Generar código de recuperación"
+                                Command="{Binding GenerarCodigoCommand}" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Código generado"/>
+                        <TextBox Text="{Binding Codigo, Mode=OneWay}" IsReadOnly="True"
+                                 Style="{StaticResource EstiloCampoTexto}" HorizontalAlignment="Stretch"
+                                 FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <Button Style="{StaticResource EstiloBotonSecundario}" Content="Imprimir hoja de recuperación"
+                                Click="ImprimirHoja_Click" IsEnabled="{Binding HayCodigo}"
+                                HorizontalAlignment="Left" Margin="0,0,0,8"/>
+
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Volvé a escribir el código para confirmar"/>
+                        <TextBox Text="{Binding Confirmacion, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource EstiloCampoTexto}" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
+                        <Button Content="Confirmar y proteger en este Windows"
+                                Command="{Binding ConfirmarCodigoCommand}" HorizontalAlignment="Left" Margin="0,0,0,10">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource EstiloBotonPrimario}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Confirmacion}" Value="">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Ocupado}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+
+                        <Border Style="{StaticResource EstiloSeparador}" Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Margin="0,0,0,6"
+                                   Text="En una PC nueva, ingresá aquí el código original para protegerlo en esta cuenta de Windows."/>
+                        <Button Style="{StaticResource EstiloBotonSecundario}"
+                                Content="Proteger código existente / recuperar esta PC"
+                                Command="{Binding ProtegerCodigoExistenteCommand}" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Restauración: solo se presenta a quien ya tiene permiso real. -->
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0,0,0,12"
+                        Visibility="{Binding PuedeRestaurar, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="RESTAURAR UN RESPALDO" Margin="0,0,0,2"/>
+                        <Border Style="{StaticResource EstiloAvisoInfo}"
+                                Background="{StaticResource Color.WarningBgBrush}"
+                                BorderBrush="{StaticResource Color.WarningTextBrush}"
+                                Padding="8" Margin="0,0,0,8">
+                            <TextBlock Text="Solo Dueña. Requiere reautenticación, caja cerrada y código de recuperación. Se verificará una copia actual antes del reemplazo."
+                                       Foreground="{StaticResource Color.WarningTextBrush}" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Copias en Google Drive"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Útil al recuperar una PC nueva." Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Consultar copias remotas"
+                                    Command="{Binding ActualizarDriveCommand}" IsEnabled="{Binding DriveConectado}"/>
+                            <Button Content="Descargar seleccionada" Command="{Binding DescargarDriveCommand}" Margin="0">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource EstiloBotonSecundario}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DriveConectado}" Value="False">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding CopiaDriveSeleccionada}" Value="{x:Null}">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Ocupado}" Value="True">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                        <Grid>
+                            <DataGrid ItemsSource="{Binding CopiasDrive}" SelectedItem="{Binding CopiaDriveSeleccionada}"
+                                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                                      MaxHeight="132" HorizontalScrollBarVisibility="Disabled">
+                                <DataGrid.Style>
+                                    <Style TargetType="DataGrid" BasedOn="{StaticResource EstiloGrillaOperativa}">
+                                        <Setter Property="Margin" Value="0,0,0,8"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CopiasDrive.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.Style>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Fecha UTC" Binding="{Binding CreadoUtc}" Width="1.05*"/>
+                                    <DataGridTextColumn Header="Motivo" Binding="{Binding Motivo}" Width="0.9*"/>
+                                    <DataGridTextColumn Header="Tamaño" Binding="{Binding TamanoBytes}" Width="0.8*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Border x:Name="EstadoVacioDrive" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderSoftBrush}"
+                                    BorderThickness="1" CornerRadius="4" Padding="10" MinHeight="48">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CopiasDrive.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="No hay copias remotas para mostrar." Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                           VerticalAlignment="Center" TextAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <Border Style="{StaticResource EstiloSeparador}" Margin="0,2,0,8"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Restaurar desde archivo local"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Seleccionar archivo"
+                                    Command="{Binding SeleccionarArchivoCommand}" ToolTip="Elegí un archivo .libackup"/>
+                            <TextBlock Text="{Binding ArchivoRestauracion}" Margin="0,0,0,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="240"/>
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Código de recuperación"/>
+                        <TextBox Text="{Binding CodigoRestauracion, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource EstiloCampoTexto}" HorizontalAlignment="Stretch" Margin="0,0,0,6"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Contraseña de Dueña para reautenticar"/>
+                        <PasswordBox x:Name="PasswordDuena" MinHeight="{StaticResource AlturaCampo}"
+                                     FontSize="14" Padding="8,3" HorizontalAlignment="Stretch" Margin="0,0,0,8"
+                                     PasswordChanged="PasswordDuena_PasswordChanged"/>
+                        <Button x:Name="RestaurarButton" Style="{StaticResource EstiloBotonPrimario}"
+                                Content="Verificar y restaurar" Click="Restaurar_Click"
+                                HorizontalAlignment="Left" IsEnabled="False"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
     </ScrollViewer>
 </UserControl>

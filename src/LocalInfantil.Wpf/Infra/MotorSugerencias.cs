@@ -18,6 +18,7 @@ public sealed class MotorSugerencias<T> : INotifyPropertyChanged
     private readonly Func<TimeSpan, CancellationToken, Task> _espera;
     private readonly int _minimoCaracteres;
     private readonly int _maximo;
+    private readonly bool _seleccionarPrimeraAlBuscar;
     private CancellationTokenSource? _cts;
     private long _secuencia;
     private string _texto = string.Empty;
@@ -33,13 +34,15 @@ public sealed class MotorSugerencias<T> : INotifyPropertyChanged
         TimeSpan? debounce = null,
         Func<TimeSpan, CancellationToken, Task>? espera = null,
         int minimoCaracteres = 2,
-        int maximo = 10)
+        int maximo = 10,
+        bool seleccionarPrimeraAlBuscar = true)
     {
         _proveedor = proveedor ?? throw new ArgumentNullException(nameof(proveedor));
         _debounce = debounce ?? DebouncePredeterminado;
         _espera = espera ?? ((d, ct) => Task.Delay(d, ct));
         _minimoCaracteres = minimoCaracteres;
         _maximo = maximo;
+        _seleccionarPrimeraAlBuscar = seleccionarPrimeraAlBuscar;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -123,7 +126,7 @@ public sealed class MotorSugerencias<T> : INotifyPropertyChanged
         }
 
         _sugerencias = resultado.Take(_maximo).ToList();
-        IndiceActivo = _sugerencias.Count > 0 ? 0 : -1;
+        IndiceActivo = _seleccionarPrimeraAlBuscar && _sugerencias.Count > 0 ? 0 : -1;
         SinCoincidencias = _sugerencias.Count == 0;
         Ocupado = false;
         Abierto = true;

@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Text.RegularExpressions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Wpf.Infra;
 
@@ -34,6 +35,12 @@ public partial class BuscadorAsistido : UserControl
 
     public static readonly DependencyProperty LimpiarAlSeleccionarProperty =
         DependencyProperty.Register(nameof(LimpiarAlSeleccionar), typeof(bool), typeof(BuscadorAsistido), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty PlaceholderProperty =
+        DependencyProperty.Register(nameof(Placeholder), typeof(string), typeof(BuscadorAsistido), new PropertyMetadata(string.Empty));
+
+    public static readonly DependencyProperty PatronCodigoExactoEnEnterProperty =
+        DependencyProperty.Register(nameof(PatronCodigoExactoEnEnter), typeof(string), typeof(BuscadorAsistido), new PropertyMetadata(null));
 
     public BuscadorAsistido() => InitializeComponent();
 
@@ -73,6 +80,19 @@ public partial class BuscadorAsistido : UserControl
     {
         get => (bool)GetValue(LimpiarAlSeleccionarProperty);
         set => SetValue(LimpiarAlSeleccionarProperty, value);
+    }
+
+    public string Placeholder
+    {
+        get => (string)GetValue(PlaceholderProperty);
+        set => SetValue(PlaceholderProperty, value);
+    }
+
+    /// <summary>Opt-in para hosts donde un código exacto debe preceder a la selección del typeahead.</summary>
+    public string? PatronCodigoExactoEnEnter
+    {
+        get => (string?)GetValue(PatronCodigoExactoEnEnterProperty);
+        set => SetValue(PatronCodigoExactoEnEnterProperty, value);
     }
 
     private void AlCambiarMotor(MotorSugerencias<SugerenciaVariante>? anterior, MotorSugerencias<SugerenciaVariante>? nuevo)
@@ -132,6 +152,11 @@ public partial class BuscadorAsistido : UserControl
                     Motor.Cerrar();
                     BusquedaDirectaCommand.Execute(Caja.Text);
                 }
+                else if (EsCodigoExacto(Caja.Text) && BusquedaDirectaCommand?.CanExecute(Caja.Text) == true)
+                {
+                    Motor.Cerrar();
+                    BusquedaDirectaCommand.Execute(Caja.Text);
+                }
                 else if (Motor.Abierto && Motor.SugerenciaActiva is not null)
                 {
                     Confirmar(Motor.ConfirmarSeleccion());
@@ -186,6 +211,13 @@ public partial class BuscadorAsistido : UserControl
         Motor.EstablecerTexto(string.Empty);
         Motor.Limpiar();
         Dispatcher.BeginInvoke(new Action(() => Caja.Focus()), System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private bool EsCodigoExacto(string texto)
+    {
+        var patron = PatronCodigoExactoEnEnter;
+        return !string.IsNullOrWhiteSpace(patron)
+            && Regex.IsMatch(texto.Trim(), patron, RegexOptions.CultureInvariant);
     }
 
     private void AgregarButton_Click(object sender, RoutedEventArgs e)

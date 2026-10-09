@@ -82,6 +82,8 @@ public sealed class FilaPagoViewModel : ViewModelBase
     private string _medio = MediosPago.Efectivo;
     private string _importeTexto = string.Empty;
     private string _recibidoTexto = string.Empty;
+    private bool _estableciendoImportePrecargado;
+    private bool _importeModificadoPorUsuario;
 
     public string Medio
     {
@@ -91,14 +93,25 @@ public sealed class FilaPagoViewModel : ViewModelBase
             if (SetProperty(ref _medio, value))
             {
                 OnPropertyChanged(nameof(EsEfectivo));
+                OnPropertyChanged(nameof(EsPoint));
+                OnPropertyChanged(nameof(Presentacion));
+                OnPropertyChanged(nameof(AyudaMedio));
+                OnPropertyChanged(nameof(MostrarAyudaMedio));
                 OnPropertyChanged(nameof(ImporteMinor));
                 OnPropertyChanged(nameof(RecibidoMinor));
                 OnPropertyChanged(nameof(VueltoMinor));
+                OnPropertyChanged(nameof(VueltoPositivo));
+                OnPropertyChanged(nameof(VueltoCero));
+                OnPropertyChanged(nameof(EfectivoInsuficiente));
             }
         }
     }
 
     public bool EsEfectivo => _medio == MediosPago.Efectivo;
+    public bool EsPoint => _medio == MediosPago.MercadoPago;
+    public PresentacionMedioPagoPos Presentacion => PresentacionMedioPagoPos.Obtener(_medio);
+    public string? AyudaMedio => Presentacion.Ayuda;
+    public bool MostrarAyudaMedio => !string.IsNullOrWhiteSpace(AyudaMedio);
 
     public string ImporteTexto
     {
@@ -107,10 +120,29 @@ public sealed class FilaPagoViewModel : ViewModelBase
         {
             if (SetProperty(ref _importeTexto, value))
             {
+                if (!_estableciendoImportePrecargado)
+                    ImporteModificadoPorUsuario = true;
                 OnPropertyChanged(nameof(ImporteMinor));
                 OnPropertyChanged(nameof(VueltoMinor));
+                OnPropertyChanged(nameof(VueltoPositivo));
+                OnPropertyChanged(nameof(VueltoCero));
+                OnPropertyChanged(nameof(EfectivoInsuficiente));
             }
         }
+    }
+
+    /// <summary>Evita que una precarga posterior reemplace una edición manual.</summary>
+    public bool ImporteModificadoPorUsuario
+    {
+        get => _importeModificadoPorUsuario;
+        private set => SetProperty(ref _importeModificadoPorUsuario, value);
+    }
+
+    internal void PrecargarImporte(string texto)
+    {
+        _estableciendoImportePrecargado = true;
+        try { ImporteTexto = texto; }
+        finally { _estableciendoImportePrecargado = false; }
     }
 
     public string RecibidoTexto
@@ -122,6 +154,9 @@ public sealed class FilaPagoViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(RecibidoMinor));
                 OnPropertyChanged(nameof(VueltoMinor));
+                OnPropertyChanged(nameof(VueltoPositivo));
+                OnPropertyChanged(nameof(VueltoCero));
+                OnPropertyChanged(nameof(EfectivoInsuficiente));
             }
         }
     }
@@ -129,6 +164,9 @@ public sealed class FilaPagoViewModel : ViewModelBase
     public long? ImporteMinor => TryParseArs(_importeTexto, out var m) ? m : null;
     public long? RecibidoMinor => EsEfectivo && TryParseArs(_recibidoTexto, out var m) ? m : null;
     public long? VueltoMinor => ImporteMinor.HasValue && RecibidoMinor.HasValue ? RecibidoMinor.Value - ImporteMinor.Value : null;
+    public bool VueltoPositivo => EsEfectivo && VueltoMinor > 0;
+    public bool VueltoCero => EsEfectivo && VueltoMinor == 0;
+    public bool EfectivoInsuficiente => EsEfectivo && ImporteMinor.HasValue && RecibidoMinor.HasValue && RecibidoMinor < ImporteMinor;
 
     /// <summary>
     /// Parsea ARS con el mismo criterio que Recepción: admite 1.234,50
@@ -172,6 +210,26 @@ public sealed class FilaPagoViewModel : ViewModelBase
     }
 }
 
+/// <summary>Texto y guía propios del selector comercial del POS.</summary>
+public sealed record PresentacionMedioPagoPos(string Valor, string Texto, string? Ayuda = null)
+{
+    private static readonly IReadOnlyList<PresentacionMedioPagoPos> Opciones = new[]
+    {
+        new PresentacionMedioPagoPos(MediosPago.Efectivo, "Efectivo"),
+        new PresentacionMedioPagoPos(MediosPago.Transferencia, "Transferencia"),
+        new PresentacionMedioPagoPos(MediosPago.Debito, "Débito — terminal externo", "Este cobro se realiza fuera de LocalInfantil. Aquí solo se registra el importe."),
+        new PresentacionMedioPagoPos(MediosPago.Credito, "Crédito — terminal externo", "Este cobro se realiza fuera de LocalInfantil. Aquí solo se registra el importe."),
+        new PresentacionMedioPagoPos(MediosPago.Billetera, "Billetera / QR — cobro externo", "Este cobro se realiza fuera de LocalInfantil. Aquí solo se registra el importe."),
+        new PresentacionMedioPagoPos(MediosPago.MercadoPago, "Mercado Pago Point"),
+    };
+
+    public static IReadOnlyList<PresentacionMedioPagoPos> Todas => Opciones;
+
+    public static PresentacionMedioPagoPos Obtener(string medio)
+        => Opciones.FirstOrDefault(o => o.Valor == medio)
+            ?? new PresentacionMedioPagoPos(medio, medio);
+}
+
 /// <summary>
 /// Punto de venta: carrito en memoria + pagos + confirmación atómica.
 /// El carrito nunca se persiste; cancelar solo limpia la VM (con
@@ -194,6 +252,9 @@ public sealed class PosViewModel : ViewModelBase
     private string? _mensaje;
     private bool _ocupado;
     private bool _confirmacionCancelarVisible;
+    private bool _cobroVisible;
+    private bool _operacionPointIncierta;
+    private bool _buscadorClienteVisible;
     private string? _ultimoNumero;
     private long? _ultimoTotal;
     private SugerenciaCliente? _clienteSeleccionado;
@@ -223,18 +284,21 @@ public sealed class PosViewModel : ViewModelBase
         Recalcular();
         _operacionId = servicios.GeneradorIds.NuevoId();
         MotorSugerencias = new MotorSugerencias<SugerenciaVariante>((t, ct) =>
-            _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct));
+            _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(t, 10, _idSesion(), ct),
+            seleccionarPrimeraAlBuscar: false);
         MotorClientes = new MotorSugerencias<SugerenciaCliente>((t, ct) =>
             _servicios.ConsultasClientes.BuscarSugerenciasAsync(t, 10, _idSesion(), ct));
         SeleccionarClienteCommand = new RelayCommand(p => SeleccionarCliente(p as SugerenciaCliente));
-        LimpiarClienteCommand = new RelayCommand(_ => ClienteSeleccionado = null);
+        MostrarBuscadorClienteCommand = new RelayCommand(_ => { if (PuedeEditarVenta) BuscadorClienteVisible = true; });
+        CambiarClienteCommand = new RelayCommand(_ => { if (PuedeEditarVenta) { ClienteSeleccionado = null; BuscadorClienteVisible = true; } });
+        LimpiarClienteCommand = new RelayCommand(_ => { if (PuedeEditarVenta) { ClienteSeleccionado = null; BuscadorClienteVisible = false; } });
         SeleccionarSugerenciaCommand = new AsyncRelayCommand(p => AgregarSugerenciaAsync(p as SugerenciaVariante));
         BuscarDirectaCommand = new AsyncRelayCommand(() => AgregarDirectaAsync(MotorSugerencias.Texto));
-        QuitarFilaCommand = new RelayCommand(p => { if (p is FilaVentaViewModel f) { Filas.Remove(f); } });
+        QuitarFilaCommand = new RelayCommand(p => { if (PuedeEditarVenta && p is FilaVentaViewModel f) { Filas.Remove(f); } });
         IncrementarCommand = new RelayCommand(p => { if (p is FilaVentaViewModel f) AjustarCantidad(f, 1); });
         DecrementarCommand = new RelayCommand(p => { if (p is FilaVentaViewModel f) AjustarCantidad(f, -1); });
         AgregarPagoCommand = new AsyncRelayCommand(AgregarPagoAsync);
-        QuitarPagoCommand = new AsyncRelayCommand(QuitarPagoAsync);
+        QuitarPagoCommand = new AsyncRelayCommand(p => QuitarPagoAsync(p as FilaPagoViewModel));
         ConfirmarCommand = new AsyncRelayCommand(ConfirmarAsync);
         CobrarEnPointCommand = new AsyncRelayCommand(CobrarEnPointAsync);
         CancelarCobroPointCommand = new AsyncRelayCommand(CancelarCobroPointAsync);
@@ -247,7 +311,24 @@ public sealed class PosViewModel : ViewModelBase
         });
         CancelarCancelarCommand = new RelayCommand(_ => ConfirmacionCancelarVisible = false);
         ConfirmarCancelarCommand = new RelayCommand(_ => { LimpiarVenta(); ConfirmacionCancelarVisible = false; });
-        NuevaVentaCommand = new RelayCommand(_ => LimpiarVenta());
+        NuevaVentaCommand = new RelayCommand(_ =>
+        {
+            if (Filas.Count > 0) SolicitarCancelarCommand.Execute(null);
+            else { LimpiarVenta(); UltimoNumero = null; UltimoTotal = null; }
+        });
+        AbrirCobroCommand = new RelayCommand(_ =>
+        {
+            if (PuedeAbrirCobro)
+            {
+                Error = null;
+                foreach (var pago in Pagos) PrecargarSaldoEnFila(pago);
+                CobroVisible = true;
+            }
+        });
+        CerrarCobroCommand = new RelayCommand(_ =>
+        {
+            if (PuedeCerrarCobro) { CobroVisible = false; SolicitarFocoBuscador?.Invoke(); }
+        });
         VerTicketCommand = new AsyncRelayCommand(VerTicketAsync);
     }
 
@@ -260,7 +341,7 @@ public sealed class PosViewModel : ViewModelBase
     public SugerenciaCliente? ClienteSeleccionado
     {
         get => _clienteSeleccionado;
-        private set { if (SetProperty(ref _clienteSeleccionado, value)) { OnPropertyChanged(nameof(SinClienteSeleccionado)); OnPropertyChanged(nameof(MostrarOpcionesFiado)); _ = CargarResumenCuentaAsync(); NotificarTotales(); } }
+        private set { if (SetProperty(ref _clienteSeleccionado, value)) { OnPropertyChanged(nameof(SinClienteSeleccionado)); OnPropertyChanged(nameof(MostrarBuscadorCliente)); OnPropertyChanged(nameof(MostrarBotonAsignarCliente)); OnPropertyChanged(nameof(PuedeQuitarCliente)); OnPropertyChanged(nameof(MostrarOpcionesFiado)); _ = CargarResumenCuentaAsync(); NotificarTotales(); } }
     }
     public bool EsFiado { get => _esFiado; set { if (SetProperty(ref _esFiado, value)) NotificarTotales(); } }
     public long? SaldoClienteMinor { get => _saldoClienteMinor; private set { if (SetProperty(ref _saldoClienteMinor, value)) NotificarTotales(); } }
@@ -270,20 +351,92 @@ public sealed class PosViewModel : ViewModelBase
     public long SaldoPosteriorMinor => (SaldoClienteMinor ?? 0) + DeudaNuevaMinor;
     public long? DisponibleCreditoMinor => LimiteClienteMinor.HasValue ? Math.Max(0, LimiteClienteMinor.Value - (SaldoClienteMinor ?? 0)) : null;
     public bool SinClienteSeleccionado => ClienteSeleccionado is null;
+    public bool MostrarBotonAsignarCliente => SinClienteSeleccionado && !BuscadorClienteVisible;
+    public bool BuscadorClienteVisible
+    {
+        get => _buscadorClienteVisible;
+        private set
+        {
+            if (SetProperty(ref _buscadorClienteVisible, value))
+            {
+                OnPropertyChanged(nameof(MostrarBuscadorCliente));
+                OnPropertyChanged(nameof(MostrarBotonAsignarCliente));
+            }
+        }
+    }
+
+    public bool MostrarBuscadorCliente => PuedeAsociarCliente && SinClienteSeleccionado && BuscadorClienteVisible;
+    public bool PuedeQuitarCliente => PuedeAsociarCliente && ClienteSeleccionado is not null;
     public bool MostrarOpcionesFiado => PuedeVenderFiado && PuedeConsultarCuenta && ClienteSeleccionado is not null;
     public RelayCommand SeleccionarClienteCommand { get; }
     public RelayCommand LimpiarClienteCommand { get; }
+    public RelayCommand MostrarBuscadorClienteCommand { get; }
+    public RelayCommand CambiarClienteCommand { get; }
 
     public ObservableCollection<FilaVentaViewModel> Filas { get; }
     public ObservableCollection<FilaPagoViewModel> Pagos { get; }
+    public bool TieneVariosPagos => Pagos.Count > 1;
 
     /// <summary>
     /// Medios manuales más Mercado Pago Point. MP no se confirma directo:
     /// requiere el flujo saga (Cobrar en Point) con order processed.
     /// </summary>
-    public IReadOnlyList<string> MediosDisponibles => MediosPago.Manuales.Concat(new[] { MediosPago.MercadoPago }).ToList();
-    public bool TieneMercadoPago => Pagos.Any(p => p.Medio == MediosPago.MercadoPago && !string.IsNullOrWhiteSpace(p.ImporteTexto));
-    public bool CobroEnCurso { get => _cobroEnCurso; private set { if (SetProperty(ref _cobroEnCurso, value)) { OnPropertyChanged(nameof(PuedeCobrarPoint)); OnPropertyChanged(nameof(PuedeCancelarCobro)); } } }
+    public IReadOnlyList<PresentacionMedioPagoPos> MediosDisponibles => PresentacionMedioPagoPos.Todas;
+    public bool TieneMercadoPago => Pagos.Any(p => p.Medio == MediosPago.MercadoPago);
+    public bool MostrarAyudaPoint => TieneMercadoPago;
+    public string AyudaPoint => "El cobro se enviará a la terminal Point configurada. El cliente completa el pago en la terminal. Las opciones disponibles se completan en la terminal.";
+    public string TextoAccionPoint => $"Cobrar {FormatearArs(Total)} en Point";
+    public bool OperacionPointIncierta
+    {
+        get => _operacionPointIncierta;
+        private set
+        {
+            if (SetProperty(ref _operacionPointIncierta, value))
+            {
+                OnPropertyChanged(nameof(PuedeEditarVenta));
+                OnPropertyChanged(nameof(PuedeQuitarPago));
+                OnPropertyChanged(nameof(PuedeCancelarVenta));
+            }
+        }
+    }
+    public bool PuedeEditarVenta => !Ocupado && !CobroEnCurso && _operacionMpId is null && !OperacionPointIncierta;
+    public bool PuedeQuitarPago => TieneVariosPagos && PuedeEditarVenta;
+    public bool HayLineas => Filas.Count > 0;
+    public long CantidadUnidades => Filas.Sum(f => f.Cantidad);
+    public string ResumenCarrito => $"{Filas.Count} {(Filas.Count == 1 ? "variante" : "variantes")} · {CantidadUnidades} {(CantidadUnidades == 1 ? "unidad" : "unidades")}";
+    public bool PuedeAbrirCobro => HayLineas && Total > 0 && !Ocupado && PuedeEditarVenta;
+    public bool MostrarCtaCobrar => PuedeAbrirCobro && !CobroVisible;
+    public bool PuedeCerrarCobro => CobroVisible && !CobroEnCurso;
+    public bool PuedeCancelarVenta => HayLineas && !Ocupado && PuedeEditarVenta;
+    public bool CobroVisible
+    {
+        get => _cobroVisible;
+        private set
+        {
+            if (SetProperty(ref _cobroVisible, value))
+            {
+                OnPropertyChanged(nameof(PuedeCerrarCobro));
+                OnPropertyChanged(nameof(MostrarCtaCobrar));
+            }
+        }
+    }
+    public string TextoEstadoPago => Total <= 0
+        ? "Agregá productos para iniciar el cobro."
+        : Pagos.Any(p => !string.IsNullOrWhiteSpace(p.ImporteTexto) && (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0))
+            ? "Revisá los importes ingresados."
+        : Pagos.Any(p => p.EsEfectivo && p.ImporteMinor is > 0 && !p.RecibidoMinor.HasValue)
+            ? "Ingresá el efectivo recibido por el cliente."
+        : TieneMercadoPago && Pagado >= Total && !PuedeCobrarPoint
+            ? "Revisá los importes ingresados."
+        : Pagado > Total
+            ? "Los importes superan el total. Revisá los medios de pago."
+            : Restante > 0
+                ? $"Falta cobrar {FormatearArs(Restante)}"
+                : "Pago completo";
+    public string TextoVuelto => Pagos.Any(p => p.EfectivoInsuficiente)
+        ? "El efectivo recibido debe cubrir el importe aplicado."
+        : VueltoTotal is > 0 ? $"Vuelto {FormatearArs(VueltoTotal.Value)}" : "Sin vuelto";
+    public bool CobroEnCurso { get => _cobroEnCurso; private set { if (SetProperty(ref _cobroEnCurso, value)) { OnPropertyChanged(nameof(PuedeEditarVenta)); OnPropertyChanged(nameof(PuedeQuitarPago)); OnPropertyChanged(nameof(PuedeCobrarPoint)); OnPropertyChanged(nameof(PuedeCancelarCobro)); OnPropertyChanged(nameof(PuedeCerrarCobro)); OnPropertyChanged(nameof(PuedeCancelarVenta)); OnPropertyChanged(nameof(PuedeAbrirCobro)); OnPropertyChanged(nameof(MostrarCtaCobrar)); } } }
     private bool _cobroEnCurso;
     public string? EstadoCobroMp { get => _estadoCobroMp; private set => SetProperty(ref _estadoCobroMp, value); }
     private string? _estadoCobroMp;
@@ -298,7 +451,7 @@ public sealed class PosViewModel : ViewModelBase
     {
         get
         {
-            if (CobroEnCurso || Ocupado || Filas.Count == 0 || Total <= 0 || EsFiado) return false;
+            if (!PuedeEditarVenta || Ocupado || Filas.Count == 0 || Total <= 0 || EsFiado) return false;
             var filasPago = Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)).ToArray();
             if (filasPago.Length == 0) return false;
             if (filasPago.Count(p => p.Medio == MediosPago.MercadoPago) != 1) return false;
@@ -314,7 +467,20 @@ public sealed class PosViewModel : ViewModelBase
     public bool PuedeCancelarCobro => CobroEnCurso;
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
     public string? Mensaje { get => _mensaje; set => SetProperty(ref _mensaje, value); }
-    public bool Ocupado { get => _ocupado; set => SetProperty(ref _ocupado, value); }
+    public bool Ocupado
+    {
+        get => _ocupado;
+        set
+        {
+            if (!SetProperty(ref _ocupado, value)) return;
+            OnPropertyChanged(nameof(PuedeEditarVenta));
+            OnPropertyChanged(nameof(PuedeQuitarPago));
+            OnPropertyChanged(nameof(PuedeAbrirCobro));
+            OnPropertyChanged(nameof(MostrarCtaCobrar));
+            OnPropertyChanged(nameof(PuedeCancelarVenta));
+            OnPropertyChanged(nameof(PuedeCobrarPoint));
+        }
+    }
     public bool ConfirmacionCancelarVisible { get => _confirmacionCancelarVisible; set => SetProperty(ref _confirmacionCancelarVisible, value); }
     public string OperacionId => _operacionId;
 
@@ -335,7 +501,7 @@ public sealed class PosViewModel : ViewModelBase
     {
         get
         {
-            if (Filas.Count == 0 || Total <= 0) return false;
+            if (Filas.Count == 0 || Total <= 0 || TieneMercadoPago) return false;
             var filasPago = Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)).ToArray();
             foreach (var p in filasPago)
             {
@@ -356,6 +522,8 @@ public sealed class PosViewModel : ViewModelBase
     public RelayCommand DecrementarCommand { get; }
     public AsyncRelayCommand AgregarPagoCommand { get; }
     public AsyncRelayCommand QuitarPagoCommand { get; }
+    public RelayCommand AbrirCobroCommand { get; }
+    public RelayCommand CerrarCobroCommand { get; }
     public AsyncRelayCommand ConfirmarCommand { get; }
     public AsyncRelayCommand CobrarEnPointCommand { get; }
     public AsyncRelayCommand CancelarCobroPointCommand { get; }
@@ -372,13 +540,35 @@ public sealed class PosViewModel : ViewModelBase
 
     public Task AgregarPagoAsync()
     {
-        Pagos.Add(new FilaPagoViewModel());
+        if (!PuedeEditarVenta) return Task.CompletedTask;
+        var fila = new FilaPagoViewModel();
+        var restante = Math.Max(0, Restante);
+        if (restante > 0)
+            fila.PrecargarImporte(FormatearImporteEditable(restante));
+        Pagos.Add(fila);
         return Task.CompletedTask;
     }
 
+    private void PrecargarSaldoEnFila(FilaPagoViewModel fila)
+    {
+        if (fila.ImporteModificadoPorUsuario || !Pagos.Contains(fila)) return;
+        var restante = Math.Max(0, Total - Pagos.Where(p => !ReferenceEquals(p, fila)).Sum(p => p.ImporteMinor ?? 0));
+        if (restante > 0)
+            fila.PrecargarImporte(FormatearImporteEditable(restante));
+    }
+
+    private static string FormatearImporteEditable(long minor)
+        => (minor / 100m).ToString("N2", new CultureInfo("es-AR"));
+
     public Task QuitarPagoAsync()
     {
-        if (Pagos.Count > 1) Pagos.RemoveAt(Pagos.Count - 1);
+        return QuitarPagoAsync(Pagos.LastOrDefault());
+    }
+
+    public Task QuitarPagoAsync(FilaPagoViewModel? fila)
+    {
+        if (!PuedeEditarVenta) return Task.CompletedTask;
+        if (Pagos.Count > 1 && fila is not null && Pagos.Contains(fila)) Pagos.Remove(fila);
         return Task.CompletedTask;
     }
 
@@ -420,11 +610,20 @@ public sealed class PosViewModel : ViewModelBase
                     if (args.PropertyName == nameof(FilaPagoViewModel.ImporteMinor)
                         || args.PropertyName == nameof(FilaPagoViewModel.RecibidoMinor)
                         || args.PropertyName == nameof(FilaPagoViewModel.Medio))
+                    {
+                        if (args.PropertyName == nameof(FilaPagoViewModel.Medio))
+                        {
+                            PrecargarSaldoEnFila(p);
+                            OnPropertyChanged(nameof(TieneMercadoPago));
+                            OnPropertyChanged(nameof(MostrarAyudaPoint));
+                        }
                         NotificarTotales();
+                    }
                 };
             }
         }
 
+        OnPropertyChanged(nameof(TieneVariosPagos));
         NotificarTotales();
     }
 
@@ -438,12 +637,27 @@ public sealed class PosViewModel : ViewModelBase
 
     private void NotificarTotales()
     {
+        if (!HayLineas && CobroVisible) CobroVisible = false;
         OnPropertyChanged(nameof(Total));
+        OnPropertyChanged(nameof(HayLineas));
+        OnPropertyChanged(nameof(CantidadUnidades));
+        OnPropertyChanged(nameof(ResumenCarrito));
+        OnPropertyChanged(nameof(PuedeAbrirCobro));
+        OnPropertyChanged(nameof(MostrarCtaCobrar));
+        OnPropertyChanged(nameof(PuedeCancelarVenta));
+        OnPropertyChanged(nameof(PuedeEditarVenta));
+        OnPropertyChanged(nameof(PuedeQuitarPago));
+        OnPropertyChanged(nameof(PuedeCerrarCobro));
         OnPropertyChanged(nameof(Pagado));
         OnPropertyChanged(nameof(Restante));
         OnPropertyChanged(nameof(VueltoTotal));
+        OnPropertyChanged(nameof(TextoEstadoPago));
+        OnPropertyChanged(nameof(TextoVuelto));
         OnPropertyChanged(nameof(PuedeConfirmar));
         OnPropertyChanged(nameof(TieneMercadoPago));
+        OnPropertyChanged(nameof(MostrarAyudaPoint));
+        OnPropertyChanged(nameof(PuedeQuitarPago));
+        OnPropertyChanged(nameof(TextoAccionPoint));
         OnPropertyChanged(nameof(PuedeCobrarPoint));
         OnPropertyChanged(nameof(DeudaNuevaMinor));
         OnPropertyChanged(nameof(SaldoPosteriorMinor));
@@ -456,14 +670,14 @@ public sealed class PosViewModel : ViewModelBase
     /// </summary>
     private async Task AgregarSugerenciaAsync(SugerenciaVariante? sugerencia)
     {
-        if (sugerencia is null || Ocupado) return;
+        if (sugerencia is null || Ocupado || !PuedeEditarVenta) return;
         await AgregarVarianteAsync(sugerencia.VarianteId);
     }
 
-    /// <summary>Enter sin sugerencia: código interno exacto agrega directo.</summary>
+    /// <summary>Enter agrega un código exacto o la única coincidencia inequívoca.</summary>
     private async Task AgregarDirectaAsync(string? texto)
     {
-        if (Ocupado || string.IsNullOrWhiteSpace(texto)) return;
+        if (Ocupado || !PuedeEditarVenta || string.IsNullOrWhiteSpace(texto)) return;
         Error = null;
         try
         {
@@ -477,26 +691,39 @@ public sealed class PosViewModel : ViewModelBase
 
             if (!Regex.IsMatch(codigo, "^[A-Za-z]{2,5}-[0-9]{3}-[A-Za-z0-9-]+$", RegexOptions.CultureInvariant))
             {
-                var sugerencias = await _servicios.ConsultasCatalogo.BuscarSugerenciasVariantesAsync(codigo, 10, _idSesion());
-                if (sugerencias.Count > 0)
+                if (MotorSugerencias.Texto != codigo || MotorSugerencias.Ocupado || !MotorSugerencias.Abierto)
+                    await MotorSugerencias.TextoCambiadoAsync(codigo);
+
+                if (MotorSugerencias.Sugerencias.Count == 1)
                 {
-                    await AgregarVarianteAsync(sugerencias[0].VarianteId, devolverFoco: false);
+                    await AgregarVarianteAsync(MotorSugerencias.Sugerencias[0].VarianteId, devolverFoco: false);
                     return;
                 }
+
+                if (MotorSugerencias.Sugerencias.Count > 1)
+                {
+                    Error = "Hay varias coincidencias. Elegí una variante de la lista.";
+                    return;
+                }
+
+                if (MotorSugerencias.SinCoincidencias)
+                    Error = "No encontramos coincidencias para esa búsqueda.";
+                return;
             }
             Error = $"No encontramos el código {codigo}.";
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally
         {
-            if (Error is not null) MotorSugerencias.EstablecerTexto(string.Empty);
+            if (Error is not null && Regex.IsMatch(texto.Trim(), "^[A-Za-z]{2,5}-[0-9]{3}-[A-Za-z0-9-]+$", RegexOptions.CultureInvariant))
+                MotorSugerencias.Limpiar();
             SolicitarFocoBuscador?.Invoke();
         }
     }
 
     private async Task AgregarVarianteAsync(string varianteId, bool devolverFoco = true)
     {
-        if (Ocupado || CobroEnCurso) return;
+        if (Ocupado || !PuedeEditarVenta) return;
         Error = null; Mensaje = null;
         if (TieneMercadoPago) { Error = "El medio Mercado Pago se cobra con Cobrar en Point."; return; } Ocupado = true;
         try
@@ -566,11 +793,16 @@ public sealed class PosViewModel : ViewModelBase
             if (devolverFoco) SolicitarFocoBuscador?.Invoke();
         }
         catch (Exception ex) { Error = MensajeError(ex); }
-        finally { Ocupado = false; }
+        finally
+        {
+            Ocupado = false;
+            if (Error is not null && devolverFoco) SolicitarFocoBuscador?.Invoke();
+        }
     }
 
     private void AjustarCantidad(FilaVentaViewModel fila, int delta)
     {
+        if (!PuedeEditarVenta) return;
         Error = null;
         var nueva = fila.Cantidad + delta;
         if (nueva < 1)
@@ -628,7 +860,7 @@ public sealed class PosViewModel : ViewModelBase
                     UltimoNumero = ok.Numero;
                     UltimoTotal = ok.TotalMinor;
                     Mensaje = $"Venta {ok.Numero} confirmada.";
-                    LimpiarVenta();
+                    LimpiarVenta(operacionFinalizada: true);
                     _operacionId = _servicios.GeneradorIds.NuevoId();
                     OnPropertyChanged(nameof(OperacionId));
                     SolicitarFocoBuscador?.Invoke();
@@ -687,7 +919,15 @@ public sealed class PosViewModel : ViewModelBase
         catch (Exception ex)
         {
             Error = MensajeError(ex);
-            EstadoCobroMp = null;
+            if (ErrorCobroPointIncierto(ex.Message))
+            {
+                OperacionPointIncierta = true;
+                EstadoCobroMp = "El resultado del cobro no está confirmado. No modifiques esta venta hasta verificarlo.";
+            }
+            else
+            {
+                EstadoCobroMp = null;
+            }
         }
         finally
         {
@@ -789,9 +1029,9 @@ public sealed class PosViewModel : ViewModelBase
         }
     }
 
-    private void LimpiarVenta()
+    private void LimpiarVenta(bool operacionFinalizada = false)
     {
-        if (CobroEnCurso) { Error = "Cancelá el cobro en curso antes de limpiar."; return; }
+        if (!operacionFinalizada && !PuedeEditarVenta) { Error = "No modifiques la venta hasta resolver el cobro en Point."; return; }
         Filas.Clear();
         ClienteSeleccionado = null;
         EsFiado = false; Vencimiento = null; SaldoClienteMinor = null; LimiteClienteMinor = null;
@@ -800,15 +1040,24 @@ public sealed class PosViewModel : ViewModelBase
         Pagos.Add(new FilaPagoViewModel());
         Error = null;
         ConfirmacionCancelarVisible = false;
+        CobroVisible = false;
+        BuscadorClienteVisible = false;
         NotificarTotales();
     }
 
     private void SeleccionarCliente(SugerenciaCliente? cliente)
     {
-        if (cliente is null) return;
+        if (cliente is null || !PuedeEditarVenta) return;
         ClienteSeleccionado = cliente;
+        BuscadorClienteVisible = false;
         MotorClientes.Limpiar();
     }
+
+    private static bool ErrorCobroPointIncierto(string mensaje)
+        => mensaje.Contains("Verificando el estado del cobro", StringComparison.OrdinalIgnoreCase)
+           || mensaje.Contains("La terminal ya tiene un cobro pendiente", StringComparison.OrdinalIgnoreCase)
+           || mensaje.Contains("Hay un cobro de Mercado Pago pendiente de resolver", StringComparison.OrdinalIgnoreCase)
+           || mensaje.Contains("Mercado Pago no está disponible. Revisá la conexión.", StringComparison.OrdinalIgnoreCase);
 
     private async Task CargarResumenCuentaAsync()
     {

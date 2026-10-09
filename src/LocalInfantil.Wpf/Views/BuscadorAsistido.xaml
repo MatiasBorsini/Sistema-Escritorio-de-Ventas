@@ -35,6 +35,19 @@
         <TextBox x:Name="Caja" Style="{StaticResource EstiloCampoTexto}" Margin="0,0,0,0"
                  PreviewKeyDown="Caja_PreviewKeyDown" TextChanged="Caja_TextChanged"
                  LostKeyboardFocus="Caja_LostKeyboardFocus"/>
+        <TextBlock x:Name="TextoPlaceholder" Margin="9,0,4,0" VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                   IsHitTestVisible="False" Text="{Binding Placeholder, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Text, ElementName=Caja}" Value="">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
         <Popup x:Name="PopupSugerencias" PlacementTarget="{Binding ElementName=Caja}" Placement="Bottom"
                IsOpen="{Binding Abierto, Mode=OneWay}" StaysOpen="False" AllowsTransparency="True" Closed="Popup_Closed">
             <Border Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}"

@@ -86,6 +86,155 @@ public sealed class WpfPosTests
     }
 
     [Fact]
+    public async Task Busqueda_con_varias_coincidencias_no_agrega_la_primera_sin_elegir()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+
+        await vm.AgregarDirectaAsyncPublic("Remera POS");
+
+        Assert.Empty(vm.Filas);
+        Assert.Equal("Hay varias coincidencias. Elegí una variante de la lista.", vm.Error);
+        Assert.Equal(4, vm.MotorSugerencias.Sugerencias.Count);
+        Assert.Equal("Remera POS", vm.MotorSugerencias.Texto);
+    }
+
+    [Fact]
+    public async Task Codigo_exacto_sigue_agregandose_directamente()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        Assert.Equal(e.V1, Assert.Single(vm.Filas).VarianteId);
+        Assert.Null(vm.Error);
+    }
+
+    [Fact]
+    public async Task Nueva_venta_no_descarta_carrito_sin_confirmacion()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+
+        vm.NuevaVentaCommand.Execute(null);
+
+        Assert.Single(vm.Filas);
+        Assert.True(vm.ConfirmacionCancelarVisible);
+    }
+
+    [Fact]
+    public async Task Cobro_se_abre_como_paso_explicito_y_puede_volver_al_carrito()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+
+        Assert.False(vm.CobroVisible);
+        Assert.False(vm.PuedeAbrirCobro);
+        Assert.False(vm.MostrarCtaCobrar);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        Assert.True(vm.PuedeAbrirCobro);
+        Assert.True(vm.MostrarCtaCobrar);
+
+        vm.AbrirCobroCommand.Execute(null);
+        Assert.True(vm.CobroVisible);
+        Assert.False(vm.MostrarCtaCobrar);
+        Assert.True(vm.PuedeCerrarCobro);
+        vm.CerrarCobroCommand.Execute(null);
+
+        Assert.False(vm.CobroVisible);
+        Assert.Single(vm.Filas);
+    }
+
+    [Fact]
+    public async Task Cobro_precarga_total_en_un_medio_y_respeta_ediciones_al_agregar_otro()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        await e.Servicios.CasoFijarPrecio.EjecutarAsync(e.V1, 2_490_000, e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+
+        vm.Pagos[0].Medio = MediosPago.Transferencia;
+        Assert.Equal("24.900,00", vm.Pagos[0].ImporteTexto);
+        vm.AbrirCobroCommand.Execute(null);
+        Assert.Equal("24.900,00", vm.Pagos[0].ImporteTexto);
+        Assert.False(vm.Pagos[0].ImporteModificadoPorUsuario);
+
+        vm.Pagos[0].Medio = MediosPago.Efectivo;
+        vm.Pagos[0].ImporteTexto = "10.000,00";
+        vm.Pagos[0].RecibidoTexto = "10.000,00";
+        await vm.AgregarPagoAsync();
+
+        Assert.Equal("10.000,00", vm.Pagos[0].ImporteTexto);
+        Assert.Equal("14.900,00", vm.Pagos[1].ImporteTexto);
+        Assert.Equal(MediosPago.Efectivo, vm.Pagos[0].Medio);
+        vm.Pagos[1].Medio = MediosPago.Transferencia;
+        Assert.Equal("14.900,00", vm.Pagos[1].ImporteTexto);
+        Assert.Equal("10.000,00", vm.Pagos[0].ImporteTexto);
+        Assert.True(vm.PuedeConfirmar);
+    }
+
+    [Fact]
+    public async Task Point_precarga_total_o_saldo_restante_sin_alterar_el_pago_existente()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        await e.Servicios.CasoFijarPrecio.EjecutarAsync(e.V1, 2_490_000, e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+
+        vm.Pagos[0].Medio = MediosPago.MercadoPago;
+        Assert.Equal("24.900,00", vm.Pagos[0].ImporteTexto);
+        Assert.Equal("Cobrar ARS 24.900,00 en Point", vm.TextoAccionPoint);
+        Assert.False(vm.PuedeConfirmar);
+
+        vm.Pagos[0].Medio = MediosPago.Efectivo;
+        vm.Pagos[0].ImporteTexto = "10.000,00";
+        vm.Pagos[0].RecibidoTexto = "10.000,00";
+        await vm.AgregarPagoAsync();
+        var segunda = vm.Pagos[1];
+        segunda.Medio = MediosPago.MercadoPago;
+
+        Assert.Equal("10.000,00", vm.Pagos[0].ImporteTexto);
+        Assert.Equal("14.900,00", segunda.ImporteTexto);
+        Assert.True(vm.PuedeCobrarPoint);
+        Assert.False(vm.PuedeConfirmar);
+        Assert.True(vm.MostrarAyudaPoint);
+    }
+
+    [Fact]
+    public void Selector_pos_explica_medios_externos_y_no_ofrece_cuotas()
+    {
+        var opciones = PresentacionMedioPagoPos.Todas;
+        Assert.Equal("Efectivo", opciones.Single(x => x.Valor == MediosPago.Efectivo).Texto);
+        Assert.Equal("Transferencia", opciones.Single(x => x.Valor == MediosPago.Transferencia).Texto);
+        Assert.Equal("Mercado Pago Point", opciones.Single(x => x.Valor == MediosPago.MercadoPago).Texto);
+        Assert.Equal("Débito — terminal externo", opciones.Single(x => x.Valor == MediosPago.Debito).Texto);
+        Assert.Equal("Crédito — terminal externo", opciones.Single(x => x.Valor == MediosPago.Credito).Texto);
+        Assert.Equal("Billetera / QR — cobro externo", opciones.Single(x => x.Valor == MediosPago.Billetera).Texto);
+
+        foreach (var medio in new[] { MediosPago.Debito, MediosPago.Credito, MediosPago.Billetera })
+        {
+            var ayuda = opciones.Single(x => x.Valor == medio).Ayuda;
+            Assert.Equal("Este cobro se realiza fuera de LocalInfantil. Aquí solo se registra el importe.", ayuda);
+            Assert.DoesNotContain("cuota", ayuda!, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task Agregar_medio_con_saldo_cero_no_propone_importe_negativo()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.Pagos[0].ImporteTexto = "200,00";
+
+        await vm.AgregarPagoAsync();
+
+        Assert.Equal(string.Empty, vm.Pagos[1].ImporteTexto);
+        Assert.Equal("200,00", vm.Pagos[0].ImporteTexto);
+    }
+
+    [Fact]
     public async Task Variante_sin_stock_muestra_estado_operativo_y_no_agrega()
     {
         using var e = await EntornoPos.CrearAsync();

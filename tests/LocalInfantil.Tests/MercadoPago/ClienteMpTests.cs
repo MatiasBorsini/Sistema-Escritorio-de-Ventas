@@ -67,6 +67,26 @@ public sealed class ClienteMpTests
         Assert.Contains("\"external_reference\":\"LI-x\"", req.Cuerpo);
         Assert.Contains("\"amount\":\"100.00\"", req.Cuerpo);
         Assert.Contains("\"terminal_id\":\"TERM__SN1\"", req.Cuerpo);
+        Assert.DoesNotContain("payment_method", req.Cuerpo, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("default_type", req.Cuerpo, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("installments", req.Cuerpo, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("installments_cost", req.Cuerpo, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Obtener_orden_descarta_metadatos_de_plan_de_pago_no_persistidos()
+    {
+        var (fake, cliente) = Crear();
+        fake.Responder("GET", "/v1/orders/ORD1", (_, _) => FakeMpHandler.Json(HttpStatusCode.OK,
+            """{"id":"ORD1","status":"processed","status_detail":"accredited","external_reference":"LI-x","transactions":{"payments":[{"id":"PAY1","amount":"100.00","status":"approved","payment_method":{"id":"visa","type":"credit_card","installments":6,"card":{"last_digits":"1234"}}}]}}"""));
+
+        var orden = await cliente.ObtenerOrdenAsync("TOKEN", "ORD1");
+
+        Assert.Equal("ORD1", orden.Id);
+        Assert.Equal("processed", orden.Estado);
+        Assert.Equal("accredited", orden.DetalleEstado);
+        Assert.Equal("LI-x", orden.ReferenciaExterna);
+        Assert.Equal(new PagoOrdenMp("PAY1", "approved", "100.00"), Assert.Single(orden.Pagos));
     }
 
     [Fact]
