@@ -71,6 +71,8 @@ public sealed class MatrizPermisos
         matriz.Denegar(RolesLocal.Empleada, PermisosReportes.Costos);
         matriz.Permitir(RolesLocal.Duena, PermisosMercadoPago.Configurar);
         matriz.Denegar(RolesLocal.Empleada, PermisosMercadoPago.Configurar);
+        matriz.Permitir(RolesLocal.Duena, PermisosMercadoPago.Conciliar);
+        matriz.Denegar(RolesLocal.Empleada, PermisosMercadoPago.Conciliar);
         return matriz;
     }
 

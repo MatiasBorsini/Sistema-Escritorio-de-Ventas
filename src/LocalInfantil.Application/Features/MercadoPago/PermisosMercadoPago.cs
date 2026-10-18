@@ -8,6 +8,7 @@ namespace LocalInfantil.Application.Features.MercadoPago;
 public static class PermisosMercadoPago
 {
     public const string Configurar = "mercadopago.configurar";
+    public const string Conciliar = "mercadopago.conciliar";
 
-    public static readonly IReadOnlyList<string> Todos = new[] { Configurar };
+    public static readonly IReadOnlyList<string> Todos = new[] { Configurar, Conciliar };
 }

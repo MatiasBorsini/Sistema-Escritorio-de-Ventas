@@ -335,7 +335,7 @@ public sealed class RespaldoLocalTests
             Assert.Equal(new[] { 1 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null));
             await InsertarFilaLegadaAsync(ruta);
 
-            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(archivo, "PRAGMA integrity_check;"));
@@ -365,7 +365,7 @@ public sealed class RespaldoLocalTests
             Assert.Equal(new[] { 1, 2 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV2, null));
             await InsertarFilaLegadaAsync(ruta);
 
-            Assert.Equal(new[] { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(archivo, "PRAGMA integrity_check;"));
@@ -467,7 +467,7 @@ public sealed class RespaldoLocalTests
     }
 
     private const string Fecha = "2026-09-21T12:00:00Z";
-    private static readonly int[] VersionesActuales = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    private static readonly int[] VersionesActuales = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
     private static readonly string[] TablasNegocio =
     {

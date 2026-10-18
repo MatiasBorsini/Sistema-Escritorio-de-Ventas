@@ -10,6 +10,12 @@ namespace LocalInfantil.Wpf.Infra;
 public interface IDialogosVentas
 {
     void MostrarTicket(string ventaId);
+
+    /// <summary>
+    /// Pregunta humana ante un posible cobro manual duplicado de Point.
+    /// Devuelve true solo si el operador confirma que es una segunda venta.
+    /// </summary>
+    bool ConfirmarCobroManualDuplicado(string detalle);
 }
 
 public sealed class DialogosVentasWpf : IDialogosVentas
@@ -59,6 +65,18 @@ public sealed class DialogosVentasWpf : IDialogosVentas
         {
             _registro.Liberar(ventaId);
         }
+    }
+
+    public bool ConfirmarCobroManualDuplicado(string detalle)
+    {
+        var respuesta = MessageBox.Show(
+            VentanaPrincipal(),
+            $"{detalle}\n\n¿Es una segunda venta del mismo importe y no un duplicado?",
+            "Posible cobro duplicado de Point",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        return respuesta == MessageBoxResult.Yes;
     }
 
     private static Window? VentanaPrincipal()

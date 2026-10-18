@@ -9,15 +9,15 @@ namespace LocalInfantil.Tests.Wpf;
 public sealed class F10StartupIntegrationTests
 {
     [Fact]
-    public async Task Base_nueva_migra_hasta_V16_y_solicita_bootstrap_sin_login()
+    public async Task Base_nueva_migra_hasta_V19_y_solicita_bootstrap_sin_login()
     {
         using var entorno = new Entorno();
         var estado = await new InicializadorArranque(new ServiciosComerciales(entorno.BaseDatos))
             .InicializarAsync(entorno.Respaldos);
 
         Assert.True(estado.RequiereBootstrapDuena);
-        Assert.Equal(16, estado.MigracionesAplicadas.Count);
-        Assert.Equal(16, await LeerVersionAsync(entorno.BaseDatos));
+        Assert.Equal(19, estado.MigracionesAplicadas.Count);
+        Assert.Equal(19, await LeerVersionAsync(entorno.BaseDatos));
         Assert.False(File.Exists(Path.Combine(entorno.Raiz, "Prototype", "localinfantil-prototype.db")));
     }
 
@@ -44,9 +44,9 @@ public sealed class F10StartupIntegrationTests
             .InicializarAsync(entorno.Respaldos);
 
         Assert.True(estado.RequiereBootstrapDuena);
-        Assert.Equal(15, estado.MigracionesAplicadas.Count);
+        Assert.Equal(18, estado.MigracionesAplicadas.Count);
         Assert.NotEmpty(Directory.GetFiles(entorno.Respaldos));
-        Assert.Equal(16, await LeerVersionAsync(entorno.BaseDatos));
+        Assert.Equal(19, await LeerVersionAsync(entorno.BaseDatos));
     }
 
     [Fact]

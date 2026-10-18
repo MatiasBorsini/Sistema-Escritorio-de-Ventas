@@ -244,9 +244,14 @@ public sealed class PosViewModel : ViewModelBase
     private readonly Application.Features.MercadoPago.IniciarCobroPoint? _iniciarCobro;
     private readonly Application.Features.MercadoPago.ConsultarCobroPoint? _consultarCobro;
     private readonly Application.Features.MercadoPago.CancelarCobroPoint? _cancelarCobro;
+    private readonly Application.Features.MercadoPago.RegistrarCobroManualPoint? _registrarManual;
     private Application.Features.MercadoPago.IniciarCobroPoint CasoIniciar => _iniciarCobro ?? _servicios.CasoIniciarCobroPoint;
     private Application.Features.MercadoPago.ConsultarCobroPoint CasoConsultar => _consultarCobro ?? _servicios.CasoConsultarCobroPoint;
     private Application.Features.MercadoPago.CancelarCobroPoint CasoCancelar => _cancelarCobro ?? _servicios.CasoCancelarCobroPoint;
+    private Application.Features.MercadoPago.RegistrarCobroManualPoint CasoRegistrarManual => _registrarManual ?? _servicios.CasoRegistrarCobroManualPoint;
+    private string _modoPoint;
+    private bool _confirmacionManualPointAceptada;
+    private string _referenciaComprobanteManual = string.Empty;
     private string _operacionId;
     private string? _error;
     private string? _mensaje;
@@ -266,7 +271,7 @@ public sealed class PosViewModel : ViewModelBase
     public bool PuedeVenderFiado { get; }
     public bool PuedeConsultarCuenta { get; }
 
-    public PosViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null, bool puedeAsociarCliente = true, bool puedeVenderFiado = false, bool puedeConsultarCuenta = false, Application.Features.MercadoPago.IniciarCobroPoint? iniciarCobro = null, Application.Features.MercadoPago.ConsultarCobroPoint? consultarCobro = null, Application.Features.MercadoPago.CancelarCobroPoint? cancelarCobro = null)
+    public PosViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null, bool puedeAsociarCliente = true, bool puedeVenderFiado = false, bool puedeConsultarCuenta = false, Application.Features.MercadoPago.IniciarCobroPoint? iniciarCobro = null, Application.Features.MercadoPago.ConsultarCobroPoint? consultarCobro = null, Application.Features.MercadoPago.CancelarCobroPoint? cancelarCobro = null, Application.Features.MercadoPago.RegistrarCobroManualPoint? registrarManual = null)
     {
         _servicios = servicios;
         _idSesion = idSesion;
@@ -274,6 +279,8 @@ public sealed class PosViewModel : ViewModelBase
         _iniciarCobro = iniciarCobro;
         _consultarCobro = consultarCobro;
         _cancelarCobro = cancelarCobro;
+        _registrarManual = registrarManual;
+        _modoPoint = servicios.ObtenerModoPoint();
         PuedeAsociarCliente = puedeAsociarCliente;
         PuedeVenderFiado = puedeVenderFiado;
         PuedeConsultarCuenta = puedeConsultarCuenta;
@@ -301,6 +308,7 @@ public sealed class PosViewModel : ViewModelBase
         QuitarPagoCommand = new AsyncRelayCommand(p => QuitarPagoAsync(p as FilaPagoViewModel));
         ConfirmarCommand = new AsyncRelayCommand(ConfirmarAsync);
         CobrarEnPointCommand = new AsyncRelayCommand(CobrarEnPointAsync);
+        RegistrarCobroManualCommand = new AsyncRelayCommand(RegistrarCobroManualAsync);
         CancelarCobroPointCommand = new AsyncRelayCommand(CancelarCobroPointAsync);
         SolicitarCancelarCommand = new RelayCommand(_ =>
         {
@@ -321,6 +329,7 @@ public sealed class PosViewModel : ViewModelBase
             if (PuedeAbrirCobro)
             {
                 Error = null;
+                RefrescarModoPoint();
                 foreach (var pago in Pagos) PrecargarSaldoEnFila(pago);
                 CobroVisible = true;
             }
@@ -381,11 +390,69 @@ public sealed class PosViewModel : ViewModelBase
     /// Medios manuales más Mercado Pago Point. MP no se confirma directo:
     /// requiere el flujo saga (Cobrar en Point) con order processed.
     /// </summary>
-    public IReadOnlyList<PresentacionMedioPagoPos> MediosDisponibles => PresentacionMedioPagoPos.Todas;
+    public IReadOnlyList<PresentacionMedioPagoPos> MediosDisponibles => EsModoDesactivado
+        ? PresentacionMedioPagoPos.Todas.Where(o => o.Valor != MediosPago.MercadoPago).ToArray()
+        : PresentacionMedioPagoPos.Todas;
+
+    /// <summary>Modalidad operativa local de Point (integrado/manual/desactivado).</summary>
+    public string ModoPoint => _modoPoint;
+    public bool EsModoIntegrado => _modoPoint == Application.Features.MercadoPago.ModosPoint.Integrado;
+    public bool EsModoManual => _modoPoint == Application.Features.MercadoPago.ModosPoint.Manual;
+    public bool EsModoDesactivado => _modoPoint == Application.Features.MercadoPago.ModosPoint.Desactivado;
+
     public bool TieneMercadoPago => Pagos.Any(p => p.Medio == MediosPago.MercadoPago);
     public bool MostrarAyudaPoint => TieneMercadoPago;
+    public bool MostrarPanelManualPoint => EsModoManual && TieneMercadoPago;
+    public bool MostrarAccionPointIntegrada => TieneMercadoPago && EsModoIntegrado;
+    public bool MostrarAccionPointManual => TieneMercadoPago && EsModoManual;
     public string AyudaPoint => "El cobro se enviará a la terminal Point configurada. El cliente completa el pago en la terminal. Las opciones disponibles se completan en la terminal.";
+    public string AyudaPointManual => "Cobrá este importe directamente en la terminal Point y confirmá la aprobación observada. El registro queda pendiente de conciliación: no reemplaza la verificación de Mercado Pago.";
+    public string AyudaPointMostrada => EsModoManual ? AyudaPointManual : AyudaPoint;
     public string TextoAccionPoint => $"Cobrar {FormatearArs(Total)} en Point";
+    public string TextoAccionManual => $"Registrar cobro manual de {FormatearArs(Total)}";
+
+    /// <summary>La empleada declara que el Point aprobó este importe.</summary>
+    public bool ConfirmacionManualPointAceptada
+    {
+        get => _confirmacionManualPointAceptada;
+        set
+        {
+            if (SetProperty(ref _confirmacionManualPointAceptada, value))
+            {
+                OnPropertyChanged(nameof(PuedeRegistrarCobroManual));
+                OnPropertyChanged(nameof(TextoEstadoPago));
+            }
+        }
+    }
+
+    /// <summary>Referencia opcional del comprobante de la terminal.</summary>
+    public string ReferenciaComprobanteManual
+    {
+        get => _referenciaComprobanteManual;
+        set => SetProperty(ref _referenciaComprobanteManual, value);
+    }
+
+    /// <summary>
+    /// Habilita el cobro manual: modalidad manual, carrito válido, Σ medios ==
+    /// total, exactamente un pago Point, sin fiado y con la declaración humana.
+    /// </summary>
+    public bool PuedeRegistrarCobroManual
+    {
+        get
+        {
+            if (!EsModoManual || !PuedeEditarVenta || Ocupado || CobroEnCurso || Filas.Count == 0 || Total <= 0 || EsFiado) return false;
+            if (!ConfirmacionManualPointAceptada) return false;
+            var filasPago = Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)).ToArray();
+            if (filasPago.Length == 0) return false;
+            if (filasPago.Count(p => p.Medio == MediosPago.MercadoPago) != 1) return false;
+            foreach (var p in filasPago)
+            {
+                if (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0) return false;
+                if (p.EsEfectivo && (!p.RecibidoMinor.HasValue || p.RecibidoMinor < p.ImporteMinor)) return false;
+            }
+            return Pagado == Total;
+        }
+    }
     public bool OperacionPointIncierta
     {
         get => _operacionPointIncierta;
@@ -426,8 +493,10 @@ public sealed class PosViewModel : ViewModelBase
             ? "Revisá los importes ingresados."
         : Pagos.Any(p => p.EsEfectivo && p.ImporteMinor is > 0 && !p.RecibidoMinor.HasValue)
             ? "Ingresá el efectivo recibido por el cliente."
-        : TieneMercadoPago && Pagado >= Total && !PuedeCobrarPoint
+        : TieneMercadoPago && EsModoIntegrado && Pagado >= Total && !PuedeCobrarPoint
             ? "Revisá los importes ingresados."
+        : TieneMercadoPago && EsModoManual && Pagado == Total && !ConfirmacionManualPointAceptada
+            ? "Confirmá que el Point aprobó este importe."
         : Pagado > Total
             ? "Los importes superan el total. Revisá los medios de pago."
             : Restante > 0
@@ -451,6 +520,7 @@ public sealed class PosViewModel : ViewModelBase
     {
         get
         {
+            if (!EsModoIntegrado) return false;
             if (!PuedeEditarVenta || Ocupado || Filas.Count == 0 || Total <= 0 || EsFiado) return false;
             var filasPago = Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)).ToArray();
             if (filasPago.Length == 0) return false;
@@ -526,6 +596,7 @@ public sealed class PosViewModel : ViewModelBase
     public RelayCommand CerrarCobroCommand { get; }
     public AsyncRelayCommand ConfirmarCommand { get; }
     public AsyncRelayCommand CobrarEnPointCommand { get; }
+    public AsyncRelayCommand RegistrarCobroManualCommand { get; }
     public AsyncRelayCommand CancelarCobroPointCommand { get; }
     public RelayCommand SolicitarCancelarCommand { get; }
     public RelayCommand CancelarCancelarCommand { get; }
@@ -635,6 +706,41 @@ public sealed class PosViewModel : ViewModelBase
             System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
     }
 
+    /// <summary>
+    /// Relee la modalidad de Point desde la configuración. Si pasa a
+    /// desactivado, convierte las filas Point pendientes a efectivo para no
+    /// ofrecer un medio no disponible.
+    /// </summary>
+    private void RefrescarModoPoint()
+    {
+        var modo = _servicios.ObtenerModoPoint();
+        if (string.Equals(modo, _modoPoint, StringComparison.Ordinal)) return;
+        _modoPoint = modo;
+        if (EsModoDesactivado)
+        {
+            foreach (var p in Pagos.Where(p => p.Medio == MediosPago.MercadoPago))
+                p.Medio = MediosPago.Efectivo;
+        }
+
+        OnPropertyChanged(nameof(ModoPoint));
+        OnPropertyChanged(nameof(EsModoIntegrado));
+        OnPropertyChanged(nameof(EsModoManual));
+        OnPropertyChanged(nameof(EsModoDesactivado));
+        OnPropertyChanged(nameof(MediosDisponibles));
+        NotificarTotales();
+    }
+
+    /// <summary>
+    /// Actualiza solo la disponibilidad de Point y nunca transforma pagos de un
+    /// borrador existente. Si hay un pago Point o una operación en curso, queda
+    /// pendiente hasta que el flujo de cobro haga su propia revalidación.
+    /// </summary>
+    public void RefrescarModoPointSiSeguro()
+    {
+        if (CobroEnCurso || TieneMercadoPago) return;
+        RefrescarModoPoint();
+    }
+
     private void NotificarTotales()
     {
         if (!HayLineas && CobroVisible) CobroVisible = false;
@@ -656,9 +762,15 @@ public sealed class PosViewModel : ViewModelBase
         OnPropertyChanged(nameof(PuedeConfirmar));
         OnPropertyChanged(nameof(TieneMercadoPago));
         OnPropertyChanged(nameof(MostrarAyudaPoint));
+        OnPropertyChanged(nameof(MostrarPanelManualPoint));
+        OnPropertyChanged(nameof(MostrarAccionPointIntegrada));
+        OnPropertyChanged(nameof(MostrarAccionPointManual));
+        OnPropertyChanged(nameof(AyudaPointMostrada));
         OnPropertyChanged(nameof(PuedeQuitarPago));
         OnPropertyChanged(nameof(TextoAccionPoint));
+        OnPropertyChanged(nameof(TextoAccionManual));
         OnPropertyChanged(nameof(PuedeCobrarPoint));
+        OnPropertyChanged(nameof(PuedeRegistrarCobroManual));
         OnPropertyChanged(nameof(DeudaNuevaMinor));
         OnPropertyChanged(nameof(SaldoPosteriorMinor));
         OnPropertyChanged(nameof(DisponibleCreditoMinor));
@@ -725,7 +837,15 @@ public sealed class PosViewModel : ViewModelBase
     {
         if (Ocupado || !PuedeEditarVenta) return;
         Error = null; Mensaje = null;
-        if (TieneMercadoPago) { Error = "El medio Mercado Pago se cobra con Cobrar en Point."; return; } Ocupado = true;
+        if (TieneMercadoPago)
+        {
+            Error = EsModoManual
+                ? "El medio Mercado Pago se registra con el panel de cobro manual."
+                : "El medio Mercado Pago se cobra con Cobrar en Point.";
+            return;
+        }
+
+        Ocupado = true;
         try
         {
             var variante = await _servicios.ConsultasCatalogo.ObtenerVarianteAsync(varianteId, _idSesion());
@@ -857,6 +977,7 @@ public sealed class PosViewModel : ViewModelBase
             switch (resultado)
             {
                 case ResultadoConfirmacionVenta.Confirmada ok:
+                    NotificarVentaConfirmada();
                     UltimoNumero = ok.Numero;
                     UltimoTotal = ok.TotalMinor;
                     Mensaje = $"Venta {ok.Numero} confirmada.";
@@ -884,6 +1005,95 @@ public sealed class PosViewModel : ViewModelBase
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
     }
+
+    /// <summary>
+    /// Cobro manual de Point: registra la venta y el cobro declarado en una
+    /// sola transacción. Nunca llama a la API de Mercado Pago. Exige la
+    /// declaración humana y que no haya cobros integrados pendientes.
+    /// </summary>
+    private async Task RegistrarCobroManualAsync()
+    {
+        if (Ocupado || CobroEnCurso) return;
+        Error = null; Mensaje = null;
+        RefrescarModoPoint();
+        if (!PuedeRegistrarCobroManual) { Error = "Confirmá que el Point aprobó este importe y revisá el carrito."; return; }
+        var lineas = Filas.Select(f => new NuevaLineaVenta(f.VarianteId, f.Cantidad, f.PrecioUnitarioMinor)).ToList();
+        var pagos = new List<NuevoPago>();
+        foreach (var p in Pagos.Where(p => !string.IsNullOrWhiteSpace(p.ImporteTexto)))
+        {
+            if (!p.ImporteMinor.HasValue || p.ImporteMinor <= 0) { Error = "Revisá los importes de los pagos."; return; }
+            if (p.EsEfectivo && (!p.RecibidoMinor.HasValue || p.RecibidoMinor < p.ImporteMinor))
+            {
+                Error = "El efectivo recibido es menor al importe correspondiente.";
+                return;
+            }
+
+            pagos.Add(new NuevoPago(p.Medio, p.ImporteMinor.Value, p.EsEfectivo ? p.RecibidoMinor : null));
+        }
+
+        Ocupado = true;
+        try
+        {
+            var resultado = await RegistrarManualConDedupAsync(lineas, pagos);
+            if (resultado is null) return;
+            switch (resultado)
+            {
+                case ResultadoConfirmacionVenta.Confirmada ok:
+                    NotificarVentaConfirmada();
+                    UltimoNumero = ok.Numero;
+                    UltimoTotal = ok.TotalMinor;
+                    Mensaje = $"Venta {ok.Numero} confirmada con cobro manual de Point.";
+                    LimpiarVenta(operacionFinalizada: true);
+                    _operacionId = _servicios.GeneradorIds.NuevoId();
+                    OnPropertyChanged(nameof(OperacionId));
+                    SolicitarFocoBuscador?.Invoke();
+                    break;
+                case ResultadoConfirmacionVenta.PrecioCambiado cambio:
+                    foreach (var c in cambio.Cambios)
+                    {
+                        var fila = Filas.FirstOrDefault(f => f.VarianteId == c.VarianteId);
+                        if (fila is not null)
+                        {
+                            fila.PrecioUnitarioMinor = c.PrecioVigenteMinor;
+                            OnPropertyChanged(nameof(Total));
+                        }
+                    }
+
+                    var primero = cambio.Cambios[0];
+                    Error = $"El precio de {primero.NombreProducto} cambió de {FormatearArs(primero.PrecioEsperadoMinor)} a {FormatearArs(primero.PrecioVigenteMinor)}. Revisá la venta antes de continuar.";
+                    break;
+            }
+        }
+        catch (Exception ex) { Error = MensajeError(ex); }
+        finally { Ocupado = false; }
+    }
+
+    /// <summary>
+    /// Registra el cobro manual resolviendo el dedup (§5.4): si ya hay un
+    /// cobro reciente del mismo importe/terminal, exige confirmación humana
+    /// antes de reintentar. Devuelve null si el operador cancela.
+    /// </summary>
+    private async Task<ResultadoConfirmacionVenta?> RegistrarManualConDedupAsync(
+        IReadOnlyList<NuevaLineaVenta> lineas, IReadOnlyList<NuevoPago> pagos)
+    {
+        try
+        {
+            return await CasoRegistrarManual.EjecutarAsync(lineas, pagos, _operacionId, ReferenciaComprobanteManual, _idSesion());
+        }
+        catch (Application.Features.MercadoPago.CobroManualDuplicadoSospechosoException dup)
+        {
+            if (_dialogos is null || !_dialogos.ConfirmarCobroManualDuplicado(DescribirCandidatoDuplicado(dup.Candidatos)))
+            {
+                Error = "No se registró el cobro: se detectó un posible duplicado de Point.";
+                return null;
+            }
+
+            return await CasoRegistrarManual.EjecutarAsync(lineas, pagos, _operacionId, ReferenciaComprobanteManual, _idSesion(), confirmarPosibleDuplicado: true);
+        }
+    }
+
+    private static string DescribirCandidatoDuplicado(IReadOnlyList<CobroManualMpRegistrado> candidatos)
+        => $"Ya se registró un cobro manual de Point por {FormatearArs(candidatos[0].ImporteMinor)}.";
 
     /// <summary>
     /// Cobro Point con saga durable: una sola operación lógica aunque haya
@@ -981,6 +1191,7 @@ public sealed class PosViewModel : ViewModelBase
     private async Task CerrarCobroExitosoAsync(string operacionId, CancellationToken ct)
     {
         var venta = await _servicios.ConsultasVentas.BuscarPorOperacionAsync(operacionId, _idSesion());
+        NotificarVentaConfirmada();
         UltimoNumero = venta?.Numero;
         UltimoTotal = venta?.TotalMinor;
         Mensaje = venta is null ? "Venta confirmada." : $"Venta {venta.Numero} confirmada.";
@@ -991,6 +1202,8 @@ public sealed class PosViewModel : ViewModelBase
         EsFiado = false;
         Pagos.Clear();
         Pagos.Add(new FilaPagoViewModel());
+        ConfirmacionManualPointAceptada = false;
+        ReferenciaComprobanteManual = string.Empty;
         _operacionId = _servicios.GeneradorIds.NuevoId();
         OnPropertyChanged(nameof(OperacionId));
         NotificarTotales();
@@ -1038,6 +1251,8 @@ public sealed class PosViewModel : ViewModelBase
         MotorClientes.Limpiar();
         Pagos.Clear();
         Pagos.Add(new FilaPagoViewModel());
+        ConfirmacionManualPointAceptada = false;
+        ReferenciaComprobanteManual = string.Empty;
         Error = null;
         ConfirmacionCancelarVisible = false;
         CobroVisible = false;
@@ -1092,6 +1307,9 @@ public sealed class PosViewModel : ViewModelBase
         var dec = (decimal)minor / 100m;
         return $"ARS {dec.ToString("N2", new CultureInfo("es-AR"))}";
     }
+
+    private void NotificarVentaConfirmada()
+        => _servicios.NotificadorCambios.Publicar(this, AreaDatos.Ventas, AreaDatos.Ventas, AreaDatos.Stock, AreaDatos.Caja, AreaDatos.CuentaCorriente);
 
     private static string MensajeError(Exception ex) => ex switch
     {

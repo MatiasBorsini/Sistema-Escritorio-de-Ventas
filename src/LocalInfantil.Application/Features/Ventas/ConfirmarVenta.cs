@@ -96,6 +96,39 @@ public sealed class ConfirmarVenta
         string? vencimiento,
         bool usarCuentaCorriente,
         CancellationToken cancellationToken = default)
+        => await EjecutarCoreAsync(lineas, pagos, operacionId, idSesion, clienteId, vencimiento, usarCuentaCorriente, null, cancellationToken);
+
+    /// <summary>
+    /// Variante para el cobro manual Point: ejecuta la MISMA confirmación
+    /// atómica y, justo después de insertar el pago de Mercado Pago, invoca el
+    /// registro del cobro manual DENTRO de la transacción. Si el registro
+    /// falla, la venta, el pago, el stock y la caja se revierten juntos.
+    /// </summary>
+    public async Task<ResultadoConfirmacionVenta> EjecutarConRegistroPagoMercadoPagoAsync(
+        IReadOnlyList<NuevaLineaVenta> lineas,
+        IReadOnlyList<NuevoPago> pagos,
+        string operacionId,
+        string? idSesion,
+        string? clienteId,
+        string? vencimiento,
+        bool usarCuentaCorriente,
+        Func<ISesionPersistencia, string, string, CancellationToken, Task> alInsertarPagoMercadoPago,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(alInsertarPagoMercadoPago);
+        return await EjecutarCoreAsync(lineas, pagos, operacionId, idSesion, clienteId, vencimiento, usarCuentaCorriente, alInsertarPagoMercadoPago, cancellationToken);
+    }
+
+    private async Task<ResultadoConfirmacionVenta> EjecutarCoreAsync(
+        IReadOnlyList<NuevaLineaVenta> lineas,
+        IReadOnlyList<NuevoPago> pagos,
+        string operacionId,
+        string? idSesion,
+        string? clienteId,
+        string? vencimiento,
+        bool usarCuentaCorriente,
+        Func<ISesionPersistencia, string, string, CancellationToken, Task>? alInsertarPagoMercadoPago,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(lineas);
         ArgumentNullException.ThrowIfNull(pagos);
@@ -280,6 +313,8 @@ public sealed class ConfirmarVenta
                 sesion,
                 new NuevoMovimientoCaja(cajaAbierta.Id, cajaOperacionId, TiposMovimientoCaja.Venta, pago.ImporteMinor, id, pagoId, pago.Medio, null, null, actor.Id, null, fecha),
                 cancellationToken);
+            if (pago.Medio == MediosPago.MercadoPago && alInsertarPagoMercadoPago is not null)
+                await alInsertarPagoMercadoPago(sesion, id, pagoId, cancellationToken);
         }
 
         if (deudaNueva > 0)

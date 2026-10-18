@@ -59,3 +59,16 @@ Para operar el local con credencial propia alcanza DPAPI. Para vender LocalInfan
 ## 9. Pendiente para Point real (F12-T07)
 
 Cuenta y credencial de prueba/producción, terminal física en PDV, `LOCALINFANTIL_MP_TEST_ACCESS_TOKEN` para live tests, recorrido manual con dinero de prueba, PC del local. Producción NO habilitada.
+
+## 10. Ampliación de Point: modos, cobro manual y conciliación de liquidaciones
+
+> **Estado: Etapa A implementada** (modos de Point + cobro manual + V17 acotada) y **etapa de conciliación implementada** (importación CSV manual + V18 corregida por V19 + conciliación automática/asistida). La descarga automática por API sigue **solo diseñada**. Ver `D-49`/`D-50` y la especificación completa `docs/LIQUIDACIONES_MERCADO_PAGO.md`.
+
+- **Modos:** además del modo físico de la terminal (`operating_mode` PDV/STANDALONE, remoto, solo Dueña), hay un **modo operativo local** `integrado` | `manual` | `desactivado` (default efectivo `desactivado` sin configuración previa; `integrado` si ya había terminal), en la config no secreta. INTEGRADO usa la saga F12 actual; MANUAL cobra en el Point sin API y registra una declaración `pendiente_conciliacion`. *(implementado)*
+- **Anti-doble-cobro:** un cobro incierto (`requiere_conciliacion`) no habilita manual ni duplica el cobro; el cambio de modo se bloquea con pendientes. Timeout ≠ rechazo. *(implementado)*
+- **Cobro manual:** venta + pago `mercado_pago` + `mercado_pago_cobro_manual` atómicos (misma transacción que `ConfirmarVenta`), importe bruto, unicidad por operación, sin refund remoto. *(implementado)*
+- **Liquidaciones:** conciliación contra el reporte oficial de dinero liberado (`POST /v1/account/release_report`, `GET .../list`, `GET .../{file_name}`), empezando por **importación CSV manual**. Contabilidad separada (bruto/comisión/costo financiero/retenciones/neto/fecha de liquidación) para no mezclar ni contar dos veces. *(implementado: `LectorReporteLiquidacionMp` + V18 `mercado_pago_importacion`/`liquidacion`; dedup por identidad de fila/operación (V19), no por contenido; fixtures ficticios, pendiente validar CSV real)*
+- **Conciliación:** automática para integrado por `LI-<operacionId>`/order; asistida y con confirmación humana para manual; importe/fecha solo como ayuda. `SOURCE_ID`↔`payment_id` requiere persistir el `payment_id` (hoy no se guarda). *(implementado: `ConciliarLiquidacionMp` y sección en Configuración → Mercado Pago; vínculo asistido `asistido_humano`)*
+- **Esquema V18 + V19:** `mercado_pago_importacion`, `mercado_pago_liquidacion` y `mercado_pago_conciliacion` **creadas** en V18 (+ triggers inmutables). **V19** corrige la identidad de fila: `fila_hash` deja de ser UNIQUE (huella de contenido para marcar posibles duplicados), se agrega `fila_ordinal` (identidad `UNIQUE(importacion_id, fila_ordinal)`) e `identidad_remota` (clave del movimiento financiero). V17 con `mercado_pago_cobro_manual` intacta. V16 e histórico intactos.
+- **UX:** selector de modalidad en Administración → Mercado Pago (Configuración); POS con acciones integrado/manual y panel de cobro manual. Sección de **Conciliación** en Configuración → Mercado Pago (seleccionar/previsualizar/importar reporte y conciliar pendientes de forma asistida). *(implementado)*
+- No se modifican las reglas de F05 (Caja), F09 (Reportes) ni F06/F12 (devoluciones) por esta ampliación.

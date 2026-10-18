@@ -12,6 +12,7 @@ public sealed class ConfigurarMercadoPago
 {
     private readonly IMercadoPagoCredencialProvider _credenciales;
     private readonly IAlmacenConfigMercadoPago _config;
+    private readonly IRepositorioMercadoPago _mp;
     private readonly IMercadoPagoPointClient _cliente;
     private readonly IAutorizador _autorizador;
     private readonly IRepositorioAuditoria _auditoria;
@@ -22,6 +23,7 @@ public sealed class ConfigurarMercadoPago
     public ConfigurarMercadoPago(
         IMercadoPagoCredencialProvider credenciales,
         IAlmacenConfigMercadoPago config,
+        IRepositorioMercadoPago mp,
         IMercadoPagoPointClient cliente,
         IAutorizador autorizador,
         IRepositorioAuditoria auditoria,
@@ -31,6 +33,7 @@ public sealed class ConfigurarMercadoPago
     {
         _credenciales = credenciales;
         _config = config;
+        _mp = mp;
         _cliente = cliente;
         _autorizador = autorizador;
         _auditoria = auditoria;
@@ -66,6 +69,33 @@ public sealed class ConfigurarMercadoPago
         var actual = _config.Leer();
         _config.Guardar(actual with { TerminalId = terminalId.Trim() });
         await AuditarAsync(actor, "mercadopago.seleccionar_terminal", "Terminal seleccionada.", cancellationToken);
+    }
+
+    /// <summary>
+    /// Cambia la modalidad operativa local de Point (integrado/manual/
+    /// desactivado). Bloquea si hay cobros de la saga sin resolver: cambiar el
+    /// modo no debe dejar un cobro incierto sin responsable. No modifica el
+    /// modo físico de la terminal.
+    /// </summary>
+    public async Task CambiarModoAsync(string modo, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        var actor = await AutorizarAsync(idSesion, cancellationToken);
+        var normalizado = ModosPoint.Normalizar(modo);
+        if (normalizado.Length == 0)
+            throw new ArgumentException("La modalidad de cobro no es válida.", nameof(modo));
+
+        var actual = _config.Leer();
+        var actualEfectivo = ModosPoint.Resolver(actual.ModoLocalInfantil, actual.TerminalId is not null);
+        if (!string.Equals(actualEfectivo, normalizado, StringComparison.Ordinal))
+        {
+            await using var sesion = await _fabrica.IniciarLecturaAsync(cancellationToken);
+            var pendientes = await _mp.ListarNoTerminalesAsync(sesion, cancellationToken);
+            if (pendientes.Count > 0)
+                throw new InvalidOperationException("Hay cobros de Mercado Pago pendientes de resolver. Resolvelos antes de cambiar la modalidad.");
+        }
+
+        _config.Guardar(actual with { ModoLocalInfantil = normalizado });
+        await AuditarAsync(actor, "mercadopago.cambiar_modo", $"Modalidad: {normalizado}.", cancellationToken);
     }
 
     /// <summary>

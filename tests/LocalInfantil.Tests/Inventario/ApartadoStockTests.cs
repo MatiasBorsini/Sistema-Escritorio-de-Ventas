@@ -32,7 +32,7 @@ public sealed class ApartadoStockTests
             var catalogoV7 = MigracionesF01.Todas.Where(m => m.Version <= 7).ToList();
             Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV7, null));
             await SembrarFisicoAsync(ruta);
-            Assert.Equal(new[] { 8, 9, 10, 11, 12, 13, 14, 15, 16 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             var respaldo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(respaldo, "PRAGMA integrity_check;"));
             Assert.True(await TablaExisteAsync(ruta, "apartado_movimiento"));
@@ -451,7 +451,7 @@ public sealed class ApartadoStockTests
             var catalogoV7 = MigracionesF01.Todas.Where(m => m.Version <= 7).ToList();
             await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV7, null);
             await SembrarConteoV7Async(ruta);
-            Assert.Equal(new[] { 8, 9, 10, 11, 12, 13, 14, 15, 16 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             using var e = await Entorno.AbrirAsync(ruta);
             await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.ConteoAprobar, true, e.SesionDuena);
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(

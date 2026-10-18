@@ -69,4 +69,41 @@ public interface IRepositorioMercadoPago
     Task<ReembolsoMpRegistrado?> ObtenerReembolsoAsync(ISesionPersistencia sesion, string reembolsoOperacionId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ReembolsoMpRegistrado>> ListarReembolsosNoTerminalesAsync(ISesionPersistencia sesion, CancellationToken cancellationToken = default);
     Task ActualizarReembolsoAsync(ISesionPersistencia sesion, string id, string estadoLocal, string? estadoMp, string? ultimoError, string actualizadoEn, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Registra un cobro manual Point. Debe llamarse DENTRO de la transacción
+    /// que crea la venta y el pago (atómico): si falla, no queda confirmación
+    /// parcial.
+    /// </summary>
+    Task<string> InsertarCobroManualAsync(ISesionPersistencia sesion, string operacionId, string ventaId, string pagoId, long importeMinor, string? comprobanteRef, string? terminalId, string? posId, string declaradoEn, string estadoConciliacion, string usuarioId, string cajaSesionId, CancellationToken cancellationToken = default);
+    Task<bool> ExisteCobroManualPorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default);
+    Task<CobroManualMpRegistrado?> ObtenerCobroManualPorVentaAsync(ISesionPersistencia sesion, string ventaId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cobros manuales declarados con el mismo importe (y la misma terminal si
+    /// se especifica) dentro de la ventana reciente, EXCLUYENDO los ya
+    /// conciliados. Sirve solo para advertir y exigir confirmación humana: no
+    /// descarta ni vincula nada automáticamente.
+    /// </summary>
+    Task<IReadOnlyList<CobroManualMpRegistrado>> ListarCobrosManualesSimilaresAsync(ISesionPersistencia sesion, long importeMinor, string? terminalId, string desdeDeclaradoEn, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Indica si una referencia de comprobante ya fue declarada en otro cobro
+    /// manual. Un comprobante identifica un único cobro físico: no debe quedar
+    /// vinculado a dos operaciones distintas.
+    /// </summary>
+    Task<bool> ExisteCobroManualPorComprobanteAsync(ISesionPersistencia sesion, string comprobanteRef, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cobro manual declarado con esa referencia de comprobante. Se usa para la
+    /// conciliación asistida: un cobro del reporte puede identificarse por el
+    /// comprobante que la empleada declaró. null si ninguno coincide.
+    /// </summary>
+    Task<CobroManualMpRegistrado?> ObtenerCobroManualPorComprobanteAsync(ISesionPersistencia sesion, string comprobanteRef, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Actualiza el estado de conciliación de un cobro manual (los datos base
+    /// siguen inmutables). Lo usa la conciliación con el reporte.
+    /// </summary>
+    Task ActualizarEstadoConciliacionCobroManualAsync(ISesionPersistencia sesion, string cobroManualId, string estadoConciliacion, string actualizadoEn, CancellationToken cancellationToken = default);
 }

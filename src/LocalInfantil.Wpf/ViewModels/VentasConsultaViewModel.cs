@@ -50,6 +50,8 @@ public static class FiltroVentas
     public const string Anuladas = "anuladas";
 }
 
+public sealed record OpcionFiltroVenta(string Valor, string Texto);
+
 public sealed class VentasConsultaViewModel : ViewModelBase
 {
     private readonly ServiciosComerciales _servicios;
@@ -66,8 +68,11 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     private int _desplazamiento;
     private int _tamanoPagina = 20;
     private bool _haySiguiente;
+    private bool _consultaRealizada;
     private string _textoBusqueda = string.Empty;
     private string _filtroEstado = FiltroVentas.Todas;
+    private bool _seleccionAutomaticaEnCurso;
+    private Task _cargaFichaSeleccionada = Task.CompletedTask;
 
     public VentasConsultaViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null)
     {
@@ -75,6 +80,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         _idSesion = idSesion;
         _dialogos = dialogos;
         Historial = new ObservableCollection<FilaHistorialVenta>();
+        Historial.CollectionChanged += (_, _) => OnPropertyChanged(nameof(MostrarEstadoVacio));
         _operacionIdAnulacion = servicios.GeneradorIds.NuevoId();
         CargarCommand = new AsyncRelayCommand(CargarAsync);
         SiguienteCommand = new AsyncRelayCommand(SiguienteAsync);
@@ -86,17 +92,33 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     }
 
     public ObservableCollection<FilaHistorialVenta> Historial { get; }
-    public string[] FiltrosEstado { get; } = [FiltroVentas.Todas, FiltroVentas.Confirmadas, FiltroVentas.Anuladas];
+    public OpcionFiltroVenta[] FiltrosEstado { get; } =
+    [
+        new(FiltroVentas.Todas, "Todas"),
+        new(FiltroVentas.Confirmadas, "Confirmadas"),
+        new(FiltroVentas.Anuladas, "Anuladas"),
+    ];
     public int[] TamanosPagina { get; } = [20, 50, 100];
     public string TextoBusqueda { get => _textoBusqueda; set => SetProperty(ref _textoBusqueda, value); }
     public string FiltroEstado { get => _filtroEstado; set => SetProperty(ref _filtroEstado, value); }
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
     public string? Mensaje { get => _mensaje; set => SetProperty(ref _mensaje, value); }
-    public bool Ocupado { get => _ocupado; set => SetProperty(ref _ocupado, value); }
+    public bool Ocupado
+    {
+        get => _ocupado;
+        set
+        {
+            if (SetProperty(ref _ocupado, value))
+                OnPropertyChanged(nameof(MostrarEstadoVacio));
+        }
+    }
     public bool ConfirmacionVisible { get => _confirmacionVisible; set => SetProperty(ref _confirmacionVisible, value); }
     public string Motivo { get => _motivo; set => SetProperty(ref _motivo, value); }
     public bool HaySiguiente { get => _haySiguiente; private set => SetProperty(ref _haySiguiente, value); }
     public bool HayAnterior => _desplazamiento > 0;
+    public string PaginaTexto => $"Página {_desplazamiento / _tamanoPagina + 1}";
+    public bool MostrarEstadoVacio => !Ocupado && _consultaRealizada && Historial.Count == 0;
+    public bool MostrarEstadoSinSeleccion => Ficha is null;
 
     public FichaVenta? Ficha
     {
@@ -106,12 +128,17 @@ public sealed class VentasConsultaViewModel : ViewModelBase
             if (SetProperty(ref _ficha, value))
             {
                 OnPropertyChanged(nameof(HayFicha));
+                OnPropertyChanged(nameof(MostrarEstadoSinSeleccion));
+                OnPropertyChanged(nameof(EstadoFichaTexto));
                 OnPropertyChanged(nameof(PuedeAnular));
             }
         }
     }
 
     public bool HayFicha => Ficha is not null;
+    public string EstadoFichaTexto => Ficha?.Venta.Estado.Equals("anulada", StringComparison.OrdinalIgnoreCase) == true
+        ? "Anulada"
+        : "Confirmada";
     public bool PuedeAnular => Ficha is not null && !Ficha.Venta.Estado.Equals("anulada", StringComparison.Ordinal);
 
     public FilaHistorialVenta? FilaSeleccionada
@@ -119,8 +146,8 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         get => _filaSeleccionada;
         set
         {
-            if (SetProperty(ref _filaSeleccionada, value) && value is not null)
-                _ = CargarFichaAsync(value.Resumen.Id);
+            if (SetProperty(ref _filaSeleccionada, value) && value is not null && !_seleccionAutomaticaEnCurso)
+                _cargaFichaSeleccionada = CargarFichaAsync(value.Resumen.Id);
         }
     }
 
@@ -133,6 +160,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
             _tamanoPagina = value;
             _desplazamiento = 0;
             OnPropertyChanged(nameof(TamanoPagina));
+            OnPropertyChanged(nameof(PaginaTexto));
             _ = CargarAsync();
         }
     }
@@ -146,9 +174,12 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     public AsyncRelayCommand CancelarAnulacionCommand { get; }
 
     public Task CargarAsyncPublic() => CargarAsync();
+    public Task SiguienteAsyncPublic() => SiguienteAsync();
+    public Task AnteriorAsyncPublic() => AnteriorAsync();
     public Task ConfirmarAnulacionAsyncPublic() => ConfirmarAnulacionAsync();
     public Task VerTicketAsyncPublic() => VerTicketAsync();
     public Task CargarFichaAsyncPublic(string ventaId) => CargarFichaAsync(ventaId);
+    public Task CargarFichaSeleccionadaAsyncPublic() => _cargaFichaSeleccionada;
 
     private async Task CargarAsync()
     {
@@ -157,12 +188,23 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         try
         {
             var lista = await _servicios.ConsultasVentas.BuscarResumenAsync(TextoBusqueda ?? string.Empty, FiltroEstado, _tamanoPagina, _desplazamiento, _idSesion());
+            _consultaRealizada = true;
+            OnPropertyChanged(nameof(MostrarEstadoVacio));
             HaySiguiente = lista.Count > _tamanoPagina;
             Historial.Clear();
             SetProperty(ref _filaSeleccionada, null, nameof(FilaSeleccionada));
             Ficha = null;
             foreach (var r in lista.Take(_tamanoPagina))
                 Historial.Add(new FilaHistorialVenta(r));
+            OnPropertyChanged(nameof(PaginaTexto));
+            if (Historial.Count > 0)
+            {
+                _seleccionAutomaticaEnCurso = true;
+                try { FilaSeleccionada = Historial[0]; }
+                finally { _seleccionAutomaticaEnCurso = false; }
+                _cargaFichaSeleccionada = CargarFichaAsync(Historial[0].Resumen.Id);
+                await _cargaFichaSeleccionada;
+            }
             OnPropertyChanged(nameof(HayAnterior));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
@@ -173,6 +215,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     {
         if (Ocupado || !HaySiguiente) return;
         _desplazamiento += _tamanoPagina;
+        OnPropertyChanged(nameof(PaginaTexto));
         await CargarAsync();
     }
 
@@ -180,6 +223,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     {
         if (Ocupado || _desplazamiento <= 0) return;
         _desplazamiento = Math.Max(0, _desplazamiento - _tamanoPagina);
+        OnPropertyChanged(nameof(PaginaTexto));
         await CargarAsync();
     }
 
@@ -227,6 +271,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         {
             var id = Ficha.Venta.Id;
             await _servicios.CasoAnularVenta.EjecutarAsync(id, Motivo.Trim(), _operacionIdAnulacion, _idSesion());
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Ventas, AreaDatos.Ventas, AreaDatos.Stock, AreaDatos.Caja, AreaDatos.CuentaCorriente);
             Mensaje = $"Venta {Ficha.Venta.Numero} anulada. Stock restituido, historial conservado.";
             ConfirmacionVisible = false;
             Motivo = string.Empty;

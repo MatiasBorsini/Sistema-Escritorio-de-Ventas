@@ -401,6 +401,162 @@ public sealed class RepositorioMercadoPago : IRepositorioMercadoPago
         }
     }
 
+    public async Task<string> InsertarCobroManualAsync(ISesionPersistencia sesion, string operacionId, string ventaId, string pagoId, long importeMinor, string? comprobanteRef, string? terminalId, string? posId, string declaradoEn, string estadoConciliacion, string usuarioId, string cajaSesionId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        ExigirEscritura(s);
+        var id = _ids.NuevoId();
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "INSERT INTO mercado_pago_cobro_manual (id, operacion_id, venta_id, pago_id, importe_minor, comprobante_ref, terminal_id, pos_id, declarado_en, estado_conciliacion, usuario_id, caja_sesion_id, creado_en, actualizado_en) VALUES ($id, $op, $venta, $pago, $importe, $ref, $term, $pos, $declarado, $estado, $usuario, $sesion, $declarado, $declarado);";
+            comando.Parameters.AddWithValue("$id", id);
+            comando.Parameters.AddWithValue("$op", operacionId);
+            comando.Parameters.AddWithValue("$venta", ventaId);
+            comando.Parameters.AddWithValue("$pago", pagoId);
+            comando.Parameters.AddWithValue("$importe", importeMinor);
+            comando.Parameters.AddWithValue("$ref", (object?)comprobanteRef ?? DBNull.Value);
+            comando.Parameters.AddWithValue("$term", (object?)terminalId ?? DBNull.Value);
+            comando.Parameters.AddWithValue("$pos", (object?)posId ?? DBNull.Value);
+            comando.Parameters.AddWithValue("$declarado", declaradoEn);
+            comando.Parameters.AddWithValue("$estado", estadoConciliacion);
+            comando.Parameters.AddWithValue("$usuario", usuarioId);
+            comando.Parameters.AddWithValue("$sesion", cajaSesionId);
+            await comando.ExecuteNonQueryAsync(cancellationToken);
+            return id;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<bool> ExisteCobroManualPorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT 1 FROM mercado_pago_cobro_manual WHERE operacion_id = $op LIMIT 1;";
+            comando.Parameters.AddWithValue("$op", operacionId);
+            return await comando.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<CobroManualMpRegistrado?> ObtenerCobroManualPorVentaAsync(ISesionPersistencia sesion, string ventaId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, operacion_id, venta_id, pago_id, importe_minor, comprobante_ref, terminal_id, pos_id, declarado_en, estado_conciliacion, usuario_id, caja_sesion_id, creado_en, actualizado_en FROM mercado_pago_cobro_manual WHERE venta_id = $venta ORDER BY creado_en DESC LIMIT 1;";
+            comando.Parameters.AddWithValue("$venta", ventaId);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            if (!await lector.ReadAsync(cancellationToken)) return null;
+            return LeerCobroManual(lector);
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<IReadOnlyList<CobroManualMpRegistrado>> ListarCobrosManualesSimilaresAsync(ISesionPersistencia sesion, long importeMinor, string? terminalId, string desdeDeclaradoEn, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            // Sin excluir por estado_conciliacion: un cobro ya conciliado puede
+            // seguir siendo el primero de un duplicado (la conciliación de ese
+            // cobro no dice nada sobre el intento nuevo).
+            comando.CommandText = "SELECT id, operacion_id, venta_id, pago_id, importe_minor, comprobante_ref, terminal_id, pos_id, declarado_en, estado_conciliacion, usuario_id, caja_sesion_id, creado_en, actualizado_en FROM mercado_pago_cobro_manual WHERE importe_minor = $importe AND declarado_en >= $desde AND ($term IS NULL OR terminal_id = $term) ORDER BY declarado_en DESC;";
+            comando.Parameters.AddWithValue("$importe", importeMinor);
+            comando.Parameters.AddWithValue("$desde", desdeDeclaradoEn);
+            comando.Parameters.AddWithValue("$term", (object?)terminalId ?? DBNull.Value);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var lista = new List<CobroManualMpRegistrado>();
+            while (await lector.ReadAsync(cancellationToken)) lista.Add(LeerCobroManual(lector));
+            return lista;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<bool> ExisteCobroManualPorComprobanteAsync(ISesionPersistencia sesion, string comprobanteRef, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT 1 FROM mercado_pago_cobro_manual WHERE comprobante_ref = $ref LIMIT 1;";
+            comando.Parameters.AddWithValue("$ref", comprobanteRef);
+            return await comando.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<CobroManualMpRegistrado?> ObtenerCobroManualPorComprobanteAsync(ISesionPersistencia sesion, string comprobanteRef, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, operacion_id, venta_id, pago_id, importe_minor, comprobante_ref, terminal_id, pos_id, declarado_en, estado_conciliacion, usuario_id, caja_sesion_id, creado_en, actualizado_en FROM mercado_pago_cobro_manual WHERE comprobante_ref = $ref ORDER BY creado_en DESC LIMIT 1;";
+            comando.Parameters.AddWithValue("$ref", comprobanteRef);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            if (!await lector.ReadAsync(cancellationToken)) return null;
+            return LeerCobroManual(lector);
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task ActualizarEstadoConciliacionCobroManualAsync(ISesionPersistencia sesion, string cobroManualId, string estadoConciliacion, string actualizadoEn, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        ExigirEscritura(s);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "UPDATE mercado_pago_cobro_manual SET estado_conciliacion = $estado, actualizado_en = $actualizado WHERE id = $id;";
+            comando.Parameters.AddWithValue("$estado", estadoConciliacion);
+            comando.Parameters.AddWithValue("$actualizado", actualizadoEn);
+            comando.Parameters.AddWithValue("$id", cobroManualId);
+            if (await comando.ExecuteNonQueryAsync(cancellationToken) != 1)
+                throw new InvalidOperationException("El cobro manual no existe.");
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    private static CobroManualMpRegistrado LeerCobroManual(SqliteDataReader lector) => new(
+        lector.GetString(0), lector.GetString(1), lector.GetString(2), lector.GetString(3),
+        lector.GetInt64(4), lector.IsDBNull(5) ? null : lector.GetString(5),
+        lector.IsDBNull(6) ? null : lector.GetString(6), lector.IsDBNull(7) ? null : lector.GetString(7),
+        lector.GetString(8), lector.GetString(9), lector.GetString(10), lector.GetString(11),
+        lector.GetString(12), lector.GetString(13));
+
     private static OperacionMpRegistrada LeerOperacion(SqliteDataReader lector) => new(
         lector.GetString(0), lector.GetString(1), lector.GetString(2), lector.GetString(3),
         lector.IsDBNull(4) ? null : lector.GetString(4), lector.GetString(5), lector.GetInt64(6),

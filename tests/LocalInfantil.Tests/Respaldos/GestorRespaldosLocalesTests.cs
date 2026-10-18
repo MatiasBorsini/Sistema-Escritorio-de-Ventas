@@ -47,7 +47,7 @@ public sealed class GestorRespaldosLocalesTests
             await new MigradorBaseDatos(dbPath).MigrarAsync(MigracionesF01.Todas);await using var writer=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=dbPath,Mode=SqliteOpenMode.ReadWrite,Pooling=false}.ToString());await writer.OpenAsync();
             using(var mode=writer.CreateCommand()){mode.CommandText="PRAGMA journal_mode=WAL;";Assert.Equal("wal",Convert.ToString(await mode.ExecuteScalarAsync()));}
             await using var transaction=await writer.BeginTransactionAsync();using(var insert=writer.CreateCommand()){insert.Transaction=(SqliteTransaction)transaction;insert.CommandText="INSERT INTO usuario(id,nombre,rol,activo,creado_en,huella_contrasena) VALUES('en-escritura','Escritura pendiente','duena',1,'2026-10-05','hash');";await insert.ExecuteNonQueryAsync();}
-            var service=new ServicioRespaldos(new RelojSistema());var created=await service.CrearRespaldoAsync(dbPath,Path.Combine(root,"backups"),Enumerable.Range(1,16).ToArray());Assert.Equal("wal",await ScalarTextAsync(dbPath,"PRAGMA journal_mode;"));Assert.Equal(0,await ScalarAsync(created.Ruta,"SELECT COUNT(*) FROM usuario WHERE id='en-escritura';"));
+            var service=new ServicioRespaldos(new RelojSistema());var created=await service.CrearRespaldoAsync(dbPath,Path.Combine(root,"backups"),Enumerable.Range(1,19).ToArray());Assert.Equal("wal",await ScalarTextAsync(dbPath,"PRAGMA journal_mode;"));Assert.Equal(0,await ScalarAsync(created.Ruta,"SELECT COUNT(*) FROM usuario WHERE id='en-escritura';"));
             await transaction.CommitAsync();Assert.Equal(1,await ScalarAsync(dbPath,"SELECT COUNT(*) FROM usuario WHERE id='en-escritura';"));Assert.Equal(new[]{"ok"},await TextRowsAsync(created.Ruta,"PRAGMA integrity_check;"));
         }
         finally{try{SqliteConnection.ClearAllPools();Directory.Delete(root,true);}catch(IOException){}}
@@ -170,7 +170,7 @@ public sealed class GestorRespaldosLocalesTests
         {
             var manager=new GestorRespaldosLocales(e.Servicios.RutaBaseDatos,Path.Combine(root,"Backups"));var code=manager.CrearCodigoRecuperacion();manager.ConfirmarCodigoRecuperacion(code);
             var backup=await manager.CrearAsync(MotivoRespaldo.Manual);var staged=await manager.PrepararRestauracionAsync(backup.Manifiesto.RutaLocal,code);
-            var dbB=await new LocalInfantil.Infrastructure.Persistence.Respaldos.ServicioRespaldos(new RelojSistema()).RestaurarEnsayoAsync(staged,Path.Combine(root,"DatabaseB"),Enumerable.Range(1,16).ToArray());
+            var dbB=await new LocalInfantil.Infrastructure.Persistence.Respaldos.ServicioRespaldos(new RelojSistema()).RestaurarEnsayoAsync(staged,Path.Combine(root,"DatabaseB"),Enumerable.Range(1,19).ToArray());
             await using var db=new SqliteConnection(new SqliteConnectionStringBuilder{DataSource=dbB,Mode=SqliteOpenMode.ReadOnly,Pooling=false}.ToString());await db.OpenAsync();
             async Task<long> Scalar(string sql){using var cmd=db.CreateCommand();cmd.CommandText=sql;return Convert.ToInt64(await cmd.ExecuteScalarAsync());}
             Assert.Equal(1,await Scalar("SELECT COUNT(*) FROM producto WHERE id='"+product+"';"));Assert.Equal(1,await Scalar("SELECT COUNT(*) FROM variante WHERE id='"+v1+"' AND producto_id='"+product+"';"));

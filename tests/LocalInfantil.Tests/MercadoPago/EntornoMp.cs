@@ -44,17 +44,24 @@ public sealed class EntornoMp : IDisposable
     public ReconciliarMercadoPago Reconciliar { get; }
     public DescubrirTerminales Descubrir { get; }
     public ConfigurarMercadoPago Configurar { get; }
+    public RegistrarCobroManualPoint RegistrarManual { get; }
+    public PrevisualizarImportacionLiquidacionMp Previsualizar { get; }
+    public ImportarLiquidacionMp Importar { get; }
+    public ConciliarLiquidacionMp Conciliar { get; }
     private readonly string _dir;
     private readonly string _ruta;
 
     private EntornoMp(string dir, string ruta, ServiciosComerciales servicios, string sesion, FakeMpHandler fake, CredencialMemoria cred,
         IniciarCobroPoint iniciar, ConsultarCobroPoint consultar, CancelarCobroPoint cancelar, ReembolsarMercadoPago reembolsar,
-        ReconciliarMercadoPago reconciliar, DescubrirTerminales descubrir, ConfigurarMercadoPago configurar)
+        ReconciliarMercadoPago reconciliar, DescubrirTerminales descubrir, ConfigurarMercadoPago configurar, RegistrarCobroManualPoint registrarManual)
     {
         _dir = dir; _ruta = ruta;
         Servicios = servicios; Sesion = sesion; Fake = fake; Credencial = cred;
         Iniciar = iniciar; Consultar = consultar; Cancelar = cancelar; Reembolsar = reembolsar;
-        Reconciliar = reconciliar; Descubrir = descubrir; Configurar = configurar;
+        Reconciliar = reconciliar; Descubrir = descubrir; Configurar = configurar; RegistrarManual = registrarManual;
+        Previsualizar = servicios.CasoPrevisualizarImportacionMp;
+        Importar = servicios.CasoImportarLiquidacionMp;
+        Conciliar = servicios.CasoConciliarLiquidacionMp;
     }
 
     public string RutaDb => _ruta;
@@ -74,6 +81,7 @@ public sealed class EntornoMp : IDisposable
             PermisosCaja.Abrir, PermisosCaja.Cerrar, PermisosCaja.Consultar, PermisosCambios.Registrar,
             PermisosComerciales.ReintegroAutorizar, PermisosComerciales.ReintegroMedioExcepcional,
             PermisosMercadoPago.Configurar,
+            PermisosMercadoPago.Conciliar,
         })
         {
             await servicios.CasoConfigurarPermiso.EjecutarAsync(duenaId, permiso, true, sesion.IdSesion);
@@ -84,18 +92,28 @@ public sealed class EntornoMp : IDisposable
         var http = new HttpClient(fake);
         var cliente = new MercadoPagoPointClient(http);
         var cred = new CredencialMemoria("TEST-TOKEN-FAKE");
-        var config = new AlmacenConfigMercadoPago(dir);
-        config.Guardar(new ConfigMercadoPago("FUTURO_X1__SN000001", "PDV", "S1", "P1", null, null));
+        // Misma configuración que ven los servicios (Secrets/mercadopago.json):
+        // así el POS resuelve la modalidad desde el store compartido.
+        var config = servicios.ConfigMercadoPagoStore;
+        config.Guardar(new ConfigMercadoPago("FUTURO_X1__SN000001", "PDV", "S1", "P1", null, null) { ModoLocalInfantil = ModosPoint.Integrado });
 
         var descubrir = new DescubrirTerminales(cred, cliente, servicios.Autorizador);
-        var configurar = new ConfigurarMercadoPago(cred, config, cliente, servicios.Autorizador, servicios.RepoAuditoria, servicios.Fabrica, servicios.GeneradorIds, servicios.Reloj);
+        var configurar = new ConfigurarMercadoPago(cred, config, servicios.RepoMercadoPago, cliente, servicios.Autorizador, servicios.RepoAuditoria, servicios.Fabrica, servicios.GeneradorIds, servicios.Reloj);
+        var registrarManual = new RegistrarCobroManualPoint(servicios.RepoMercadoPago, config, servicios.CasoConfirmarVenta, servicios.RepoCaja, servicios.Autorizador, servicios.Fabrica, servicios.Reloj);
         var iniciar = new IniciarCobroPoint(servicios.RepoMercadoPago, servicios.RepoVariantes, servicios.RepoProductos, servicios.RepoPrecios, servicios.RepoMovimientos, servicios.RepoApartados, servicios.RepoCaja, cred, config, cliente, servicios.Autorizador, servicios.Fabrica, servicios.GeneradorIds, servicios.Reloj);
         var consultar = new ConsultarCobroPoint(servicios.RepoMercadoPago, servicios.RepoVentas, servicios.CasoConfirmarVenta, cred, cliente, servicios.Fabrica, servicios.Reloj);
         var cancelar = new CancelarCobroPoint(servicios.RepoMercadoPago, cred, cliente, servicios.Fabrica, servicios.Reloj);
         var reembolsar = new ReembolsarMercadoPago(servicios.RepoMercadoPago, servicios.RepoVentas, servicios.RepoPagos, cred, cliente, servicios.Autorizador, servicios.Fabrica, servicios.GeneradorIds, servicios.Reloj);
         var reconciliar = new ReconciliarMercadoPago(servicios.RepoMercadoPago, consultar, cred, cliente, servicios.Fabrica, servicios.Reloj, reembolsar);
 
-        return new EntornoMp(dir, ruta, servicios, sesion.IdSesion, fake, cred, iniciar, consultar, cancelar, reembolsar, reconciliar, descubrir, configurar);
+        return new EntornoMp(dir, ruta, servicios, sesion.IdSesion, fake, cred, iniciar, consultar, cancelar, reembolsar, reconciliar, descubrir, configurar, registrarManual);
+    }
+
+    /// <summary>Cambia la modalidad local persistida (integrado/manual/desactivado).</summary>
+    public void EstablecerModo(string modo)
+    {
+        var actual = Servicios.ConfigMercadoPagoStore.Leer();
+        Servicios.ConfigMercadoPagoStore.Guardar(actual with { ModoLocalInfantil = modo });
     }
 
     /// <summary>Producto con 1 variante (10 u., precio 10000).</summary>
@@ -143,6 +161,21 @@ public sealed class EntornoMp : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
+        // El polling del POS puede seguir usando la DB unos instantes tras el
+        // assert; reintentamos el borrado para no fallar por lock de archivo.
+        for (var intento = 0; intento < 30; intento++)
+        {
+            try
+            {
+                if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
+                return;
+            }
+            catch (IOException) when (intento < 29)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                Thread.Sleep(200);
+            }
+        }
     }
 }

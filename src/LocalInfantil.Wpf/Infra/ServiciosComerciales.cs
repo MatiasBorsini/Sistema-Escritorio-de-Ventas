@@ -28,6 +28,7 @@ namespace LocalInfantil.Wpf.Infra;
 
 public sealed class ServiciosComerciales
 {
+    public NotificadorCambiosDatos NotificadorCambios { get; } = new();
     public string RutaBaseDatos { get; }
     public CoordinadorRespaldos CoordinadorRespaldos { get; }
     public FabricaConexionesSqlite Fabrica { get; }
@@ -118,11 +119,17 @@ public sealed class ServiciosComerciales
     public IMercadoPagoPointClient ClienteMercadoPago { get; }
     public DescubrirTerminales CasoDescubrirTerminales { get; }
     public ConfigurarMercadoPago CasoConfigurarMercadoPago { get; }
+    public RegistrarCobroManualPoint CasoRegistrarCobroManualPoint { get; }
     public IniciarCobroPoint CasoIniciarCobroPoint { get; }
     public ConsultarCobroPoint CasoConsultarCobroPoint { get; }
     public CancelarCobroPoint CasoCancelarCobroPoint { get; }
     public ReembolsarMercadoPago CasoReembolsarMercadoPago { get; }
     public ReconciliarMercadoPago CasoReconciliarMercadoPago { get; }
+    public IRepositorioLiquidacionesMp RepoLiquidacionesMp { get; }
+    public PrevisualizarImportacionLiquidacionMp CasoPrevisualizarImportacionMp { get; }
+    public ImportarLiquidacionMp CasoImportarLiquidacionMp { get; }
+    public ConciliarLiquidacionMp CasoConciliarLiquidacionMp { get; }
+    public ConsultarConciliacionMp ConsultaConciliacionMp { get; }
     public ConfigurarLimiteCredito CasoConfigurarLimiteCredito { get; }
     public RegistrarAbono CasoRegistrarAbono { get; }
     public AjustarCuentaCorriente CasoAjustarCuentaCorriente { get; }
@@ -226,12 +233,18 @@ public sealed class ServiciosComerciales
         var httpMp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         ClienteMercadoPago = new MercadoPagoPointClient(httpMp);
         CasoDescubrirTerminales = new DescubrirTerminales(CredencialMercadoPago, ClienteMercadoPago, Autorizador);
-        CasoConfigurarMercadoPago = new ConfigurarMercadoPago(CredencialMercadoPago, ConfigMercadoPagoStore, ClienteMercadoPago, Autorizador, RepoAuditoria, Fabrica, GeneradorIds, Reloj);
+        CasoConfigurarMercadoPago = new ConfigurarMercadoPago(CredencialMercadoPago, ConfigMercadoPagoStore, RepoMercadoPago, ClienteMercadoPago, Autorizador, RepoAuditoria, Fabrica, GeneradorIds, Reloj);
+        CasoRegistrarCobroManualPoint = new RegistrarCobroManualPoint(RepoMercadoPago, ConfigMercadoPagoStore, CasoConfirmarVenta, RepoCaja, Autorizador, Fabrica, Reloj);
         CasoIniciarCobroPoint = new IniciarCobroPoint(RepoMercadoPago, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, CredencialMercadoPago, ConfigMercadoPagoStore, ClienteMercadoPago, Autorizador, Fabrica, GeneradorIds, Reloj);
         CasoConsultarCobroPoint = new ConsultarCobroPoint(RepoMercadoPago, RepoVentas, CasoConfirmarVenta, CredencialMercadoPago, ClienteMercadoPago, Fabrica, Reloj);
         CasoCancelarCobroPoint = new CancelarCobroPoint(RepoMercadoPago, CredencialMercadoPago, ClienteMercadoPago, Fabrica, Reloj);
         CasoReembolsarMercadoPago = new ReembolsarMercadoPago(RepoMercadoPago, RepoVentas, RepoPagos, CredencialMercadoPago, ClienteMercadoPago, Autorizador, Fabrica, GeneradorIds, Reloj);
         CasoReconciliarMercadoPago = new ReconciliarMercadoPago(RepoMercadoPago, CasoConsultarCobroPoint, CredencialMercadoPago, ClienteMercadoPago, Fabrica, Reloj, CasoReembolsarMercadoPago);
+        RepoLiquidacionesMp = new RepositorioLiquidacionesMp(GeneradorIds);
+        CasoConciliarLiquidacionMp = new ConciliarLiquidacionMp(RepoLiquidacionesMp, RepoMercadoPago, RepoVentas, RepoPagos, Autorizador, Fabrica, Reloj);
+        CasoPrevisualizarImportacionMp = new PrevisualizarImportacionLiquidacionMp(RepoLiquidacionesMp, Autorizador, Fabrica);
+        CasoImportarLiquidacionMp = new ImportarLiquidacionMp(RepoLiquidacionesMp, CasoConciliarLiquidacionMp, Autorizador, Fabrica, Reloj);
+        ConsultaConciliacionMp = new ConsultarConciliacionMp(RepoLiquidacionesMp, Autorizador, Fabrica);
     }
 
     /// <summary>
@@ -245,6 +258,15 @@ public sealed class ServiciosComerciales
         if (dir.Equals(LocalInfantil.Infrastructure.Persistence.Sqlite.RutaBaseDatosProductiva.ObtenerDirDatos(), StringComparison.OrdinalIgnoreCase))
             return LocalInfantil.Infrastructure.Persistence.Sqlite.RutaBaseDatosProductiva.ObtenerDirSecretos();
         return Path.Combine(dir, "Secrets");
+    }
+
+    /// <summary>
+    /// Modalidad efectiva de Point según la configuración no secreta.
+    /// </summary>
+    public string ObtenerModoPoint()
+    {
+        var config = ConfigMercadoPagoStore.Leer();
+        return ModosPoint.Resolver(config.ModoLocalInfantil, config.TerminalId is not null);
     }
 
     public static IReadOnlyList<string> PermisosComercialesConfigurables { get; } =

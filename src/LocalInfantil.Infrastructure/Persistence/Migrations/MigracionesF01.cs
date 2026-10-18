@@ -11,6 +11,10 @@ namespace LocalInfantil.Infrastructure.Persistence.Migrations;
 /// V10: ventas POS. V11: caja y conciliación. V12: cambios/devoluciones F06.
 /// V13: clientes opcionales e instantánea de nombre en ventas F07-T01.
 /// V14: libro de cuenta corriente, límites, abonos, asignaciones y vínculo de reintegros.
+/// V15: índices de reportes F09. V16: saga Point F12. V17: cobro manual Point.
+/// V18: liquidaciones y conciliación de Mercado Pago. V19: identidad de fila
+/// de liquidación por (importación, ordinal) y huella de contenido no única,
+/// reemplazando el dedup global por hash de contenido (D-50).
 /// </summary>
 public static class MigracionesF01
 {
@@ -32,6 +36,9 @@ public static class MigracionesF01
         new(14, "cuenta-corriente-clientes-f07", SqlV14),
         new(15, "reportes-indices-f09", SqlV15),
         new(16, "mercado-pago-point-f12", SqlV16),
+        new(17, "mercado-pago-cobro-manual-f12", SqlV17),
+        new(18, "mercado-pago-liquidaciones-f12", SqlV18),
+        new(19, "mercado-pago-liquidaciones-dedup-f12", SqlV19),
     }.AsReadOnly();
 
     private const string SqlV1 = """
@@ -1261,5 +1268,242 @@ public static class MigracionesF01
               OR NEW.importe_minor >= 0))
           OR (NEW.tipo IN ('cancelacion_deuda','credito_devolucion') AND NEW.venta_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM venta v WHERE v.id=NEW.venta_id AND v.cliente_id=NEW.cliente_id))
         BEGIN SELECT RAISE(ABORT,'el movimiento de cuenta corriente no coincide con sus referencias'); END;
+        """;
+
+    /// <summary>
+    /// V17 (F12-B) puramente aditiva: tabla del cobro manual Point. Registra
+    /// que la empleada cobró en la terminal y DECLARÓ la aprobación observada,
+    /// con su responsable y la sesión de caja. No crea operaciones de saga ni
+    /// estado remoto: la identidad remota queda pendiente de conciliación. Los
+    /// datos base son inmutables (el estado de conciliación podrá actualizarse
+    /// en una etapa posterior) y los registros no se borran.
+    /// </summary>
+    private const string SqlV17 = """
+        CREATE TABLE mercado_pago_cobro_manual (
+            id TEXT PRIMARY KEY,
+            operacion_id TEXT NOT NULL UNIQUE CHECK (trim(operacion_id) <> ''),
+            venta_id TEXT NOT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            pago_id TEXT NOT NULL REFERENCES pago(id) ON DELETE RESTRICT,
+            importe_minor INTEGER NOT NULL CHECK (importe_minor > 0),
+            comprobante_ref TEXT NULL CHECK (comprobante_ref IS NULL OR (trim(comprobante_ref) <> '' AND length(comprobante_ref) <= 64)),
+            terminal_id TEXT NULL,
+            pos_id TEXT NULL,
+            declarado_en TEXT NOT NULL,
+            estado_conciliacion TEXT NOT NULL CHECK (estado_conciliacion IN ('pendiente','conciliada','con_diferencia','no_relacionada','requiere_intervencion')),
+            usuario_id TEXT NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            caja_sesion_id TEXT NOT NULL REFERENCES caja_sesion(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT NOT NULL,
+            CHECK (actualizado_en >= creado_en)
+        );
+        CREATE INDEX ix_mp_cobro_manual_venta ON mercado_pago_cobro_manual(venta_id);
+        CREATE INDEX ix_mp_cobro_manual_pago ON mercado_pago_cobro_manual(pago_id);
+        CREATE INDEX ix_mp_cobro_manual_estado ON mercado_pago_cobro_manual(estado_conciliacion);
+        CREATE TRIGGER trg_mp_cobro_manual_base_inmutable
+        BEFORE UPDATE OF id, operacion_id, venta_id, pago_id, importe_minor, comprobante_ref, declarado_en, usuario_id, caja_sesion_id, creado_en
+        ON mercado_pago_cobro_manual BEGIN SELECT RAISE(ABORT, 'el cobro manual de point no se puede modificar en sus datos base'); END;
+        CREATE TRIGGER trg_mp_cobro_manual_no_borrar BEFORE DELETE ON mercado_pago_cobro_manual BEGIN SELECT RAISE(ABORT, 'el cobro manual de point es historico'); END;
+        """;
+
+    /// <summary>
+    /// V18 (F12-B) puramente aditiva: conciliación financiera del reporte de
+    /// dinero liberado. Guarda cada importación (con hash de archivo), cada
+    /// fila del reporte (deduplicada por hash de contenido) y el vínculo de
+    /// conciliación con la venta/pago/operación/cobro manual. Los datos del
+    /// reporte son inmutables y los registros no se borran: solo el estado de
+    /// conciliación de una liquidación y su vínculo pueden evolucionar.
+    /// </summary>
+    private const string SqlV18 = """
+        CREATE TABLE mercado_pago_importacion (
+            id TEXT PRIMARY KEY,
+            origen TEXT NOT NULL CHECK (origen IN ('archivo')),
+            archivo_nombre TEXT NULL,
+            archivo_hash TEXT NULL CHECK (archivo_hash IS NULL OR (length(archivo_hash) = 64 AND archivo_hash = lower(archivo_hash))),
+            cuenta_mp TEXT NULL,
+            formato_reporte TEXT NULL,
+            zona_horaria TEXT NULL,
+            rango_desde TEXT NULL,
+            rango_hasta TEXT NULL,
+            filas_totales INTEGER NOT NULL DEFAULT 0 CHECK (filas_totales >= 0),
+            filas_aplicadas INTEGER NOT NULL DEFAULT 0 CHECK (filas_aplicadas >= 0),
+            filas_error INTEGER NOT NULL DEFAULT 0 CHECK (filas_error >= 0),
+            estado TEXT NOT NULL CHECK (estado IN ('validado','aplicado','rechazado','parcial')),
+            usuario_id TEXT NOT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX ux_mp_importacion_hash ON mercado_pago_importacion(archivo_hash) WHERE archivo_hash IS NOT NULL;
+        CREATE INDEX ix_mp_importacion_estado ON mercado_pago_importacion(estado);
+        CREATE TRIGGER trg_mp_importacion_base_inmutable
+        BEFORE UPDATE OF id, origen, archivo_nombre, archivo_hash, cuenta_mp, formato_reporte, zona_horaria, rango_desde, rango_hasta, usuario_id, creado_en
+        ON mercado_pago_importacion BEGIN SELECT RAISE(ABORT, 'la importacion no se puede modificar en sus datos base'); END;
+        CREATE TRIGGER trg_mp_importacion_no_borrar BEFORE DELETE ON mercado_pago_importacion BEGIN SELECT RAISE(ABORT, 'la importacion es historica'); END;
+
+        CREATE TABLE mercado_pago_liquidacion (
+            id TEXT PRIMARY KEY,
+            importacion_id TEXT NOT NULL REFERENCES mercado_pago_importacion(id) ON DELETE RESTRICT,
+            fila_hash TEXT NOT NULL UNIQUE CHECK (length(fila_hash) = 64),
+            fuente TEXT NOT NULL CHECK (fuente IN ('archivo')),
+            source_id TEXT NULL,
+            record_type TEXT NOT NULL,
+            descripcion TEXT NOT NULL,
+            clasificacion TEXT NOT NULL CHECK (clasificacion IN ('cobro','devolucion','contracargo','impuesto','pago_fuera_sistema','transferencia','saldo','otro','desconocido')),
+            fecha_transaccion TEXT NULL,
+            fecha TEXT NULL,
+            moneda TEXT NULL,
+            external_reference TEXT NULL,
+            order_mp TEXT NULL,
+            order_id TEXT NULL,
+            gross_minor INTEGER NULL,
+            net_credito_minor INTEGER NULL,
+            net_debito_minor INTEGER NULL,
+            mp_fee_minor INTEGER NULL,
+            financing_fee_minor INTEGER NULL,
+            shipping_fee_minor INTEGER NULL,
+            taxes_minor INTEGER NULL,
+            coupon_minor INTEGER NULL,
+            effective_coupon_minor INTEGER NULL,
+            installments INTEGER NULL,
+            payment_method TEXT NULL,
+            payment_method_type TEXT NULL,
+            pos_id TEXT NULL,
+            poi_id TEXT NULL,
+            store_id TEXT NULL,
+            operation_tags TEXT NULL,
+            metadata_json TEXT NULL,
+            estado_conciliacion TEXT NOT NULL CHECK (estado_conciliacion IN ('pendiente','conciliada','con_diferencia','no_relacionada','requiere_intervencion')),
+            venta_id TEXT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            pago_id TEXT NULL REFERENCES pago(id) ON DELETE RESTRICT,
+            operacion_mp_id TEXT NULL REFERENCES mercado_pago_operacion(id) ON DELETE RESTRICT,
+            cobro_manual_id TEXT NULL REFERENCES mercado_pago_cobro_manual(id) ON DELETE RESTRICT,
+            observacion TEXT NULL,
+            creado_en TEXT NOT NULL
+        );
+        CREATE INDEX ix_mp_liquidacion_importacion ON mercado_pago_liquidacion(importacion_id);
+        CREATE INDEX ix_mp_liquidacion_estado ON mercado_pago_liquidacion(estado_conciliacion);
+        CREATE INDEX ix_mp_liquidacion_external ON mercado_pago_liquidacion(external_reference) WHERE external_reference IS NOT NULL;
+        CREATE INDEX ix_mp_liquidacion_source ON mercado_pago_liquidacion(source_id) WHERE source_id IS NOT NULL;
+        CREATE INDEX ix_mp_liquidacion_order ON mercado_pago_liquidacion(order_id) WHERE order_id IS NOT NULL;
+        CREATE TRIGGER trg_mp_liquidacion_base_inmutable
+        BEFORE UPDATE OF id, importacion_id, fila_hash, fuente, source_id, record_type, descripcion, clasificacion, fecha_transaccion, fecha, moneda, external_reference, order_mp, order_id, gross_minor, net_credito_minor, net_debito_minor, mp_fee_minor, financing_fee_minor, shipping_fee_minor, taxes_minor, coupon_minor, effective_coupon_minor, installments, payment_method, payment_method_type, pos_id, poi_id, store_id, operation_tags, metadata_json, creado_en
+        ON mercado_pago_liquidacion BEGIN SELECT RAISE(ABORT, 'la liquidacion es inmutable en los datos del reporte'); END;
+        CREATE TRIGGER trg_mp_liquidacion_no_borrar BEFORE DELETE ON mercado_pago_liquidacion BEGIN SELECT RAISE(ABORT, 'la liquidacion es historica'); END;
+
+        CREATE TABLE mercado_pago_conciliacion (
+            id TEXT PRIMARY KEY,
+            liquidacion_id TEXT NOT NULL UNIQUE REFERENCES mercado_pago_liquidacion(id) ON DELETE RESTRICT,
+            venta_id TEXT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            pago_id TEXT NULL REFERENCES pago(id) ON DELETE RESTRICT,
+            operacion_mp_id TEXT NULL REFERENCES mercado_pago_operacion(id) ON DELETE RESTRICT,
+            cobro_manual_id TEXT NULL REFERENCES mercado_pago_cobro_manual(id) ON DELETE RESTRICT,
+            tipo_match TEXT NOT NULL CHECK (tipo_match IN ('exacto_external_ref','exacto_payment_id','exacto_order','asistido_humano')),
+            diferencia_detalle TEXT NULL,
+            confirmado_por_usuario_id TEXT NULL REFERENCES usuario(id) ON DELETE RESTRICT,
+            creado_en TEXT NOT NULL
+        );
+        CREATE INDEX ix_mp_conciliacion_venta ON mercado_pago_conciliacion(venta_id) WHERE venta_id IS NOT NULL;
+        CREATE INDEX ix_mp_conciliacion_operacion ON mercado_pago_conciliacion(operacion_mp_id) WHERE operacion_mp_id IS NOT NULL;
+        CREATE INDEX ix_mp_conciliacion_cobro_manual ON mercado_pago_conciliacion(cobro_manual_id) WHERE cobro_manual_id IS NOT NULL;
+        CREATE TRIGGER trg_mp_conciliacion_no_editar BEFORE UPDATE ON mercado_pago_conciliacion BEGIN SELECT RAISE(ABORT, 'la conciliacion es inmutable'); END;
+        CREATE TRIGGER trg_mp_conciliacion_no_borrar BEFORE DELETE ON mercado_pago_conciliacion BEGIN SELECT RAISE(ABORT, 'la conciliacion es historica'); END;
+        """;
+
+    /// <summary>
+    /// V19 (F12-B, D-50) aditiva: reconstruye mercado_pago_liquidacion para
+    /// eliminar el UNIQUE global de fila_hash. La identidad de una fila
+    /// importada pasa a ser (importacion_id, fila_ordinal); fila_hash queda
+    /// como huella de contenido NO única y se agrega identidad_remota (id de
+    /// movimiento del proveedor: SOURCE_ID con prefijo de familia) para
+    /// deduplicar entre reportes solapados sin descartar filas idénticas
+    /// legítimas. Nunca se usa la orden ni la referencia de la venta como
+    /// identidad (se repiten entre movimientos distintos de una misma
+    /// operación). El hijo mercado_pago_conciliacion
+    /// y todos los datos existentes se preservan. Se ejecuta en dos fases con
+    /// FK OFF porque la tabla tiene hijas con FK RESTRICT y triggers de
+    /// borrado; los triggers se recrean con la columna nueva en la lista
+    /// inmutable.
+    /// </summary>
+    private const string SqlV19 = """
+        -- REQUIERE_FK_OFF
+        DROP TRIGGER IF EXISTS trg_mp_liquidacion_base_inmutable;
+        DROP TRIGGER IF EXISTS trg_mp_liquidacion_no_borrar;
+        CREATE TABLE mercado_pago_liquidacion_nueva (
+            id TEXT PRIMARY KEY,
+            importacion_id TEXT NOT NULL REFERENCES mercado_pago_importacion(id) ON DELETE RESTRICT,
+            fila_ordinal INTEGER NOT NULL CHECK (fila_ordinal >= 1),
+            fila_hash TEXT NOT NULL CHECK (length(fila_hash) = 64),
+            identidad_remota TEXT NULL CHECK (identidad_remota IS NULL OR trim(identidad_remota) <> ''),
+            fuente TEXT NOT NULL CHECK (fuente IN ('archivo')),
+            source_id TEXT NULL,
+            record_type TEXT NOT NULL,
+            descripcion TEXT NOT NULL,
+            clasificacion TEXT NOT NULL CHECK (clasificacion IN ('cobro','devolucion','contracargo','impuesto','pago_fuera_sistema','transferencia','saldo','otro','desconocido')),
+            fecha_transaccion TEXT NULL,
+            fecha TEXT NULL,
+            moneda TEXT NULL,
+            external_reference TEXT NULL,
+            order_mp TEXT NULL,
+            order_id TEXT NULL,
+            gross_minor INTEGER NULL,
+            net_credito_minor INTEGER NULL,
+            net_debito_minor INTEGER NULL,
+            mp_fee_minor INTEGER NULL,
+            financing_fee_minor INTEGER NULL,
+            shipping_fee_minor INTEGER NULL,
+            taxes_minor INTEGER NULL,
+            coupon_minor INTEGER NULL,
+            effective_coupon_minor INTEGER NULL,
+            installments INTEGER NULL,
+            payment_method TEXT NULL,
+            payment_method_type TEXT NULL,
+            pos_id TEXT NULL,
+            poi_id TEXT NULL,
+            store_id TEXT NULL,
+            operation_tags TEXT NULL,
+            metadata_json TEXT NULL,
+            estado_conciliacion TEXT NOT NULL CHECK (estado_conciliacion IN ('pendiente','conciliada','con_diferencia','no_relacionada','requiere_intervencion')),
+            venta_id TEXT NULL REFERENCES venta(id) ON DELETE RESTRICT,
+            pago_id TEXT NULL REFERENCES pago(id) ON DELETE RESTRICT,
+            operacion_mp_id TEXT NULL REFERENCES mercado_pago_operacion(id) ON DELETE RESTRICT,
+            cobro_manual_id TEXT NULL REFERENCES mercado_pago_cobro_manual(id) ON DELETE RESTRICT,
+            observacion TEXT NULL,
+            creado_en TEXT NOT NULL
+        );
+        INSERT INTO mercado_pago_liquidacion_nueva
+            (id, importacion_id, fila_ordinal, fila_hash, identidad_remota, fuente, source_id, record_type, descripcion, clasificacion,
+             fecha_transaccion, fecha, moneda, external_reference, order_mp, order_id, gross_minor, net_credito_minor, net_debito_minor,
+             mp_fee_minor, financing_fee_minor, shipping_fee_minor, taxes_minor, coupon_minor, effective_coupon_minor, installments,
+             payment_method, payment_method_type, pos_id, poi_id, store_id, operation_tags, metadata_json, estado_conciliacion,
+             venta_id, pago_id, operacion_mp_id, cobro_manual_id, observacion, creado_en)
+          SELECT id, importacion_id,
+                 ROW_NUMBER() OVER (PARTITION BY importacion_id ORDER BY creado_en, id) AS fila_ordinal,
+                 fila_hash,
+                 CASE
+                     WHEN clasificacion = 'cobro' AND NULLIF(source_id,'') IS NOT NULL
+                         THEN 'C:' || source_id
+                     WHEN clasificacion IN ('devolucion','contracargo') AND NULLIF(source_id,'') IS NOT NULL
+                         THEN 'R:' || source_id
+                     ELSE NULL
+                 END AS identidad_remota,
+                 fuente, source_id, record_type, descripcion, clasificacion,
+                 fecha_transaccion, fecha, moneda, external_reference, order_mp, order_id, gross_minor, net_credito_minor, net_debito_minor,
+                 mp_fee_minor, financing_fee_minor, shipping_fee_minor, taxes_minor, coupon_minor, effective_coupon_minor, installments,
+                 payment_method, payment_method_type, pos_id, poi_id, store_id, operation_tags, metadata_json, estado_conciliacion,
+                 venta_id, pago_id, operacion_mp_id, cobro_manual_id, observacion, creado_en
+            FROM mercado_pago_liquidacion;
+
+        -- FASE_FK_OFF
+        DROP TABLE mercado_pago_liquidacion; ALTER TABLE mercado_pago_liquidacion_nueva RENAME TO mercado_pago_liquidacion;
+        CREATE UNIQUE INDEX ux_mp_liquidacion_import_ordinal ON mercado_pago_liquidacion(importacion_id, fila_ordinal);
+        CREATE INDEX ix_mp_liquidacion_fila_hash ON mercado_pago_liquidacion(fila_hash);
+        CREATE INDEX ix_mp_liquidacion_identidad ON mercado_pago_liquidacion(identidad_remota) WHERE identidad_remota IS NOT NULL;
+        CREATE INDEX ix_mp_liquidacion_importacion ON mercado_pago_liquidacion(importacion_id);
+        CREATE INDEX ix_mp_liquidacion_estado ON mercado_pago_liquidacion(estado_conciliacion);
+        CREATE INDEX ix_mp_liquidacion_external ON mercado_pago_liquidacion(external_reference) WHERE external_reference IS NOT NULL;
+        CREATE INDEX ix_mp_liquidacion_source ON mercado_pago_liquidacion(source_id) WHERE source_id IS NOT NULL;
+        CREATE INDEX ix_mp_liquidacion_order ON mercado_pago_liquidacion(order_id) WHERE order_id IS NOT NULL;
+        CREATE TRIGGER trg_mp_liquidacion_base_inmutable
+        BEFORE UPDATE OF id, importacion_id, fila_ordinal, fila_hash, identidad_remota, fuente, source_id, record_type, descripcion, clasificacion, fecha_transaccion, fecha, moneda, external_reference, order_mp, order_id, gross_minor, net_credito_minor, net_debito_minor, mp_fee_minor, financing_fee_minor, shipping_fee_minor, taxes_minor, coupon_minor, effective_coupon_minor, installments, payment_method, payment_method_type, pos_id, poi_id, store_id, operation_tags, metadata_json, creado_en
+        ON mercado_pago_liquidacion BEGIN SELECT RAISE(ABORT, 'la liquidacion es inmutable en los datos del reporte'); END;
+        CREATE TRIGGER trg_mp_liquidacion_no_borrar BEFORE DELETE ON mercado_pago_liquidacion BEGIN SELECT RAISE(ABORT, 'la liquidacion es historica'); END;
         """;
 }

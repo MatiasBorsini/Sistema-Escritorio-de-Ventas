@@ -52,7 +52,8 @@ public sealed class MigracionV16Tests
         {
             var ruta = await BaseV15ConDatosAsync(dir);
             var dirRespaldos = Path.Combine(dir, "respaldos");
-            var aplicadas = await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, dirRespaldos);
+            var hastaV16 = MigracionesF01.Todas.Where(m => m.Version <= 16).ToList();
+            var aplicadas = await new MigradorBaseDatos(ruta).MigrarAsync(hastaV16, dirRespaldos);
             Assert.Contains(16, aplicadas);
 
             Assert.Equal(1, await ContarAsync(ruta, "SELECT COUNT(*) FROM venta;"));

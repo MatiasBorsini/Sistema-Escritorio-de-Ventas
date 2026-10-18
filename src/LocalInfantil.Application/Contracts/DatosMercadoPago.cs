@@ -74,7 +74,47 @@ public sealed record ConfigMercadoPago(
     string? SucursalId,
     string? PosId,
     string? ConectadoEn,
-    string? UltimaComprobacionUtc);
+    string? UltimaComprobacionUtc)
+{
+    /// <summary>
+    /// Modalidad operativa local de Point (integrado/manual/desactivado).
+    /// Null = sin elección explícita: se resuelve según la configuración
+    /// previa (ver Features.MercadoPago.ModosPoint.Resolver). No confundir
+    /// con ModoTerminal (operating_mode PDV/STANDALONE de la terminal).
+    /// </summary>
+    public string? ModoLocalInfantil { get; init; }
+}
+
+/// <summary>Estado de conciliación de un cobro manual Point.</summary>
+public static class EstadosConciliacionCobroManualMp
+{
+    public const string Pendiente = "pendiente";
+    public const string Conciliada = "conciliada";
+    public const string ConDiferencia = "con_diferencia";
+    public const string NoRelacionada = "no_relacionada";
+    public const string RequiereIntervencion = "requiere_intervencion";
+}
+
+/// <summary>
+/// Cobro manual de Point persistido (lectura): la empleada cobró en la
+/// terminal y registró la aprobación observada. NUNCA representa una
+/// aprobación remota verificada por LocalInfantil.
+/// </summary>
+public sealed record CobroManualMpRegistrado(
+    string Id,
+    string OperacionId,
+    string VentaId,
+    string PagoId,
+    long ImporteMinor,
+    string? ComprobanteRef,
+    string? TerminalId,
+    string? PosId,
+    string DeclaradoEn,
+    string EstadoConciliacion,
+    string UsuarioId,
+    string CajaSesionId,
+    string CreadoEn,
+    string ActualizadoEn);
 
 /// <summary>Operación saga persistida (lectura).</summary>
 public sealed record OperacionMpRegistrada(

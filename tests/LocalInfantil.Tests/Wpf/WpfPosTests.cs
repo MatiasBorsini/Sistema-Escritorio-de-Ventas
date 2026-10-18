@@ -350,7 +350,10 @@ public sealed class WpfPosTests
     private sealed class DialogosVentasFake : IDialogosVentas
     {
         public string? UltimoTicket { get; private set; }
+        public bool ConfirmarDuplicado { get; set; } = true;
+        public int ConsultasDuplicado { get; private set; }
         public void MostrarTicket(string ventaId) => UltimoTicket = ventaId;
+        public bool ConfirmarCobroManualDuplicado(string detalle) { ConsultasDuplicado++; return ConfirmarDuplicado; }
     }
 
     private sealed class EntornoPos : IDisposable
@@ -383,6 +386,9 @@ public sealed class WpfPosTests
             var ruta = Path.Combine(dir, "pos-f04.db");
             await new MigradorBaseDatos(ruta).MigrarAsync();
             var servicios = new ServiciosComerciales(ruta);
+            // F12-B: instalación con terminal ya configurada → modalidad
+            // integrada por defecto (el POS ofrece el cobro Point como antes).
+            servicios.ConfigMercadoPagoStore.Guardar(new ConfigMercadoPago("FUTURO_X1__SN000001", "PDV", null, null, null, null));
             var duenaId = await servicios.CasoCrearUsuario.EjecutarAsync(new NuevoUsuario("duena", RolesLocal.Duena), "clave-duena-000000", null);
             var sesion = await servicios.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
             foreach (var permiso in new[]
