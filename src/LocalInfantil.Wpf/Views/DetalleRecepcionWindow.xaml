@@ -20,6 +20,7 @@
             </DockPanel>
         </Border>
         <StackPanel DockPanel.Dock="Top" Margin="12,8,12,0">
+            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding ComprobanteTexto, StringFormat=Comprobante del proveedor: {0}}" Margin="0,0,0,4"/>
             <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
             <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
             <DockPanel Margin="0,2,0,6">

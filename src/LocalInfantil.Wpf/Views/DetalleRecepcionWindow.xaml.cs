@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 using LocalInfantil.Wpf.ViewModels;
 
@@ -25,4 +25,8 @@ public partial class DetalleRecepcionWindow : Window
         };
     }
 
+    private void DataGrid_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+
+    }
 }

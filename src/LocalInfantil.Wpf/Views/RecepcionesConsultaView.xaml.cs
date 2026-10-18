@@ -1,4 +1,4 @@
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 using System.Windows.Input;
 using LocalInfantil.Wpf.ViewModels;
 
@@ -13,5 +13,10 @@ public partial class RecepcionesConsultaView : UserControl
     {
         if (DataContext is RecepcionesConsultaViewModel vm && vm.FilaSeleccionada is not null)
             vm.AbrirDetalleCommand.Execute(null);
+    }
+
+    private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+
     }
 }

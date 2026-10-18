@@ -33,7 +33,8 @@ public sealed class DetalleRecepcionViewModel : ViewModelBase
     public string? Error { get => _error; set => SetProperty(ref _error, value); }
     public bool Ocupado { get => _ocupado; set => SetProperty(ref _ocupado, value); }
 
-    public string TituloVentana => $"Detalle de recepción · {FilaHistorialRecepcion.ReferenciaDe(Resumen)}";
+    public string TituloVentana => "Detalle de recepción de mercadería";
+    public string ComprobanteTexto => FilaHistorialRecepcion.ReferenciaDe(Resumen);
     public string SubtituloVentana => $"{Resumen.ProveedorNombre} · {FechaTexto}";
     public string FechaTexto => FilaHistorialRecepcion.FechaCorta(Resumen.CreadoEn);
     public long? TotalExacto => Resumen.LineasSinCosto == 0 ? Resumen.TotalMinor : null;

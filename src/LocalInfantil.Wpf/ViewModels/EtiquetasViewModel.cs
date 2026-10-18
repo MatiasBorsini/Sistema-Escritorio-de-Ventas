@@ -11,8 +11,9 @@ public sealed class EtiquetasViewModel : ViewModelBase
     private readonly ServiciosComerciales _servicios;
     private readonly Func<string?> _idSesion;
     private readonly string? _productoId;
-    private readonly IReadOnlyList<string>? _varianteIds;
-    private readonly IReadOnlyDictionary<string, int> _cantidadesIniciales;
+    private IReadOnlyList<string>? _varianteIds;
+    private IReadOnlyDictionary<string, int> _cantidadesIniciales;
+    private string? _recepcionId;
     private string? _error;
     private string? _nombreProducto;
     private bool _mostrarPrecio;
@@ -34,6 +35,16 @@ public sealed class EtiquetasViewModel : ViewModelBase
         _varianteIds = cantidadesPorVarianteId.Keys.ToArray();
         _cantidadesIniciales = cantidadesPorVarianteId;
     }
+
+    private EtiquetasViewModel(ServiciosComerciales servicios, Func<string?> idSesion, string recepcionId, bool desdeRecepcion)
+        : this(servicios, idSesion, string.Empty)
+    {
+        _productoId = null;
+        _recepcionId = recepcionId;
+    }
+
+    public static EtiquetasViewModel ParaRecepcionConfirmada(ServiciosComerciales servicios, Func<string?> idSesion, string recepcionId)
+        => new(servicios, idSesion, recepcionId, desdeRecepcion: true);
 
     public ObservableCollection<FilaEtiquetaViewModel> Filas { get; }
     public string? NombreProducto { get => _nombreProducto; private set => SetProperty(ref _nombreProducto, value); }
@@ -64,6 +75,15 @@ public sealed class EtiquetasViewModel : ViewModelBase
 
     private async Task RecargarDatosAsync(bool preservarCantidades = false)
     {
+        if (_recepcionId is not null)
+        {
+            var lineasPersistidas = await _servicios.ConsultasRecepciones.ListarLineasAsync(_recepcionId, _idSesion());
+            _varianteIds = lineasPersistidas.Select(linea => linea.VarianteId).ToArray();
+            _cantidadesIniciales = lineasPersistidas.ToDictionary(
+                linea => linea.VarianteId,
+                linea => (int)Math.Clamp(linea.Cantidad, 0, int.MaxValue),
+                StringComparer.Ordinal);
+        }
         var previas = preservarCantidades ? Filas.ToDictionary(f => f.Variante.VarianteId, f => f.Cantidad) : null;
         var datos = _varianteIds is null
             ? await _servicios.ConsultasEtiquetas.ListarPorProductoAsync(_productoId!, _idSesion())

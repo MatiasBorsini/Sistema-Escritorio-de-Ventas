@@ -2,6 +2,7 @@ using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
 using Microsoft.Data.Sqlite;
+using System.Globalization;
 
 namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 
@@ -87,6 +88,28 @@ public sealed class RepositorioRecepciones : IRepositorioRecepciones
             comando.CommandText = "SELECT 1 FROM recepcion WHERE operacion_id = $operacion LIMIT 1;";
             comando.Parameters.AddWithValue("$operacion", operacionId);
             return await comando.ExecuteScalarAsync(cancellationToken) is not null;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<RecepcionRegistrada?> ObtenerPorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = "SELECT id, proveedor_id, operacion_id, comprobante_ref, creado_por_usuario_id, creado_en FROM recepcion WHERE operacion_id = $operacion LIMIT 1;";
+            comando.Parameters.AddWithValue("$operacion", operacionId);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            if (!await lector.ReadAsync(cancellationToken)) return null;
+            return new RecepcionRegistrada(
+                lector.GetString(0), lector.GetString(1), lector.GetString(2),
+                lector.IsDBNull(3) ? null : lector.GetString(3),
+                lector.IsDBNull(4) ? null : lector.GetString(4), lector.GetString(5));
         }
         catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
         {
@@ -225,7 +248,15 @@ public sealed class RepositorioRecepciones : IRepositorioRecepciones
         }
     }
 
-    public async Task<IReadOnlyList<ResumenRecepcion>> BuscarResumenAsync(ISesionPersistencia sesion, string texto, string filtro, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ResumenRecepcion>> BuscarResumenAsync(
+        ISesionPersistencia sesion,
+        string texto,
+        string filtro,
+        int limite,
+        int desplazamiento,
+        CancellationToken cancellationToken = default,
+        DateTimeOffset? desdeInclusiveUtc = null,
+        DateTimeOffset? hastaExclusiveUtc = null)
     {
         var s = Sesion(sesion);
         if (limite < 1 || limite > 100)
@@ -263,13 +294,23 @@ public sealed class RepositorioRecepciones : IRepositorioRecepciones
                            EXISTS(SELECT 1 FROM reversion_recepcion rr WHERE rr.recepcion_id = r.id) AS revertida
                     FROM recepcion r JOIN proveedor p ON p.id = r.proveedor_id
                                      LEFT JOIN usuario u ON u.id = r.creado_por_usuario_id
-                    WHERE r.comprobante_ref LIKE $t OR p.nombre LIKE $t
+                    WHERE (r.comprobante_ref LIKE $t OR p.nombre LIKE $t)
+                      AND ($desde IS NULL OR julianday(r.creado_en) >= julianday($desde))
+                      AND ($hasta IS NULL OR julianday(r.creado_en) < julianday($hasta))
                 )
                 WHERE $f = 'todas' OR ($f = 'revertidas' AND revertida = 1) OR ($f = 'confirmadas' AND revertida = 0)
-                ORDER BY creado_en DESC, id DESC LIMIT $limite OFFSET $desplazamiento;
+                ORDER BY julianday(creado_en) DESC, id DESC LIMIT $limite OFFSET $desplazamiento;
                 """;
             comando.Parameters.AddWithValue("$t", $"%{texto.Trim()}%");
             comando.Parameters.AddWithValue("$f", filtro);
+            object parametroDesde = desdeInclusiveUtc is { } desde
+                ? desde.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture)
+                : DBNull.Value;
+            object parametroHasta = hastaExclusiveUtc is { } hasta
+                ? hasta.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture)
+                : DBNull.Value;
+            comando.Parameters.AddWithValue("$desde", parametroDesde);
+            comando.Parameters.AddWithValue("$hasta", parametroHasta);
             comando.Parameters.AddWithValue("$limite", limite + 1);
             comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
             await using var lector = await comando.ExecuteReaderAsync(cancellationToken);

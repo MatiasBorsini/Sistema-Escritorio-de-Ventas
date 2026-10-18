@@ -153,7 +153,22 @@ public sealed class SugerenciasVariantesTests
 
         public void Dispose()
         {
-            if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
+            // Puede quedar una tarea de fondo del ViewModel usando la DB unos
+            // instantes; reintentamos el borrado para no fallar por lock.
+            for (var intento = 0; intento < 30; intento++)
+            {
+                try
+                {
+                    if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
+                    return;
+                }
+                catch (IOException) when (intento < 29)
+                {
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    Thread.Sleep(200);
+                }
+            }
         }
     }
 }

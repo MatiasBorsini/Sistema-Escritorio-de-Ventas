@@ -57,6 +57,8 @@ public sealed class ProveedoresViewModel : ViewModelBase
     public AsyncRelayCommand CancelarDesactivarCommand { get; }
     public AsyncRelayCommand RefrescarCommand { get; }
 
+    public Task CrearAsyncPublic() => CrearAsync();
+
     public async Task CargarAsync()
     {
         if (Ocupado) return;
@@ -78,16 +80,19 @@ public sealed class ProveedoresViewModel : ViewModelBase
         Error = null; Mensaje = null;
         if (string.IsNullOrWhiteSpace(NuevoNombre)) { Error = "Nombre obligatorio."; return; }
         Ocupado = true;
+        var creado = false;
         try
         {
             var id = await _servicios.CasoCrearProveedor.EjecutarAsync(new NuevoProveedor(NuevoNombre.Trim()), _idSesion());
             Mensaje = $"Proveedor creado {id}.";
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Proveedores, AreaDatos.Proveedores, AreaDatos.Recepciones);
             NuevoNombre = string.Empty;
             OnPropertyChanged(nameof(NuevoNombre));
-            await CargarAsync();
+            creado = true;
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
+        if (creado) await CargarAsync();
     }
 
     private async Task EditarAsync()
@@ -96,14 +101,17 @@ public sealed class ProveedoresViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(EdicionNombre)) { Error = "Nombre obligatorio."; return; }
         if (Ocupado) return;
         Error = null; Mensaje = null; Ocupado = true;
+        var editado = false;
         try
         {
             await _servicios.CasoEditarProveedor.EjecutarAsync(Seleccionado.Id, new EdicionProveedor(EdicionNombre.Trim()), _idSesion());
             Mensaje = "Proveedor editado.";
-            await CargarAsync();
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Proveedores, AreaDatos.Proveedores, AreaDatos.Recepciones);
+            editado = true;
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
+        if (editado) await CargarAsync();
     }
 
     public Task SolicitarDesactivarAsyncPublic() => SolicitarDesactivarAsync();
@@ -123,15 +131,18 @@ public sealed class ProveedoresViewModel : ViewModelBase
     {
         if (Seleccionado is null || !ConfirmacionVisible) return;
         Error = null; Mensaje = null; Ocupado = true;
+        var desactivado = false;
         try
         {
             await _servicios.CasoDesactivarProveedor.EjecutarAsync(Seleccionado.Id, _idSesion());
             Mensaje = "Proveedor desactivado (con historial conservado).";
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Proveedores, AreaDatos.Proveedores, AreaDatos.Recepciones);
             ConfirmacionVisible = false; NombrePendiente = null;
-            await CargarAsync();
+            desactivado = true;
         }
         catch (Exception ex) { Error = MensajeError(ex); }
         finally { Ocupado = false; }
+        if (desactivado) await CargarAsync();
     }
 
     private static string MensajeError(Exception ex) => ex is LocalInfantil.Application.Abstractions.AccesoDenegadoException ? "Permiso denegado." : ex is LocalInfantil.Application.Abstractions.SesionInvalidaException ? "Sesión inválida." : ex.Message;
