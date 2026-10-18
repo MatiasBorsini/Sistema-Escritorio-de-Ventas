@@ -137,6 +137,7 @@ public sealed class ClientesViewModel : ViewModelBase
                 await _servicios.CasoEditarCliente.EjecutarAsync(Seleccionado.Id, new EdicionCliente(Nombre, Telefono, Observacion), _idSesion());
             else
                 await _servicios.CasoCrearCliente.EjecutarAsync(new NuevoCliente(Nombre, Telefono, Observacion), _idSesion());
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Clientes, AreaDatos.Clientes);
             Mensaje = _modoEdicion ? "Los datos del cliente se actualizaron." : "El cliente se creó correctamente.";
             FormularioVisible = false; await CargarAsync(true);
         }
@@ -153,6 +154,7 @@ public sealed class ClientesViewModel : ViewModelBase
             Ocupado = true;
             if (Seleccionado.Activo) await _servicios.CasoDesactivarCliente.EjecutarAsync(Seleccionado.Id, _idSesion());
             else await _servicios.CasoDesactivarCliente.ReactivarAsync(Seleccionado.Id, _idSesion());
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Clientes, AreaDatos.Clientes);
             Mensaje = Seleccionado.Activo ? "El cliente se desactivó." : "El cliente se reactivó.";
             ConfirmacionDesactivacionVisible = false;
             await CargarAsync(true);

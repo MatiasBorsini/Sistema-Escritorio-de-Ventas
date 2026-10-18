@@ -59,7 +59,7 @@
                     <ListBox x:Name="Lista" ItemsSource="{Binding Sugerencias}" SelectedIndex="{Binding IndiceActivo, Mode=OneWay}"
                              BorderThickness="0" Background="Transparent" MaxHeight="260"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             PreviewMouseLeftButtonUp="Lista_Click"/>
+                             PreviewMouseDown="Lista_MouseDown"/>
                 </StackPanel>
             </Border>
         </Popup>

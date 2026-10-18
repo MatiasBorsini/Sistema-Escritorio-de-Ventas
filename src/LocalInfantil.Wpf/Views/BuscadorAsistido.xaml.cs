@@ -128,7 +128,9 @@ public partial class BuscadorAsistido : UserControl
 
     private void Caja_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (Motor is null) return;
+        // La sincronización VM→Motor también puede reflejar el texto de vuelta
+        // en Caja. En ese caso no hay una nueva búsqueda que iniciar.
+        if (Motor is null || string.Equals(Caja.Text, Motor.Texto, StringComparison.Ordinal)) return;
         _ = Motor.TextoCambiadoAsync(Caja.Text);
     }
 
@@ -180,7 +182,7 @@ public partial class BuscadorAsistido : UserControl
         }
     }
 
-    private void Lista_Click(object sender, MouseButtonEventArgs e)
+    private void Lista_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (Motor is null) return;
         var origen = e.OriginalSource as DependencyObject;
@@ -196,6 +198,9 @@ public partial class BuscadorAsistido : UserControl
             while (Motor.IndiceActivo < i) Motor.MoverSeleccion(1);
             while (Motor.IndiceActivo > i) Motor.MoverSeleccion(-1);
             Confirmar(Motor.ConfirmarSeleccion());
+            // Confirmar antes de que el foco de la celda/DataGrid cierre el
+            // Popup. El clic ya fue consumido por la selección de la sugerencia.
+            e.Handled = true;
         }
     }
 

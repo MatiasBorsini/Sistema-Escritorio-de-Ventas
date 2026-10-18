@@ -146,8 +146,11 @@ public sealed class VistasSmokeTests
         }
     }
 
-    [Fact]
-    public async Task CajaView_carga_enlaza_y_mide_sin_excepciones()
+    [Theory]
+    [InlineData(1480, 900)]
+    [InlineData(1280, 720)]
+    [InlineData(1024, 576)]
+    public async Task CajaView_carga_enlaza_y_mide_sin_excepciones(int ancho, int alto)
     {
         using var e = await EntornoCaja.CrearAsync();
         var vm = new CajaViewModel(e.Servicios, () => e.Sesion);
@@ -156,6 +159,10 @@ public sealed class VistasSmokeTests
         {
             AsegurarAplicacion();
             var vista = new CajaView { DataContext = vm };
+            vista.Measure(new Size(ancho, alto));
+            vista.Arrange(new Rect(0, 0, ancho, alto));
+            vista.UpdateLayout();
+            Assert.True(vista.ActualWidth <= ancho + 1);
             Medir(vista);
             Assert.Same(vm, vista.DataContext);
 
@@ -239,6 +246,123 @@ public sealed class VistasSmokeTests
             AsegurarAplicacion();
             var vista = (FrameworkElement)Activator.CreateInstance(tipoVista)!;
             Medir(vista);
+        });
+    }
+
+    [Theory]
+    [InlineData(1480, 900)]
+    [InlineData(1280, 720)]
+    [InlineData(1024, 576)]
+    [InlineData(1366, 768)]
+    public void Cambios_mide_en_resoluciones_objetivo_sin_scroll_horizontal(int ancho, int alto)
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new CambiosView();
+            vista.Measure(new Size(ancho, alto));
+            vista.Arrange(new Rect(0, 0, ancho, alto));
+            vista.UpdateLayout();
+
+            Assert.True(vista.ActualWidth <= ancho + 1);
+            Assert.All(Descendientes(vista).OfType<ScrollViewer>(), scroll =>
+                Assert.NotEqual(ScrollBarVisibility.Auto, scroll.HorizontalScrollBarVisibility));
+        });
+    }
+
+    [Theory]
+    [InlineData(1680, 900)]
+    [InlineData(1366, 768)]
+    [InlineData(1280, 720)]
+    public void Recepciones_compacta_encabezado_seleccion_y_ficha_con_shell_y_aviso(int ancho, int alto)
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            // Fixture de presentación: no abre ni escribe una base de datos.
+            var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"recepciones-layout-{Guid.NewGuid():N}.db"));
+            var vm = new RecepcionesConsultaViewModel(servicios, () => null);
+            var resumen = new ResumenRecepcion("id-tecnico", "prov", "Proveedor de prueba", "op", "REM-UX-001", null, "Dueña", "2026-10-17T15:00:00Z", 2, 3, 0, 750000, false);
+            var fila = new FilaHistorialRecepcion(resumen);
+            vm.Historial.Add(fila);
+            vm.Historial.Add(new FilaHistorialRecepcion(resumen with { Id = "otro-id", ComprobanteRef = null }));
+            vm.FilaSeleccionada = fila;
+            vm.LineasDetalle = [new("BUZ-001-01", "M", "Azul", 2, 250000, "ARS"), new("BUZ-001-02", "L", "Azul", 1, 250000, "ARS")];
+            var vista = new RecepcionesConsultaView { DataContext = vm };
+            var shell = new ShellDuenaView { DataContext = new { VistaActual = vista, SeccionActiva = "Mercaderia", HayVentas = true, HayClientes = true, Caja = new { PuedeVer = true }, Identidad = "Dueña de prueba", VersionApp = "Fixture UX" } };
+            var host = new DockPanel();
+            var aviso = new TextBlock { Text = "Modo desarrollo — Base ficticia de prueba", Height = 32 };
+            DockPanel.SetDock(aviso, Dock.Top);
+            host.Children.Add(aviso);
+            host.Children.Add(shell);
+            host.Measure(new Size(ancho, alto));
+            host.Arrange(new Rect(0, 0, ancho, alto));
+            host.UpdateLayout();
+
+            var visuales = Descendientes(vista).ToList();
+            var buscador = Assert.Single(visuales.OfType<TextBox>(), t => (System.Windows.Automation.AutomationProperties.GetName(t) ?? "").StartsWith("Buscar por comprobante"));
+            Assert.Equal(new[] { "Desde, fecha de registro", "Hasta, fecha de registro" },
+                visuales.OfType<DatePicker>()
+                    .Select(System.Windows.Automation.AutomationProperties.GetName)
+                    .OrderBy(nombre => nombre)
+                    .ToArray());
+            var subtitulo = Assert.Single(visuales.OfType<TextBlock>(), t => t.Text == "Historial de ingresos y detalle de mercadería recibida.");
+            var distancia = buscador.TranslatePoint(new Point(), vista).Y - subtitulo.TranslatePoint(new Point(0, subtitulo.ActualHeight), vista).Y;
+            Assert.InRange(distancia, 0, 16);
+            var ficha = Assert.IsType<Border>(vista.FindName("FichaRecepcion"));
+            var cuerpo = Assert.IsType<Grid>(vista.FindName("CuerpoRecepciones"));
+            var scrollDetalle = Assert.IsType<ScrollViewer>(vista.FindName("DetalleSeleccionado"));
+            Assert.True(ficha.ActualHeight <= cuerpo.ActualHeight);
+            // La ficha mide contenido + padding/borde, sin una fila expansiva
+            // que agregue blanco hasta el fondo. No exige un hueco artificial.
+            var marco = ficha.Padding.Top + ficha.Padding.Bottom + ficha.BorderThickness.Top + ficha.BorderThickness.Bottom;
+            if (alto <= 720)
+            {
+                Assert.True(scrollDetalle.ExtentHeight >= scrollDetalle.ViewportHeight);
+                Assert.Equal(ScrollBarVisibility.Disabled, scrollDetalle.HorizontalScrollBarVisibility);
+            }
+            else
+            {
+                Assert.InRange(ficha.ActualHeight - scrollDetalle.ExtentHeight, marco - 2, marco + 2);
+            }
+            var grilla = Assert.IsType<DataGrid>(vista.FindName("Grilla"));
+            Assert.Same(fila, grilla.SelectedItem);
+            var seleccion = Assert.IsType<DataGridRow>(grilla.ItemContainerGenerator.ContainerFromItem(fila));
+            Assert.True(seleccion.IsSelected);
+            Assert.Equal(vista.FindResource("Color.SuccessBgBrush"), seleccion.Background);
+            Assert.Equal(vista.FindResource("Color.BorderSoftBrush"), grilla.HorizontalGridLinesBrush);
+            Assert.Equal(40, grilla.RowHeight);
+            Assert.True(grilla.EnableRowVirtualization);
+            Assert.All(grilla.Columns, c => Assert.True(c.ActualWidth >= c.MinWidth));
+            Assert.Contains(visuales.OfType<TextBlock>(), t => t.Text == "Comprobante del proveedor: REM-UX-001");
+            Assert.Equal(Visibility.Visible, visuales.OfType<TextBox>().Single(t => t.ToolTip?.ToString() == "Indicá el motivo antes de solicitar la reversión").Visibility);
+        });
+    }
+
+    [Fact]
+    public void Recepcion_ajusta_la_grilla_y_encabezados_en_1200x750()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new RecepcionView();
+            vista.Measure(new Size(1200, 750));
+            vista.Arrange(new Rect(0, 0, 1200, 750));
+            vista.UpdateLayout();
+
+            var grilla = Assert.Single(Descendientes(vista).OfType<DataGrid>());
+            Assert.True(vista.ActualWidth <= 1200 + 1);
+            Assert.Equal(8, grilla.Columns.Count);
+            Assert.True(grilla.ActualWidth > 0);
+            Assert.Contains("Stock actual", grilla.Columns.Select(c => c.Header?.ToString()));
+            Assert.Contains("Cantidad recibida", grilla.Columns.Select(c => c.Header?.ToString()));
+            Assert.Contains("Stock después", grilla.Columns.Select(c => c.Header?.ToString()));
+            Assert.Contains("Costo total", grilla.Columns.Select(c => c.Header?.ToString()));
+            Assert.True(grilla.Columns.Single(c => c.Header?.ToString() == "Stock actual").IsReadOnly);
+            Assert.False(grilla.Columns.Single(c => c.Header?.ToString() == "Cantidad recibida").IsReadOnly);
+            Assert.False(grilla.Columns.Single(c => c.Header?.ToString() == "Costo unitario").IsReadOnly);
+            Assert.True(grilla.Columns.Single(c => c.Header?.ToString() == "Stock después").IsReadOnly);
+            Assert.True(grilla.Columns.Single(c => c.Header?.ToString() == "Costo total").IsReadOnly);
         });
     }
 
@@ -353,6 +477,86 @@ public sealed class VistasSmokeTests
         });
     }
 
+    [Fact]
+    public void Buscador_un_clic_sobre_sugerencia_confirma_sin_Enter()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var primera = new SugerenciaVariante("v1", "p", "BUZ-001-01", "Buzo", null, null, "S", "Azul", true);
+            var segunda = new SugerenciaVariante("v2", "p", "BUZ-001-02", "Buzo", null, null, "M", "Azul", true);
+            var motor = new MotorSugerencias<SugerenciaVariante>((_, _) =>
+                    Task.FromResult((IReadOnlyList<SugerenciaVariante>)new[] { primera, segunda }),
+                debounce: TimeSpan.Zero);
+            SugerenciaVariante? seleccionada = null;
+            var control = new BuscadorAsistido
+            {
+                Motor = motor,
+                SeleccionCommand = new RelayCommand(p => seleccionada = p as SugerenciaVariante),
+            };
+            var ventana = new Window { Content = control, Width = 600, Height = 280, ShowInTaskbar = false };
+            try
+            {
+                ventana.Show();
+                ventana.Activate();
+                var caja = Assert.IsType<TextBox>(control.FindName("Caja"));
+                caja.Focus();
+                caja.Text = "buz";
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                var lista = Assert.IsType<ListBox>(control.FindName("Lista"));
+                lista.UpdateLayout();
+                var segundaFila = Assert.IsType<ListBoxItem>(lista.ItemContainerGenerator.ContainerFromIndex(1));
+                var args = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+                {
+                    RoutedEvent = Mouse.PreviewMouseDownEvent,
+                };
+
+                segundaFila.RaiseEvent(args);
+
+                Assert.True(args.Handled);
+                Assert.Same(segunda, seleccionada);
+                Assert.False(motor.Abierto);
+            }
+            finally
+            {
+                ventana.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Buscador_no_reconsulta_al_reflejar_texto_programatico_del_motor()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var consultas = 0;
+            var motor = new MotorSugerencias<SugerenciaVariante>((_, _) =>
+            {
+                consultas++;
+                return Task.FromResult((IReadOnlyList<SugerenciaVariante>)Array.Empty<SugerenciaVariante>());
+            }, debounce: TimeSpan.Zero);
+            var control = new BuscadorAsistido { Motor = motor };
+            var ventana = new Window { Content = control, Width = 500, Height = 160, ShowInTaskbar = false };
+            try
+            {
+                ventana.Show();
+                var caja = Assert.IsType<TextBox>(control.FindName("Caja"));
+                motor.EstablecerTexto("BUZ-001-01");
+                Assert.Equal("BUZ-001-01", caja.Text);
+                Assert.Equal(0, consultas);
+
+                caja.Text = "BUZ-001-02";
+                Assert.Equal(1, consultas);
+            }
+            finally
+            {
+                ventana.Close();
+            }
+        });
+    }
+
     [Theory]
     [InlineData(1366, 768)]
     [InlineData(1200, 750)]
@@ -363,6 +567,9 @@ public sealed class VistasSmokeTests
         {
             AsegurarAplicacion();
             var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"pos-cobro-layout-{Guid.NewGuid():N}.db"));
+            // F12-B: sin modalidad guardada, una terminal configurada deja el
+            // Point en integrado (comportamiento previo a los modos).
+            servicios.ConfigMercadoPagoStore.Guardar(new ConfigMercadoPago("FUTURO_X1__SN000001", "PDV", null, null, null, null));
             var vm = new PosViewModel(servicios, () => null);
             vm.Filas.Add(new FilaVentaViewModel
             {

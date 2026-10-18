@@ -60,6 +60,7 @@ public sealed class CatalogoViewModel : ViewModelBase
     private string? _mensaje;
     private bool _ocupado;
     private ProductoRegistrado? _productoSeleccionado;
+    private bool _suprimirCargaFichaPorSeleccion;
     private FichaProducto? _ficha;
     private string _nuevoProductoNombre = string.Empty;
     private string? _nuevoProductoMarca;
@@ -127,7 +128,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
             if (SetProperty(ref _productoSeleccionado, value))
             {
                 SincronizarFilaSeleccionada();
-                _ = VerFichaAsync();
+                if (!_suprimirCargaFichaPorSeleccion) _ = VerFichaAsync();
             }
         }
     }
@@ -344,6 +345,27 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         _estadoInicializacion = EstadoInicializacion.Inicializada;
     }
 
+    public async Task RefrescarSinPerderSeleccionAsync()
+    {
+        if (Ocupado) return;
+        var productoId = ProductoSeleccionado?.Id;
+        await BuscarAsync();
+        if (productoId is null) { Ficha = null; return; }
+        var fila = Filas.FirstOrDefault(x => x.Producto.Id == productoId);
+        if (fila is null)
+        {
+            _suprimirCargaFichaPorSeleccion = true;
+            try { FilaSeleccionada = null; ProductoSeleccionado = null; }
+            finally { _suprimirCargaFichaPorSeleccion = false; }
+            Ficha = null;
+            return;
+        }
+        _suprimirCargaFichaPorSeleccion = true;
+        try { FilaSeleccionada = fila; }
+        finally { _suprimirCargaFichaPorSeleccion = false; }
+        await VerFichaAsync();
+    }
+
     public static string FormatearArs(long? minor)
     {
         if (minor is null) return "—";
@@ -492,6 +514,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         {
             var catId = await ResolverCategoriaIdAsync(NuevoProductoCategoria);
             var id = await _servicios.CasoCrearProducto.EjecutarAsync(new NuevoProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), catId), _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = "Producto creado.";
             NuevoProductoNombre = string.Empty; NuevoProductoMarca = null; NuevoProductoCategoria = null;
             OnPropertyChanged(nameof(NuevoProductoNombre)); OnPropertyChanged(nameof(NuevoProductoMarca)); OnPropertyChanged(nameof(NuevoProductoCategoria));
@@ -510,6 +533,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         {
             var catId = await ResolverCategoriaIdAsync(NuevoProductoCategoria) ?? ProductoSeleccionado.CategoriaId;
             await _servicios.CasoEditarProducto.EjecutarAsync(ProductoSeleccionado.Id, new EdicionProducto(NuevoProductoNombre.Trim(), NullSiVacio(NuevoProductoMarca), catId), _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = "Producto editado.";
             await BuscarAsync();
             await VerFichaAsync();
@@ -526,6 +550,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         try
         {
             await _servicios.CasoDesactivarProducto.EjecutarAsync(ProductoSeleccionado.Id, _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = "Producto desactivado.";
             await BuscarAsync();
         }
@@ -542,6 +567,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         {
             // Código interno automático: la usuaria no lo escribe.
             var id = await _servicios.CasoCrearVariante.EjecutarAsync(new NuevaVariante(ProductoSeleccionado.Id, NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = "Variante creada (código interno automático).";
             NuevoVarianteTalle = null; NuevoVarianteColor = null;
             OnPropertyChanged(nameof(NuevoVarianteTalle)); OnPropertyChanged(nameof(NuevoVarianteColor));
@@ -560,6 +586,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         try
         {
             await _servicios.CasoEditarVariante.EjecutarAsync(v.Id, new EdicionVariante(NullSiVacio(NuevoVarianteTalle), NullSiVacio(NuevoVarianteColor)), _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = "Variante editada (talle/color). El código interno no se reasigna.";
             await VerFichaAsync();
         }
@@ -576,6 +603,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         try
         {
             await _servicios.CasoDesactivarVariante.EjecutarAsync(v.Id, _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = "Variante desactivada (historial conservado).";
             await VerFichaAsync();
         }
@@ -593,6 +621,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         try
         {
             await _servicios.CasoFijarPrecio.EjecutarAsync(v.Id, minor, _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = $"Precio fijado {FormatearArs(minor)} (historial conservado).";
             await VerFichaAsync();
         }
@@ -646,6 +675,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
         try
         {
             await _servicios.CasoCargarExistenciaInicial.EjecutarAsync(filas, _operacionIdCarga, _idSesion());
+            NotificarCatalogoActualizado();
             Mensaje = $"ESTABLECER EXISTENCIA INICIAL: {filas.Count} variante(s) establecidas. No es recepción ni suma.";
             // Rotar operacion_id solo tras éxito confirmado
             _operacionIdCarga = _servicios.GeneradorIds.NuevoId();
@@ -694,4 +724,7 @@ EjecutarCargaCommand = new AsyncRelayCommand(EjecutarCargaAsync);
             => "Sesión inválida. Iniciá sesión nuevamente.",
         _ => ex.Message,
     };
+
+    private void NotificarCatalogoActualizado()
+        => _servicios.NotificadorCambios.Publicar(this, AreaDatos.Catalogo, AreaDatos.Catalogo, AreaDatos.Stock);
 }

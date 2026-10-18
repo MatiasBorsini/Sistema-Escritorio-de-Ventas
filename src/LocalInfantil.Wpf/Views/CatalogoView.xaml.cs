@@ -1,4 +1,4 @@
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 using System.Windows.Input;
 using LocalInfantil.Wpf.ViewModels;
 
@@ -13,5 +13,10 @@ public partial class CatalogoView : UserControl
     {
         if (DataContext is CatalogoViewModel vm && vm.FilaSeleccionada is not null)
             vm.AbrirFichaCommand.Execute(null);
+    }
+
+    private void BuscadorAsistido_Loaded(object sender, System.Windows.RoutedEventArgs e)
+    {
+
     }
 }

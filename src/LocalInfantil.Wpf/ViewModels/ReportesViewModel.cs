@@ -218,6 +218,23 @@ public sealed class ReportesViewModel : ViewModelBase
     public Task CargarInventarioAsyncPublic() => CargarInventarioAsync();
     public Task CargarCategoriasAsyncPublic() => CargarCategoriasAsync();
 
+    /// <summary>Actualiza solo el reporte visible, sin alterar filtros ni pestaña activa.</summary>
+    public async Task RefrescarPestanaActivaAsync()
+    {
+        switch (TabActiva)
+        {
+            case "Ventas" when PuedeVerVentas:
+                await CargarVentasAsync();
+                break;
+            case "Caja" when PuedeVerCaja:
+                await CargarCajaAsync();
+                break;
+            case "Inventario" when PuedeVerInventario:
+                await CargarInventarioAsync();
+                break;
+        }
+    }
+
     public static string FormatearMinor(long minor)
     {
         var dec = (decimal)minor / 100m;

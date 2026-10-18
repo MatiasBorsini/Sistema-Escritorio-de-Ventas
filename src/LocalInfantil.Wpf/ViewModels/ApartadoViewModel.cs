@@ -207,6 +207,7 @@ public sealed class ApartadoViewModel : ViewModelBase
         try
         {
             await _servicios.CasoApartarStock.EjecutarAsync(Existencia!.VarianteId, cantidad, Motivo.Trim(), _servicios.GeneradorIds.NuevoId(), _idSesion());
+            NotificarStockActualizado();
             Mensaje = $"Apartadas {cantidad} unidades (no vendibles). El total físico no cambió.";
             await RefrescarAsync();
         }
@@ -223,6 +224,7 @@ public sealed class ApartadoViewModel : ViewModelBase
         try
         {
             await _servicios.CasoReincorporarStock.EjecutarAsync(Existencia!.VarianteId, cantidad, Motivo.Trim(), _servicios.GeneradorIds.NuevoId(), _idSesion());
+            NotificarStockActualizado();
             Mensaje = $"Reincorporadas {cantidad} unidades a disponible.";
             await RefrescarAsync();
         }
@@ -255,6 +257,7 @@ public sealed class ApartadoViewModel : ViewModelBase
         try
         {
             await _servicios.CasoBajaDefinitiva.EjecutarAsync(Existencia.VarianteId, cantidad, Motivo.Trim(), _servicios.GeneradorIds.NuevoId(), _idSesion());
+            NotificarStockActualizado();
             Mensaje = $"Baja definitiva de {cantidad} unidades apartadas. Ya no existen físicamente.";
             ConfirmacionBajaVisible = false;
             await RefrescarAsync();
@@ -269,6 +272,9 @@ public sealed class ApartadoViewModel : ViewModelBase
     public Task SolicitarBajaAsyncPublic() => SolicitarBajaAsync();
     public Task CancelarBajaAsyncPublic() => CancelarBajaAsync();
     public Task ConfirmarBajaAsyncPublic() => ConfirmarBajaAsync();
+
+    private void NotificarStockActualizado()
+        => _servicios.NotificadorCambios.Publicar(this, AreaDatos.Stock, AreaDatos.Stock);
 
     private static string MensajeError(Exception ex, string? accion = null) => ex switch
     {

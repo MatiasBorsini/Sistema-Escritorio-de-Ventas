@@ -181,6 +181,25 @@
                         </StackPanel>
                     </Border>
 
+                    <Border x:Name="BloqueModalidad" Style="{StaticResource EstiloTarjeta}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" FontSize="15" Text="Modalidad de cobro" />
+                            <TextBlock Margin="0,2,0,6" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="Elegí cómo cobra el Point en este local. No cambia el modo físico de la terminal." />
+                            <TextBlock Foreground="{StaticResource Color.TextBrush}" Text="{Binding ModoOperativoTexto, StringFormat=Modalidad actual: {0}}" />
+                            <ComboBox Margin="0,8,0,0" Style="{StaticResource EstiloCombo}" ItemsSource="{Binding Modos}"
+                                      SelectedItem="{Binding ModoSeleccionado}" DisplayMemberPath="Texto" />
+                            <WrapPanel Margin="0,8,0,0">
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Guardar modalidad"
+                                        Command="{Binding CambiarModoCommand}" IsEnabled="{Binding PuedeCambiarModo}" />
+                            </WrapPanel>
+                            <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="Si hay cobros pendientes de resolver, el cambio se bloquea hasta resolverlos." />
+                        </StackPanel>
+                    </Border>
+
                     <Border x:Name="BloqueAcciones" Style="{StaticResource EstiloTarjeta}" Margin="0">
                         <StackPanel>
                             <TextBlock Style="{StaticResource EstiloEtiqueta}" FontSize="15" Text="Acciones" />
@@ -204,6 +223,149 @@
                             </Border>
                             <TextBlock Margin="0,8,0,0" FontSize="10" Foreground="{StaticResource Color.TextSecondaryBrush}"
                                        TextWrapping="Wrap" Text="{Binding TerminalDetalle}" ToolTip="Detalle técnico para soporte" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="BloqueConciliacion" Style="{StaticResource EstiloTarjeta}" Margin="0">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" FontSize="15" Text="Conciliación de liquidaciones" />
+                            <TextBlock Margin="0,2,0,8" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="Importá el reporte oficial de Mercado Pago y vinculá cada movimiento con las ventas del local. Ningún vínculo se crea sin confirmación." />
+
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="1. Reporte" />
+                            <WrapPanel Margin="0,4,0,0">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Seleccionar archivo…"
+                                        Command="{Binding Conciliacion.SeleccionarArchivoCommand}" />
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Previsualizar"
+                                        Command="{Binding Conciliacion.PrevisualizarCommand}" IsEnabled="{Binding Conciliacion.PuedePrevisualizar}" />
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Importar reporte"
+                                        Command="{Binding Conciliacion.ImportarCommand}" IsEnabled="{Binding Conciliacion.PuedeImportar}" />
+                            </WrapPanel>
+                            <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Color.TextBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding Conciliacion.NombreArchivo, FallbackValue=Ningún archivo seleccionado., TargetNullValue=Ningún archivo seleccionado.}" />
+                            <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Text="{Binding Conciliacion.ResumenPrevisualizacion}" />
+                            <Border Margin="0,6,0,0" Padding="9" Background="{StaticResource Color.WarningBgBrush}"
+                                    BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="4"
+                                    Visibility="{Binding Conciliacion.YaImportado, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.WarningTextBrush}" TextWrapping="Wrap"
+                                           Text="Este archivo ya fue importado. Volver a aplicarlo no duplica movimientos." />
+                            </Border>
+                            <ItemsControl Margin="0,6,0,0" ItemsSource="{Binding Conciliacion.ErroresPreview}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock FontSize="11" Foreground="{StaticResource Color.ErrorTextBrush}"
+                                                   TextWrapping="Wrap" Text="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Margin="0,12,0,0" Height="1" Background="{StaticResource Color.BorderSoftBrush}" />
+                            <TextBlock Margin="0,8,0,4" Style="{StaticResource EstiloEtiqueta}" Text="2. Pendientes de conciliar" />
+                            <TextBlock Margin="0,0,0,4" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Text="Movimientos importados que todavía no se vincularon a una venta." />
+                            <ListBox x:Name="ListaPendientes" MaxHeight="170" ItemsSource="{Binding Conciliacion.Pendientes}"
+                                     SelectedItem="{Binding Conciliacion.PendienteSeleccionada, Mode=TwoWay}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}"
+                                                           TextTrimming="CharacterEllipsis" Text="{Binding Descripcion}" />
+                                                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                           Text="{Binding ClasificacionTexto, StringFormat={}{0} · }" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock HorizontalAlignment="Right" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Color.TextBrush}"
+                                                           Text="{Binding ImporteMinor, Converter={StaticResource MinorToArs}, TargetNullValue=-}" />
+                                                <TextBlock HorizontalAlignment="Right" FontSize="11"
+                                                           Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                           Text="{Binding EstadoTexto}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Text="{Binding Conciliacion.PendienteSeleccionada.Observacion}"
+                                       Visibility="{Binding Conciliacion.PendienteSeleccionada.Observacion, Converter={StaticResource NullToVisibility}}" />
+                            <WrapPanel Margin="0,6,0,0">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Buscar coincidencias"
+                                        Command="{Binding Conciliacion.BuscarCoincidenciasCommand}" />
+                            </WrapPanel>
+
+                            <TextBlock Margin="0,8,0,4" Style="{StaticResource EstiloEtiqueta}" Text="3. Venta candidata (conciliación asistida)" />
+                            <ListBox x:Name="ListaCandidatos" MaxHeight="150" ItemsSource="{Binding Conciliacion.Candidatos}"
+                                     SelectedItem="{Binding Conciliacion.CandidatoSeleccionado, Mode=TwoWay}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}"
+                                                           Text="{Binding VentaTexto, StringFormat=Venta {0}}" />
+                                                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                           TextWrapping="Wrap" Text="{Binding Detalle}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock HorizontalAlignment="Right" FontSize="12"
+                                                           Foreground="{StaticResource Color.TextBrush}"
+                                                           Text="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}" />
+                                                <TextBlock HorizontalAlignment="Right" FontSize="11"
+                                                           Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                           Text="{Binding FechaTexto}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <WrapPanel Margin="0,6,0,0">
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Conciliar con la venta elegida"
+                                        Command="{Binding Conciliacion.ConciliarCommand}" IsEnabled="{Binding Conciliacion.PuedeConciliar}" />
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Actualizar"
+                                        Command="{Binding Conciliacion.ActualizarCommand}" />
+                            </WrapPanel>
+
+                            <Border Margin="0,12,0,0" Height="1" Background="{StaticResource Color.BorderSoftBrush}" />
+                            <TextBlock Margin="0,8,0,4" Style="{StaticResource EstiloEtiqueta}" Text="Importaciones recientes" />
+                            <ItemsControl ItemsSource="{Binding Conciliacion.Importaciones}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="2,2">
+                                            <TextBlock DockPanel.Dock="Right" FontSize="11"
+                                                       Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding FechaTexto}" />
+                                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Text="{Binding Archivo, StringFormat={}{0} · }" />
+                                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                       Text="{Binding EstadoTexto}" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Margin="0,8,0,0" Padding="9" Background="{StaticResource Color.SuccessBgBrush}"
+                                    BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="4"
+                                    Visibility="{Binding Conciliacion.Mensaje, Converter={StaticResource NullToVisibility}}">
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.SuccessTextBrush}"
+                                           TextWrapping="Wrap" Text="{Binding Conciliacion.Mensaje}" />
+                            </Border>
+                            <Border Margin="0,6,0,0" Padding="9" Background="{StaticResource Color.ErrorBgBrush}"
+                                    BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="4"
+                                    Visibility="{Binding Conciliacion.Error, Converter={StaticResource NullToVisibility}}">
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.ErrorTextBrush}"
+                                           TextWrapping="Wrap" Text="{Binding Conciliacion.Error}" />
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>

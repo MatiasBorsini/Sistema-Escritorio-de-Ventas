@@ -570,6 +570,7 @@ public sealed class ConteoViewModel : ViewModelBase
         try
         {
             await _servicios.CasoCorregirConteo.EjecutarAsync(Seleccionado.Id, cambios, _idSesion());
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Conteos, AreaDatos.Conteos, AreaDatos.Stock);
             ConfirmacionCorreccionVisible = false;
             ModoCorreccion = false;
             LineasCorreccion.Clear();
@@ -632,6 +633,7 @@ public sealed class ConteoViewModel : ViewModelBase
         try
         {
             var id = await _servicios.CasoCrearConteo.EjecutarAsync(filas, _operacionId, _idSesion());
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Conteos, AreaDatos.Conteos);
             Mensaje = $"Borrador creado con {filas.Count} variante(s). Parcial: no elegidas quedan fuera.";
             _operacionId = _servicios.GeneradorIds.NuevoId();
             OnPropertyChanged(nameof(OperacionId));
@@ -662,6 +664,7 @@ public sealed class ConteoViewModel : ViewModelBase
         {
             var opAjustes = _servicios.GeneradorIds.NuevoId();
             await _servicios.CasoAprobarConteo.EjecutarAsync(Seleccionado.Id, opAjustes, _idSesion());
+            _servicios.NotificadorCambios.Publicar(this, AreaDatos.Conteos, AreaDatos.Conteos, AreaDatos.Stock);
             Mensaje = "Conteo aprobado. Diferencias aplicadas como ajustes compensatorios; diferencia cero sin movimiento.";
             ConfirmacionAprobarVisible = false;
             await CargarConteosAsync();

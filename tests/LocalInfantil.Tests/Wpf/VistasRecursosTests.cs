@@ -159,15 +159,9 @@ public sealed class VistasRecursosTests
                 var finCols = texto.IndexOf("</DataGrid.Columns>", idx, StringComparison.Ordinal);
                 if (finCols < 0) continue;
                 var cols = texto.Substring(idx, finCols - idx);
-                foreach (Match c in Regex.Matches(cols, @"Binding=""\{Binding\s+([\w\.]+)([^""]*)"""))
+                foreach (Match c in Regex.Matches(cols, @"<DataGridTextColumn\b[^>]*Binding=""\{Binding\s+([\w\.]+)([^""]*)""[^>]*/?>"))
                 {
-                    var previo = cols.Substring(0, c.Index);
-                    var ultTag = previo.LastIndexOf('<');
-                    var finTag = cols.IndexOf('>', c.Index);
-                    var tagColumna = ultTag >= 0 && finTag > ultTag
-                        ? cols.Substring(ultTag, finTag - ultTag)
-                        : string.Empty;
-                    if (tagColumna.Contains("IsReadOnly=\"True\"")) continue;
+                    if (Regex.IsMatch(c.Value, @"\bIsReadOnly=""True""")) continue;
                     var propCol = c.Groups[1].Value;
                     if (propCol.Contains('.')) continue;
                     var pi = itemTipo.GetProperty(propCol);

@@ -163,7 +163,7 @@ public sealed class CuentaCorrienteViewModel : ViewModelBase
                 if (!FilaPagoViewModel.TryParseArs(LimiteTexto, out var m)) throw new ArgumentException("Ingresá un límite válido o dejalo vacío para deshabilitar el fiado.");
                 limit = m;
             }
-            Ocupado = true; await _s.CasoConfigurarLimiteCredito.EjecutarAsync(Cliente.Id, limit, _sesion()); Mensaje = "El límite del cliente se actualizó."; await CargarAsync();
+            Ocupado = true; await _s.CasoConfigurarLimiteCredito.EjecutarAsync(Cliente.Id, limit, _sesion()); NotificarCuentaActualizada(); Mensaje = "El límite del cliente se actualizó."; await CargarAsync();
         }
         catch (Exception ex) { Error = ex.Message; }
         finally { Ocupado = false; }
@@ -203,7 +203,7 @@ public sealed class CuentaCorrienteViewModel : ViewModelBase
         {
             Ocupado = true;
             var data = new DatosAbono(Cliente.Id, PreviewAbono.ImporteMinor, LeerPagosAbono(), PreviewAbono.Aplicaciones, PreviewAbono.SaldoAnteriorMinor, _s.GeneradorIds.NuevoId(), _sesion());
-            UltimoAbonoId = await _s.CasoRegistrarAbono.EjecutarAsync(data); Mensaje = "El abono quedó registrado."; FormularioAbono = false; PreviewAbono = null; await CargarAsync();
+            UltimoAbonoId = await _s.CasoRegistrarAbono.EjecutarAsync(data); NotificarCuentaActualizada(afectaCaja: true); Mensaje = "El abono quedó registrado."; FormularioAbono = false; PreviewAbono = null; await CargarAsync();
         }
         catch (Exception ex) { Error = ex.Message; }
         finally { Ocupado = false; }
@@ -226,10 +226,14 @@ public sealed class CuentaCorrienteViewModel : ViewModelBase
         try
         {
             if (!FilaPagoViewModel.TryParseArs(ImporteAjuste, out var importe)) return;
-            Ocupado = true; await _s.CasoAjustarCuentaCorriente.EjecutarAsync(new(Cliente.Id, AumentarDeuda, importe, MotivoAjuste, PreviewAjuste.SaldoAnteriorMinor, _s.GeneradorIds.NuevoId(), _sesion()));
+            Ocupado = true; await _s.CasoAjustarCuentaCorriente.EjecutarAsync(new(Cliente.Id, AumentarDeuda, importe, MotivoAjuste, PreviewAjuste.SaldoAnteriorMinor, _s.GeneradorIds.NuevoId(), _sesion())); NotificarCuentaActualizada();
             Mensaje = "El ajuste quedó registrado."; FormularioAjuste = false; PreviewAjuste = null; await CargarAsync();
         }
         catch (Exception ex) { Error = ex.Message; }
         finally { Ocupado = false; }
     }
+
+    private void NotificarCuentaActualizada(bool afectaCaja = false)
+        => _s.NotificadorCambios.Publicar(this, AreaDatos.CuentaCorriente,
+            afectaCaja ? [AreaDatos.CuentaCorriente, AreaDatos.Caja] : [AreaDatos.CuentaCorriente]);
 }
