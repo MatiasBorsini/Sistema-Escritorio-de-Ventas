@@ -65,7 +65,6 @@ public sealed class CajaViewModel : ViewModelBase
         new(MediosCaja.Debito, "Débito"),
         new(MediosCaja.Credito, "Crédito"),
         new(MediosCaja.Billetera, "Billetera virtual"),
-        new(MediosPago.MercadoPago, "Mercado Pago Point"),
     ];
 
     public ICommand AbrirCommand { get; }
@@ -86,7 +85,11 @@ public sealed class CajaViewModel : ViewModelBase
                 _ = CargarDetalleHistoricoAsync(value.Id);
         }
     }
-    public PagoCajaActual? PagoSeleccionado { get => _pagoSeleccionado; set => SetProperty(ref _pagoSeleccionado, value); }
+    public PagoCajaActual? PagoSeleccionado
+    {
+        get => _pagoSeleccionado;
+        set { if (SetProperty(ref _pagoSeleccionado, value)) NotificarCorreccion(); }
+    }
     public ArqueoCiegoViewModel? Arqueo
     {
         get => _arqueo;
@@ -105,14 +108,45 @@ public sealed class CajaViewModel : ViewModelBase
     public bool CajaCerrada => DetalleActual is null;
     public bool SinMovimientos => CajaAbierta && Movimientos.Count == 0;
     public bool SinHistorial => Historial.Count == 0;
+    public bool SinPagosCorregibles => PagosCorregibles.Count == 0;
+    public bool TienePagoSeleccionado => PagoSeleccionado is not null;
+    public bool SinPagoSeleccionado => PagoSeleccionado is null;
+    public bool PuedeConfirmarCorreccion => PuedeCorregir && CajaAbierta && PagoSeleccionado is not null
+        && !Ocupado && string.IsNullOrEmpty(ErrorValidacionCorreccion)
+        && MediosPago.Manuales.Contains(MedioNuevo, StringComparer.Ordinal)
+        && MedioNuevo != PagoSeleccionado.MedioActual;
+    public string ErrorValidacionCorreccion => PagoSeleccionado is null ? string.Empty
+        : !CajaAbierta ? "Abrí una sesión para recibir el ajuste."
+        : PagoSeleccionado.MedioOriginal == MediosPago.MercadoPago || PagoSeleccionado.MedioActual == MediosPago.MercadoPago
+            ? "Mercado Pago Point requiere un flujo remoto y no se corrige aquí."
+        : !MediosPago.Manuales.Contains(MedioNuevo, StringComparer.Ordinal) ? "Elegí una forma de cobro manual válida."
+        : MedioNuevo == PagoSeleccionado.MedioActual ? "Elegí una forma distinta de la forma original."
+        : string.IsNullOrWhiteSpace(MotivoCorreccion) ? "El motivo es obligatorio." : string.Empty;
+    public string SesionOrigenTexto => PagoSeleccionado is null ? string.Empty
+        : $"Sesión original: {NombreUsuario(PagoSeleccionado.UsuarioSesionOriginal)} · {FormatearFechaSesion(PagoSeleccionado.SesionOriginalAbiertaEn)}";
+    public string SesionDestinoTexto => DetalleActual is null ? "No hay una sesión abierta para recibir el ajuste."
+        : $"El ajuste se registrará en esta sesión: {NombreUsuario(DetalleActual.Sesion.UsuarioAperturaNombre)} · {FormatoFecha(DetalleActual.Sesion.AbiertaEn)}";
+    public string ImpactoEfectivoTexto
+    {
+        get
+        {
+            if (PagoSeleccionado is null || DetalleActual?.EfectivoEsperadoMinor is not long esperado)
+                return "El efectivo esperado no cambia hasta confirmar.";
+            var delta = (MedioNuevo == MediosCaja.Efectivo ? PagoSeleccionado.ImporteMinor : 0)
+                - (PagoSeleccionado.MedioActual == MediosCaja.Efectivo ? PagoSeleccionado.ImporteMinor : 0);
+            var nuevo = esperado + delta;
+            var impacto = delta == 0 ? "sin cambios" : delta > 0 ? $"aumenta {PosViewModel.FormatearArs(delta)}" : $"disminuye {PosViewModel.FormatearArs(-delta)}";
+            return $"Efectivo esperado de la sesión abierta: {PosViewModel.FormatearArs(esperado)} → {PosViewModel.FormatearArs(nuevo)} ({impacto}).";
+        }
+    }
     public bool PuedeAbrir { get => _puedeAbrir; private set => SetProperty(ref _puedeAbrir, value); }
     public bool PuedeConsultar { get => _puedeConsultar; private set => SetProperty(ref _puedeConsultar, value); }
     public bool PuedeMover { get => _puedeMover; private set => SetProperty(ref _puedeMover, value); }
     public bool PuedeCerrar { get => _puedeCerrar; private set => SetProperty(ref _puedeCerrar, value); }
     public bool PuedeRetirar { get => _puedeRetirar; private set { if (SetProperty(ref _puedeRetirar, value)) ActualizarCategorias(); } }
-    public bool PuedeCorregir { get => _puedeCorregir; private set => SetProperty(ref _puedeCorregir, value); }
+    public bool PuedeCorregir { get => _puedeCorregir; private set { if (SetProperty(ref _puedeCorregir, value)) NotificarCorreccion(); } }
     public bool PuedeVer => PuedeAbrir || PuedeConsultar || PuedeMover || PuedeCerrar;
-    public bool Ocupado { get => _ocupado; private set => SetProperty(ref _ocupado, value); }
+    public bool Ocupado { get => _ocupado; private set { if (SetProperty(ref _ocupado, value)) NotificarCorreccion(); } }
     public bool HayMasHistorial { get => _hayMasHistorial; private set => SetProperty(ref _hayMasHistorial, value); }
     public string Error { get => _error; private set => SetProperty(ref _error, value); }
     public string Mensaje { get => _mensaje; private set => SetProperty(ref _mensaje, value); }
@@ -127,8 +161,8 @@ public sealed class CajaViewModel : ViewModelBase
     public string MotivoMovimiento { get => _motivoMovimiento; set => SetProperty(ref _motivoMovimiento, value); }
     public string Observacion { get => _observacion; set => SetProperty(ref _observacion, value); }
     public string BusquedaPago { get => _busquedaPago; set => SetProperty(ref _busquedaPago, value); }
-    public string MedioNuevo { get => _medioNuevo; set => SetProperty(ref _medioNuevo, value); }
-    public string MotivoCorreccion { get => _motivoCorreccion; set => SetProperty(ref _motivoCorreccion, value); }
+    public string MedioNuevo { get => _medioNuevo; set { if (SetProperty(ref _medioNuevo, value)) NotificarCorreccion(); } }
+    public string MotivoCorreccion { get => _motivoCorreccion; set { if (SetProperty(ref _motivoCorreccion, value)) NotificarCorreccion(); } }
     public OpcionCategoriaCaja? CategoriaSeleccionada { get => _categoriaSeleccionada; set { if (SetProperty(ref _categoriaSeleccionada, value)) OnPropertyChanged(nameof(EnlaceCategoriaPropietarioVisible)); } }
 
     public string EstadoTexto => CajaAbierta ? "Abierta" : "Cerrada";
@@ -195,6 +229,7 @@ public sealed class CajaViewModel : ViewModelBase
         try
         {
             await _servicios.CasoAbrirCaja.EjecutarAsync(fondo, _servicios.GeneradorIds.NuevoId(), _idSesion());
+            NotificarCajaActualizada();
             Mensaje = "La caja quedó abierta.";
             await CargarAsync();
         }
@@ -213,6 +248,7 @@ public sealed class CajaViewModel : ViewModelBase
         try
         {
             await _servicios.CasoRegistrarMovimientoCaja.EjecutarAsync(CategoriaSeleccionada.Valor, importe, MotivoMovimiento, _servicios.GeneradorIds.NuevoId(), _idSesion());
+            NotificarCajaActualizada();
             ImporteMovimientoTexto = string.Empty; MotivoMovimiento = string.Empty;
             Mensaje = "El movimiento quedó registrado.";
             await CargarAsync();
@@ -243,6 +279,7 @@ public sealed class CajaViewModel : ViewModelBase
         Arqueo = null;
         Mensaje = "La caja quedó cerrada.";
         await CargarAsync();
+        NotificarCajaActualizada();
     }
 
     private async Task BuscarPagosAsync()
@@ -254,7 +291,8 @@ public sealed class CajaViewModel : ViewModelBase
             var lista = await _servicios.ConsultasCaja.BuscarPagosCorregiblesAsync(BusquedaPago, _idSesion());
             PagosCorregibles.Clear();
             foreach (var pago in lista) PagosCorregibles.Add(pago);
-            PagoSeleccionado = PagosCorregibles.FirstOrDefault();
+            PagoSeleccionado = null;
+            OnPropertyChanged(nameof(SinPagosCorregibles));
         }
         catch (Exception ex) { Error = MensajeError(ex); }
     }
@@ -264,11 +302,17 @@ public sealed class CajaViewModel : ViewModelBase
         Error = string.Empty; Mensaje = string.Empty;
         if (!PuedeCorregir) { Error = "No tenés permiso para corregir medios de pago."; return; }
         if (PagoSeleccionado is null) { Error = "Buscá y seleccioná un pago para corregir."; return; }
+        if (!CajaAbierta) { Error = "Abrí una sesión de caja para recibir el ajuste."; return; }
+        if (PagoSeleccionado.MedioOriginal == MediosPago.MercadoPago || PagoSeleccionado.MedioActual == MediosPago.MercadoPago)
+        { Error = "Los cobros de Mercado Pago Point no se pueden reclasificar desde Caja. Requieren un flujo remoto específico."; return; }
+        if (!MediosPago.Manuales.Contains(MedioNuevo, StringComparer.Ordinal)) { Error = "Elegí una forma de cobro manual válida."; return; }
+        if (MedioNuevo == PagoSeleccionado.MedioActual) { Error = "Elegí una forma de cobro distinta del medio original."; return; }
         if (string.IsNullOrWhiteSpace(MotivoCorreccion)) { Error = "El motivo de la corrección es obligatorio."; return; }
         Ocupado = true;
         try
         {
             await _servicios.CasoCorregirMedioPago.EjecutarAsync(PagoSeleccionado.PagoId, MedioNuevo, MotivoCorreccion, _servicios.GeneradorIds.NuevoId(), _idSesion());
+            NotificarCajaActualizada();
             MotivoCorreccion = string.Empty;
             Mensaje = $"Se corrigió el medio del pago de la venta {PagoSeleccionado.NumeroVenta}.";
             await BuscarPagosAsync();
@@ -342,6 +386,7 @@ public sealed class CajaViewModel : ViewModelBase
         OnPropertyChanged(nameof(CompensacionesEfectivoTexto)); OnPropertyChanged(nameof(TransferenciaTexto));
         OnPropertyChanged(nameof(DebitoTexto)); OnPropertyChanged(nameof(CreditoTexto)); OnPropertyChanged(nameof(BilleteraTexto));
         OnPropertyChanged(nameof(PuedeVer));
+        NotificarCorreccion();
     }
 
     private void NotificarImportes()
@@ -352,9 +397,25 @@ public sealed class CajaViewModel : ViewModelBase
         OnPropertyChanged(nameof(DebitoTexto)); OnPropertyChanged(nameof(CreditoTexto)); OnPropertyChanged(nameof(BilleteraTexto));
     }
 
+    private void NotificarCorreccion()
+    {
+        OnPropertyChanged(nameof(TienePagoSeleccionado));
+        OnPropertyChanged(nameof(SinPagoSeleccionado));
+        OnPropertyChanged(nameof(PuedeConfirmarCorreccion));
+        OnPropertyChanged(nameof(ErrorValidacionCorreccion));
+        OnPropertyChanged(nameof(SesionOrigenTexto));
+        OnPropertyChanged(nameof(SesionDestinoTexto));
+        OnPropertyChanged(nameof(ImpactoEfectivoTexto));
+    }
+
     private static string FormatoFecha(string valor)
         => DateTimeOffset.TryParse(valor, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var fecha)
             ? fecha.ToLocalTime().ToString("HH:mm", CultureInfo.GetCultureInfo("es-AR")) : valor;
+
+    private static string FormatearFechaSesion(string? valor)
+        => DateTimeOffset.TryParse(valor, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var fecha)
+            ? fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("es-AR")) : "fecha no disponible";
+    private static string NombreUsuario(string? nombre) => string.IsNullOrWhiteSpace(nombre) ? "usuario no disponible" : nombre;
 
     private static string MensajeError(Exception ex) => ex switch
     {
@@ -362,6 +423,9 @@ public sealed class CajaViewModel : ViewModelBase
         LocalInfantil.Application.Abstractions.SesionInvalidaException => "La sesión venció. Iniciá sesión nuevamente.",
         _ => ex.Message,
     };
+
+    internal void NotificarCajaActualizada()
+        => _servicios.NotificadorCambios.Publicar(this, AreaDatos.Caja, AreaDatos.Caja);
 }
 
 public sealed record OpcionMedioCaja(string Valor, string Texto);
@@ -414,6 +478,7 @@ public sealed class MovimientoCajaViewModel
         };
         return string.IsNullOrWhiteSpace(m.Motivo) ? categoria : $"{categoria} · {m.Motivo}";
     }
+
 }
 
 internal static class ImporteArs

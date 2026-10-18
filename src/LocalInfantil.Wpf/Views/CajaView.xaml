@@ -116,27 +116,64 @@
                                         <Button Grid.Row="4" Grid.Column="1" Content="Registrar movimiento" Command="{Binding RegistrarMovimientoCommand}" Style="{StaticResource EstiloBotonPrimario}" HorizontalAlignment="Left"/>
                                     </Grid>
                                 </TabItem>
-                                <TabItem Header="Corregir medio" IsEnabled="{Binding PuedeCorregir}">
+                                <TabItem Header="Corregir forma de cobro" IsEnabled="{Binding PuedeCorregir}">
                                     <Grid Margin="14">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                            <TextBlock Text="Venta" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBox Width="160" Text="{Binding BusquedaPago, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}"/>
-                                            <Button Content="Buscar pago" Command="{Binding BuscarPagosCommand}" Style="{StaticResource EstiloBotonSecundario}" Margin="8,0,0,0"/>
-                                        </StackPanel>
-                                        <DataGrid Grid.Row="1" ItemsSource="{Binding PagosCorregibles}" SelectedItem="{Binding PagoSeleccionado}" Style="{StaticResource EstiloGrillaOperativa}"
-                                                  IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" CanUserReorderColumns="False">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="Venta" Binding="{Binding NumeroVenta}" Width="120"/>
-                                                <DataGridTextColumn Header="Medio actual" Binding="{Binding MedioActual, Converter={StaticResource CajaTextoHumano}}" Width="*"/>
-                                                <DataGridTextColumn Header="Importe" Binding="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}" Width="140"/>
-                                            </DataGrid.Columns>
-                                        </DataGrid>
-                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                                            <ComboBox ItemsSource="{Binding MediosDisponibles}" DisplayMemberPath="Texto" SelectedValuePath="Valor" SelectedValue="{Binding MedioNuevo}" Style="{StaticResource EstiloCombo}" Width="170"/>
-                                            <TextBox Text="{Binding MotivoCorreccion, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}" Width="220" Margin="8,0" ToolTip="Motivo obligatorio"/>
-                                            <Button Content="Corregir" Command="{Binding CorregirMedioCommand}" Style="{StaticResource EstiloBotonSecundario}"/>
-                                        </StackPanel>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="260"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBlock Text="Buscar venta" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Grid.Column="1" Text="{Binding BusquedaPago, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}"
+                                                     ToolTip="Ingresá el número de venta"/>
+                                            <Button Grid.Column="2" Content="Buscar" Command="{Binding BuscarPagosCommand}" Style="{StaticResource EstiloBotonSecundario}" Margin="8,0,0,0"/>
+                                        </Grid>
+                                        <Grid Grid.Row="1">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.3*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="Seleccioná un pago de la lista para revisar y confirmar la corrección."
+                                                       TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="20"
+                                                       Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                       Visibility="{Binding SinPagoSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
+                                            <DataGrid ItemsSource="{Binding PagosCorregibles}" SelectedItem="{Binding PagoSeleccionado}"
+                                                      Style="{StaticResource EstiloGrillaOperativa}" IsReadOnly="True" AutoGenerateColumns="False"
+                                                      CanUserAddRows="False" CanUserReorderColumns="False" HeadersVisibility="Column"
+                                                      Visibility="{Binding SinPagosCorregibles, Converter={StaticResource BoolToVisibilityInverted}}">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="Venta" Binding="{Binding NumeroVenta}" Width="95"/>
+                                                    <DataGridTextColumn Header="Forma original" Binding="{Binding MedioOriginal, Converter={StaticResource CajaTextoHumano}}" Width="*"/>
+                                                    <DataGridTextColumn Header="Importe" Binding="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}" Width="115"/>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                            <TextBlock Text="Buscá una venta para ver sus pagos. Los cobros de Mercado Pago Point no se pueden reclasificar aquí."
+                                                       TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="18"
+                                                       Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                       Visibility="{Binding SinPagosCorregibles, Converter={StaticResource BoolToVisibility}}"/>
+                                            <Border Grid.Column="1" Margin="12,0,0,0" Padding="14" BorderThickness="1" BorderBrush="{StaticResource Color.BorderBrush}"
+                                                    Background="{StaticResource Color.SurfaceBrush}" CornerRadius="6"
+                                                    Visibility="{Binding TienePagoSeleccionado, Converter={StaticResource BoolToVisibility}}">
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Pago seleccionado" FontSize="16" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding PagoSeleccionado.NumeroVenta, StringFormat=Venta {0}}" Style="{StaticResource EstiloAyuda}" Margin="0,2,0,8"/>
+                                                        <TextBlock Text="Medio original" Style="{StaticResource EstiloEtiqueta}"/>
+                                                        <TextBlock Text="{Binding PagoSeleccionado.MedioOriginal, Converter={StaticResource CajaTextoHumano}}" Margin="0,0,0,7"/>
+                                                        <TextBlock Text="Importe (no cambia)" Style="{StaticResource EstiloEtiqueta}"/>
+                                                        <TextBlock Text="{Binding PagoSeleccionado.ImporteMinor, Converter={StaticResource MinorToArs}}" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                                        <TextBlock Text="Forma de cobro correcta" Style="{StaticResource EstiloEtiqueta}"/>
+                                                        <ComboBox ItemsSource="{Binding MediosDisponibles}" DisplayMemberPath="Texto" SelectedValuePath="Valor"
+                                                                  SelectedValue="{Binding MedioNuevo}" Style="{StaticResource EstiloCombo}"/>
+                                                        <TextBlock Text="Motivo (obligatorio)" Style="{StaticResource EstiloEtiqueta}" Margin="0,7,0,2"/>
+                                                        <TextBox Text="{Binding MotivoCorreccion, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}"
+                                                                 ToolTip="Explicá por qué se corrige la forma de cobro"/>
+                                                        <TextBlock Text="{Binding SesionOrigenTexto}" Style="{StaticResource EstiloAyuda}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                                        <TextBlock Text="{Binding SesionDestinoTexto}" Style="{StaticResource EstiloAyuda}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                        <TextBlock Text="{Binding ImpactoEfectivoTexto}" Style="{StaticResource EstiloAyuda}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                                        <TextBlock Text="{Binding ErrorValidacionCorreccion}" Foreground="{StaticResource Color.ErrorTextBrush}"
+                                                                   TextWrapping="Wrap" Margin="0,5,0,0"/>
+                                                        <Button Content="Confirmar corrección" Click="Corregir_Click" IsEnabled="{Binding PuedeConfirmarCorreccion}"
+                                                                Style="{StaticResource EstiloBotonPrimario}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                                    </StackPanel>
+                                                </ScrollViewer>
+                                            </Border>
+                                        </Grid>
                                     </Grid>
                                 </TabItem>
                             </TabControl>

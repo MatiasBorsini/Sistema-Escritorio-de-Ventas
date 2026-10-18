@@ -17,7 +17,8 @@ public sealed class CorregirMedioPago
     public async Task EjecutarAsync(string pagoId, string medioNuevo, string motivo, string operacionId, string? idSesion, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(pagoId)) throw new ArgumentException("El pago es obligatorio.", nameof(pagoId));
-        if (!MediosPago.Todos.Contains(medioNuevo, StringComparer.Ordinal)) throw new ArgumentException("El medio nuevo no es válido.", nameof(medioNuevo));
+        if (!MediosPago.Manuales.Contains(medioNuevo, StringComparer.Ordinal))
+            throw new ArgumentException("Elegí una forma de cobro manual válida. Mercado Pago Point requiere su flujo remoto y no puede simularse desde Caja.", nameof(medioNuevo));
         if (string.IsNullOrWhiteSpace(motivo)) throw new ArgumentException("El motivo de la corrección es obligatorio.", nameof(motivo));
         AbrirCaja.ExigirOperacion(operacionId);
         if (idSesion is null) throw new SesionInvalidaException();
@@ -30,6 +31,8 @@ public sealed class CorregirMedioPago
         var pago = await _caja.ObtenerPagoActualAsync(tx, pagoId, cancellationToken)
             ?? throw new InvalidOperationException("El pago original no existe.");
         if (pago.EstadoVenta != "confirmada") throw new InvalidOperationException("No se puede corregir el medio de una venta anulada.");
+        if (pago.MedioOriginal == MediosPago.MercadoPago || pago.MedioActual == MediosPago.MercadoPago)
+            throw new InvalidOperationException("Los cobros de Mercado Pago Point no se corrigen desde Caja. Los estados conciliados, pendientes o inciertos requieren un flujo remoto específico.");
         if (pago.Corregido) throw new InvalidOperationException("Este pago ya tiene una corrección. No se admiten cadenas de correcciones.");
         if (pago.MedioActual == medioNuevo) throw new InvalidOperationException("El pago ya está registrado con ese medio.");
         if (pago.MovimientoOriginalId is null)

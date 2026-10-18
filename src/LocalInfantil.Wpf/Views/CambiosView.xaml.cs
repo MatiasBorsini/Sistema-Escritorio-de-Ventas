@@ -1,12 +1,78 @@
 using System.Windows.Controls;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
 using LocalInfantil.Wpf.ViewModels;
 
 namespace LocalInfantil.Wpf.Views;
 
 public partial class CambiosView : UserControl
 {
-    public CambiosView() => InitializeComponent();
+    private bool _restaurandoSeleccion;
+    public CambiosView()
+    {
+        InitializeComponent();
+        Loaded += (_, _) => Dispatcher.BeginInvoke(new Action(() => BuscarVentaTextBox.Focus()), DispatcherPriority.Input);
+    }
+
+    private void VentasListBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || sender is not ListBox { SelectedItem: FilaVentaCambio venta }) return;
+        if (DataContext is CambiosViewModel vm) vm.Venta = venta;
+        if (DataContext is CambiosViewModel { EsModoCambio: true }) CodigoSalidaTextBox.Focus();
+        else EntradasDataGrid.Focus();
+        e.Handled = true;
+    }
+
+    private async void BuscarVentas_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not CambiosViewModel vm) return;
+        if (!ConfirmarPerdidaBorrador(vm)) return;
+        await vm.BuscarAsyncPublic();
+    }
+
+    private void BuscarVentaTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        BuscarVentas_Click(sender, e);
+        e.Handled = true;
+    }
+
+    private void CodigoSalidaTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || DataContext is not CambiosViewModel vm) return;
+        vm.AgregarSalidaCommand.Execute(null);
+        e.Handled = true;
+    }
+
+    private void VentasListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_restaurandoSeleccion || DataContext is not CambiosViewModel vm || sender is not ListBox lista
+            || lista.SelectedItem is not FilaVentaCambio nueva) return;
+        if (!ReferenceEquals(vm.Venta, nueva))
+        {
+            if (!ConfirmarPerdidaBorrador(vm))
+            {
+                _restaurandoSeleccion = true;
+                lista.SelectedItem = vm.Venta;
+                _restaurandoSeleccion = false;
+                return;
+            }
+            vm.Venta = nueva;
+        }
+        ContrasenaDuena.Clear();
+        vm.ContrasenaAutorizanteIngresada = false;
+    }
+
+    private bool ConfirmarPerdidaBorrador(CambiosViewModel vm)
+        => !vm.TieneBorradorOperacion || MessageBox.Show(Window.GetWindow(this),
+            "Hay datos cargados en la operación actual. Si continuás, se perderán. ¿Querés seguir?",
+            "Descartar borrador", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+
+    private void ContrasenaDuena_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is CambiosViewModel vm) vm.ContrasenaAutorizanteIngresada = ContrasenaDuena.Password.Length > 0;
+    }
 
     private async void Confirmar_Click(object sender, System.Windows.RoutedEventArgs e)
     {
@@ -43,9 +109,9 @@ public partial class CambiosView : UserControl
         }
     }
 
-    private async void HistorialItem_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private async void HistorialListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2 || sender is not System.Windows.FrameworkElement { DataContext: LocalInfantil.Application.Contracts.ResumenCambio resumen } || DataContext is not CambiosViewModel vm) return;
+        if (sender is not ListBox { SelectedItem: LocalInfantil.Application.Contracts.ResumenCambio resumen } || DataContext is not CambiosViewModel vm) return;
         var documento = await vm.ObtenerTicketAsync(resumen.Id);
         if (documento is not null) new TicketCambioWindow(documento) { Owner = Window.GetWindow(this) }.ShowDialog();
     }

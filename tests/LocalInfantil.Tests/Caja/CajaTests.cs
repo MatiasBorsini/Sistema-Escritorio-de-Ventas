@@ -8,6 +8,7 @@ using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Infrastructure.Persistence.Migrations;
 using LocalInfantil.Wpf.Infra;
 using LocalInfantil.Wpf.ViewModels;
+using LocalInfantil.Tests.MercadoPago;
 using Microsoft.Data.Sqlite;
 
 namespace LocalInfantil.Tests.Caja;
@@ -290,6 +291,70 @@ public sealed class CajaTests
         await e.Servicios.CasoCorregirMedioPago.EjecutarAsync(venta.PagoId, MediosPago.Debito, "Corrección", e.Op(), e.Sesion);
         await Assert.ThrowsAsync<InvalidOperationException>(() => e.Servicios.CasoCorregirMedioPago.EjecutarAsync(venta.PagoId, MediosPago.Credito, "Segunda", e.Op(), e.Sesion));
         Assert.Equal(1, await e.ContarAsync("pago_correccion"));
+    }
+
+    [Fact]
+    public async Task Correccion_no_permite_Point_como_destino_de_un_pago_manual()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.AbrirAsync(0);
+        var variante = await e.CrearArticuloAsync(1);
+        var venta = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Efectivo, 10000, 10000)]);
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => e.Servicios.CasoCorregirMedioPago
+            .EjecutarAsync(venta.PagoId, MediosPago.MercadoPago, "No simular Point", e.Op(), e.Sesion));
+
+        Assert.Contains("Point", error.Message);
+        Assert.Equal(0, await e.ContarAsync("pago_correccion"));
+        Assert.Equal(1, await e.ContarAsync("caja_movimiento", "tipo = 'venta'"));
+    }
+
+    [Fact]
+    public async Task Correccion_de_pago_anterior_informa_sesion_destino_e_impacto_de_efectivo()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.AbrirAsync(0);
+        var variante = await e.CrearArticuloAsync(1);
+        var venta = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Debito, 10000, null)]);
+        await e.CerrarAsync(0, null);
+        await e.AbrirAsync(5000);
+        var vm = new CajaViewModel(e.Servicios, () => e.Sesion);
+        await vm.CargarAsyncPublic();
+        await vm.BuscarPagosAsyncPublic();
+
+        var pago = Assert.Single(vm.PagosCorregibles);
+        vm.PagoSeleccionado = pago;
+        vm.MedioNuevo = MediosPago.Efectivo;
+        vm.MotivoCorreccion = "Se cobró en efectivo";
+
+        Assert.NotEqual(vm.DetalleActual!.Sesion.Id, pago.SesionOriginalId);
+        Assert.Contains("Sesión original", vm.SesionOrigenTexto);
+        Assert.Contains("esta sesión", vm.SesionDestinoTexto);
+        Assert.Contains("aumenta ARS 100,00", vm.ImpactoEfectivoTexto);
+        Assert.True(vm.PuedeConfirmarCorreccion);
+    }
+
+    [Fact]
+    public async Task Pago_Point_no_aparece_como_corregible_y_se_bloquea_en_application()
+    {
+        using var e = await EntornoMp.CrearAsync();
+        var (_, variante, precio) = await e.CatalogoConStockAsync();
+        e.ResponderTerminales();
+        e.ResponderCrearOrden();
+        var operacion = await e.Iniciar.EjecutarAsync(
+            [new NuevaLineaVenta(variante, 1, precio)],
+            [new NuevoPago(MediosPago.MercadoPago, precio, null)], e.Sesion);
+        e.ResponderOrden("ORD-CAJA-1", "processed");
+        var confirmacion = await e.Consultar.EjecutarAsync(operacion, e.Sesion);
+        var pago = Assert.Single((await e.Servicios.ConsultasVentas.ObtenerFichaAsync(confirmacion.VentaId!, e.Sesion))!.Pagos);
+
+        Assert.Empty(await e.Servicios.ConsultasCaja.BuscarPagosCorregiblesAsync(string.Empty, e.Sesion));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => e.Servicios.CasoCorregirMedioPago
+            .EjecutarAsync(pago.Id, MediosPago.Efectivo, "No reclasificar Point", "op-point-caja-block", e.Sesion));
+
+        Assert.Contains("Mercado Pago Point", error.Message);
+        var pagoActual = Assert.Single((await e.Servicios.ConsultasVentas.ObtenerFichaAsync(confirmacion.VentaId!, e.Sesion))!.Pagos);
+        Assert.Equal(MediosPago.MercadoPago, pagoActual.Medio);
     }
 
     [Fact]

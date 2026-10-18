@@ -117,7 +117,10 @@ public sealed record PagoCajaActual(
     string MedioActual,
     long ImporteMinor,
     bool Corregido,
-    string? MovimientoOriginalId);
+    string? MovimientoOriginalId,
+    string? SesionOriginalId = null,
+    string? SesionOriginalAbiertaEn = null,
+    string? UsuarioSesionOriginal = null);
 
 public sealed record ResultadoCierreCaja(
     string SesionId,

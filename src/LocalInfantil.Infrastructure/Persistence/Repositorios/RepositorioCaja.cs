@@ -236,11 +236,15 @@ public sealed class RepositorioCaja : IRepositorioCaja
         if (limite is < 1 or > 50) throw new ArgumentOutOfRangeException(nameof(limite));
         var s = Sesion(sesion);
         using var cmd = CrearComando(s, """
-            SELECT p.id, p.venta_id, v.numero, v.estado, p.medio, p.medio, p.importe_minor, 0, mo.id
+            SELECT p.id, p.venta_id, v.numero, v.estado, p.medio, p.medio, p.importe_minor, 0, mo.id,
+                   cs.id, cs.abierta_en, u.nombre
             FROM pago p
             JOIN venta v ON v.id = p.venta_id
             JOIN caja_movimiento mo ON mo.pago_id = p.id AND mo.tipo = 'venta'
+            JOIN caja_sesion cs ON cs.id = mo.sesion_id
+            LEFT JOIN usuario u ON u.id = cs.usuario_id
             WHERE v.estado = 'confirmada'
+              AND p.medio <> 'mercado_pago'
               AND NOT EXISTS (SELECT 1 FROM pago_correccion pc WHERE pc.pago_id = p.id)
               AND v.numero LIKE $filtro || '%'
             ORDER BY v.creada_en DESC, v.numero DESC, p.id
@@ -296,9 +300,12 @@ public sealed class RepositorioCaja : IRepositorioCaja
     private const string SelectPagoActual = """
         SELECT p.id, p.venta_id, v.numero, v.estado, p.medio, COALESCE(pc.medio_nuevo, p.medio),
                p.importe_minor, (pc.pago_id IS NOT NULL),
-               (SELECT m.id FROM caja_movimiento m WHERE m.pago_id = p.id AND m.tipo = 'venta' ORDER BY m.creado_en, m.id LIMIT 1)
+               mo.id, cs.id, cs.abierta_en, u.nombre
         FROM pago p JOIN venta v ON v.id = p.venta_id
         LEFT JOIN pago_correccion pc ON pc.pago_id = p.id
+        LEFT JOIN caja_movimiento mo ON mo.pago_id = p.id AND mo.tipo = 'venta'
+        LEFT JOIN caja_sesion cs ON cs.id = mo.sesion_id
+        LEFT JOIN usuario u ON u.id = cs.usuario_id
         """;
 
     private static SesionCajaRegistrada LeerSesion(SqliteDataReader r) => new(
@@ -306,7 +313,7 @@ public sealed class RepositorioCaja : IRepositorioCaja
         N(r, 7), N(r, 8), N(r, 9), L(r, 10), L(r, 11), L(r, 12), N(r, 13), r.GetString(14), N(r, 15));
 
     private static PagoCajaActual LeerPago(SqliteDataReader r) => new(
-        r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetString(5), r.GetInt64(6), r.GetInt64(7) == 1, N(r, 8));
+        r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4), r.GetString(5), r.GetInt64(6), r.GetInt64(7) == 1, N(r, 8), N(r, 9), N(r, 10), N(r, 11));
 
     private static string? N(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetString(i);
     private static long? L(SqliteDataReader r, int i) => r.IsDBNull(i) ? null : r.GetInt64(i);
