@@ -318,10 +318,12 @@ public sealed class CajaTests
         var venta = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Debito, 10000, null)]);
         await e.CerrarAsync(0, null);
         await e.AbrirAsync(5000);
+        await e.Servicios.CasoConfigurarPermiso.EjecutarAsync(e.DuenaId, PermisosCaja.CorregirMedio, true, e.Sesion);
         var vm = new CajaViewModel(e.Servicios, () => e.Sesion);
         await vm.CargarAsyncPublic();
         await vm.BuscarPagosAsyncPublic();
-
+        var ventaSugerida = Assert.Single(vm.VentasSugeridas);
+        await vm.SeleccionarVentaSugeridaAsyncPublic(ventaSugerida);
         var pago = Assert.Single(vm.PagosCorregibles);
         vm.PagoSeleccionado = pago;
         vm.MedioNuevo = MediosPago.Efectivo;
@@ -348,6 +350,11 @@ public sealed class CajaTests
         var confirmacion = await e.Consultar.EjecutarAsync(operacion, e.Sesion);
         var pago = Assert.Single((await e.Servicios.ConsultasVentas.ObtenerFichaAsync(confirmacion.VentaId!, e.Sesion))!.Pagos);
 
+        var sugerencia = Assert.Single(await e.Servicios.ConsultasCaja.BuscarVentasParaCorreccionAsync(string.Empty, e.Sesion));
+        Assert.Equal(confirmacion.VentaId, sugerencia.VentaId);
+        Assert.True(sugerencia.SoloPoint);
+        Assert.False(sugerencia.TienePagosCorregibles);
+
         Assert.Empty(await e.Servicios.ConsultasCaja.BuscarPagosCorregiblesAsync(string.Empty, e.Sesion));
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => e.Servicios.CasoCorregirMedioPago
             .EjecutarAsync(pago.Id, MediosPago.Efectivo, "No reclasificar Point", "op-point-caja-block", e.Sesion));
@@ -355,6 +362,89 @@ public sealed class CajaTests
         Assert.Contains("Mercado Pago Point", error.Message);
         var pagoActual = Assert.Single((await e.Servicios.ConsultasVentas.ObtenerFichaAsync(confirmacion.VentaId!, e.Sesion))!.Pagos);
         Assert.Equal(MediosPago.MercadoPago, pagoActual.Medio);
+    }
+
+    [Fact]
+    public async Task Busqueda_asistida_de_caja_acepta_ticket_parcial_producto_y_excluye_anuladas()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.AbrirAsync(0);
+        await e.Servicios.CasoConfigurarPermiso.EjecutarAsync(e.DuenaId, PermisosCaja.CorregirMedio, true, e.Sesion);
+        var variante = await e.CrearArticuloAsync(2);
+        var elegible = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Transferencia, 10000, null)]);
+        var anulada = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Efectivo, 10000, 10000)]);
+        await e.Servicios.CasoAnularVenta.EjecutarAsync(anulada.VentaId, "Venta duplicada de prueba", e.Op(), e.Sesion);
+
+        var recientes = await e.Servicios.ConsultasCaja.BuscarVentasParaCorreccionAsync(string.Empty, e.Sesion);
+        Assert.Contains(recientes, x => x.VentaId == elegible.VentaId);
+        Assert.DoesNotContain(recientes, x => x.VentaId == anulada.VentaId);
+
+        var porTicket = await e.Servicios.ConsultasCaja.BuscarVentasParaCorreccionAsync(elegible.Numero[^3..], e.Sesion);
+        Assert.Contains(porTicket, x => x.VentaId == elegible.VentaId);
+        var porProducto = await e.Servicios.ConsultasCaja.BuscarVentasParaCorreccionAsync("renda caja", e.Sesion);
+        Assert.Contains(porProducto, x => x.VentaId == elegible.VentaId);
+        Assert.Empty(await e.Servicios.ConsultasCaja.BuscarVentasParaCorreccionAsync("sin coincidencias", e.Sesion));
+        Assert.Contains("transferencia", Assert.Single(porTicket).MediosPago);
+    }
+
+    [Fact]
+    public async Task Seleccionar_venta_carga_sus_pagos_sin_corregir_y_editar_busqueda_limpia_el_contexto()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.AbrirAsync(0);
+        await e.Servicios.CasoConfigurarPermiso.EjecutarAsync(e.DuenaId, PermisosCaja.CorregirMedio, true, e.Sesion);
+        var variante = await e.CrearArticuloAsync(1);
+        var venta = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Transferencia, 10000, null)]);
+        var vm = new CajaViewModel(e.Servicios, () => e.Sesion);
+        await vm.CargarAsyncPublic();
+        await vm.BuscarPagosAsyncPublic();
+        var sugerencia = Assert.Single(vm.VentasSugeridas);
+
+        await vm.SeleccionarVentaSugeridaAsyncPublic(sugerencia);
+
+        var pago = Assert.Single(vm.PagosCorregibles);
+        Assert.Equal(venta.PagoId, pago.PagoId);
+        Assert.True(vm.SugerenciasVentasAbiertas is false);
+        Assert.Equal(0, await e.ContarAsync("pago_correccion"));
+        Assert.Null(vm.PagoSeleccionado);
+
+        vm.BusquedaPago = "sin coincidencias";
+        Assert.Null(vm.VentaCorreccionSeleccionada);
+        Assert.Null(vm.PagoSeleccionado);
+        Assert.Empty(vm.PagosCorregibles);
+        await vm.BuscarPagosAsyncPublic();
+        Assert.Empty(vm.VentasSugeridas);
+    }
+
+    [Fact]
+    public async Task Busqueda_reactiva_rapida_y_borrado_muestran_solo_la_consulta_mas_reciente()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.AbrirAsync(0);
+        await e.Servicios.CasoConfigurarPermiso.EjecutarAsync(e.DuenaId, PermisosCaja.CorregirMedio, true, e.Sesion);
+        var variante = await e.CrearArticuloAsync(1);
+        var venta = await e.VenderAsync(variante, [new NuevoPago(MediosPago.Efectivo, 10000, 10000)]);
+        var vm = new CajaViewModel(e.Servicios, () => e.Sesion);
+        await vm.CargarAsyncPublic();
+
+        vm.BusquedaPago = "no existe";
+        vm.BusquedaPago = venta.Numero[^3..];
+        await EsperarBusquedaVentasAsync(vm);
+        Assert.Collection(vm.VentasSugeridas, item => Assert.Equal(venta.VentaId, item.VentaId));
+
+        vm.BusquedaPago = "sin coincidencias";
+        await EsperarBusquedaVentasAsync(vm);
+        Assert.Empty(vm.VentasSugeridas);
+        vm.LimpiarBusquedaVentas();
+        await EsperarBusquedaVentasAsync(vm);
+        Assert.Contains(vm.VentasSugeridas, item => item.VentaId == venta.VentaId);
+    }
+
+    private static async Task EsperarBusquedaVentasAsync(CajaViewModel vm)
+    {
+        var limite = DateTime.UtcNow.AddSeconds(5);
+        while (vm.BuscandoVentas && DateTime.UtcNow < limite) await Task.Delay(10);
+        Assert.False(vm.BuscandoVentas, "La búsqueda reactiva no finalizó dentro del plazo controlado.");
     }
 
     [Fact]

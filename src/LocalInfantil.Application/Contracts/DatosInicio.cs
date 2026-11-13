@@ -21,4 +21,16 @@ public sealed record ActividadInicio(string Descripcion, string? Referencia, lon
         }
     }
 }
-public sealed record ResumenInicio(IReadOnlySet<string> AccionesPermitidas, int ConteosPendientes, ResumenInventarioInicio Inventario, IReadOnlyList<ActividadInicio> Actividad);
+/// <summary>Ventas del día local (importes en minor). NetoMinor ya descuenta anulaciones y cambios.</summary>
+public sealed record VentasDelDiaInicio(long NetoMinor, int CantidadVentas);
+
+/// <summary>Última recepción confirmada registrada (dato real, sin ventana temporal inventada).</summary>
+public sealed record RecepcionRecienteInicio(string ProveedorNombre, long Unidades, string CreadoEn);
+
+public sealed record ResumenInicio(
+    IReadOnlySet<string> AccionesPermitidas,
+    int ConteosPendientes,
+    ResumenInventarioInicio Inventario,
+    IReadOnlyList<ActividadInicio> Actividad,
+    VentasDelDiaInicio? VentasDelDia = null,
+    RecepcionRecienteInicio? RecepcionReciente = null);

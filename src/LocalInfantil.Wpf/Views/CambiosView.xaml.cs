@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.Windows.Controls;
 using System.Windows;
 using System.Windows.Input;
@@ -9,39 +10,70 @@ namespace LocalInfantil.Wpf.Views;
 public partial class CambiosView : UserControl
 {
     private bool _restaurandoSeleccion;
+    private CambiosViewModel? _vm;
     public CambiosView()
     {
         InitializeComponent();
-        Loaded += (_, _) => Dispatcher.BeginInvoke(new Action(() => BuscarVentaTextBox.Focus()), DispatcherPriority.Input);
+        DataContextChanged += (_, _) => EnlazarViewModel();
+        Loaded += async (_, _) =>
+        {
+            _ = Dispatcher.BeginInvoke(new Action(() => BuscarVentaTextBox.Focus()), DispatcherPriority.Input);
+            if (DataContext is CambiosViewModel vm) await vm.BuscarAsyncPublic();
+        };
+    }
+
+    private void EnlazarViewModel()
+    {
+        if (_vm is not null)
+        {
+            _vm.Ventas.CollectionChanged -= Ventas_CollectionChanged;
+            _vm.PropertyChanged -= Vm_PropertyChanged;
+        }
+        _vm = DataContext as CambiosViewModel;
+        if (_vm is not null)
+        {
+            _vm.Ventas.CollectionChanged += Ventas_CollectionChanged;
+            _vm.PropertyChanged += Vm_PropertyChanged;
+        }
+    }
+
+    private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CambiosViewModel.Venta)) SincronizarSeleccionVenta();
+    }
+
+    private void Ventas_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => SincronizarSeleccionVenta();
+
+    private void SincronizarSeleccionVenta()
+    {
+        // La búsqueda reactiva reconstruye la lista preservando la identidad de
+        // las filas; devolvemos la selección visual a la venta en curso sin
+        // cambiar la venta del borrador. También refleja la autoselección de la
+        // primera venta que decide el ViewModel.
+        if (_vm?.Venta is null || ReferenceEquals(VentasListBox.SelectedItem, _vm.Venta)) return;
+        _restaurandoSeleccion = true;
+        VentasListBox.SelectedItem = _vm.Venta;
+        _restaurandoSeleccion = false;
     }
 
     private void VentasListBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || sender is not ListBox { SelectedItem: FilaVentaCambio venta }) return;
         if (DataContext is CambiosViewModel vm) vm.Venta = venta;
-        if (DataContext is CambiosViewModel { EsModoCambio: true }) CodigoSalidaTextBox.Focus();
-        else EntradasDataGrid.Focus();
+        EnfocarOperacion();
         e.Handled = true;
     }
 
     private async void BuscarVentas_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not CambiosViewModel vm) return;
-        if (!ConfirmarPerdidaBorrador(vm)) return;
         await vm.BuscarAsyncPublic();
     }
 
-    private void BuscarVentaTextBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter) return;
-        BuscarVentas_Click(sender, e);
-        e.Handled = true;
-    }
-
-    private void CodigoSalidaTextBox_KeyDown(object sender, KeyEventArgs e)
+    private async void BuscarVentaTextBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || DataContext is not CambiosViewModel vm) return;
-        vm.AgregarSalidaCommand.Execute(null);
+        await vm.BuscarAsyncPublic();
         e.Handled = true;
     }
 
@@ -60,8 +92,12 @@ public partial class CambiosView : UserControl
             }
             vm.Venta = nueva;
         }
-        ContrasenaDuena.Clear();
-        vm.ContrasenaAutorizanteIngresada = false;
+    }
+
+    private void EnfocarOperacion()
+    {
+        if (DataContext is CambiosViewModel { EsModoCambio: true }) BuscadorArticulo.EnfocarBuscador();
+        else EntradasDataGrid.Focus();
     }
 
     private bool ConfirmarPerdidaBorrador(CambiosViewModel vm)
@@ -69,23 +105,28 @@ public partial class CambiosView : UserControl
             "Hay datos cargados en la operación actual. Si continuás, se perderán. ¿Querés seguir?",
             "Descartar borrador", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
 
-    private void ContrasenaDuena_PasswordChanged(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is CambiosViewModel vm) vm.ContrasenaAutorizanteIngresada = ContrasenaDuena.Password.Length > 0;
-    }
-
-    private async void Confirmar_Click(object sender, System.Windows.RoutedEventArgs e)
+    private async void Continuar_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not CambiosViewModel vm) return;
+        var owner = Window.GetWindow(this);
+        var confirmacion = new ConfirmarCambioWindow(vm) { Owner = owner };
+        confirmacion.ConfirmarOperacionAsync = contrasena => ConfirmarOperacionAsync(vm, confirmacion, contrasena);
+        // El comprobante se abre contra la ventana que contiene la vista: la
+        // modal ya está cerrada y WPF rechaza asignarla como Owner.
+        if (confirmacion.ShowDialog() == true)
+            await MostrarComprobanteSiNuevoAsync(vm, owner);
+    }
+
+    private async Task<bool> ConfirmarOperacionAsync(CambiosViewModel vm, Window? owner, string? contrasenaAutorizante)
+    {
         var cambioPrevio = vm.CambioIdReciente;
-        var passwordInicial = vm.RequiereAutorizacionPresencial ? ContrasenaDuena.Password : null;
-        var resultado = await vm.ConfirmarAsync(passwordInicial);
+        var resultado = await vm.ConfirmarAsync(contrasenaAutorizante);
         if (resultado is LocalInfantil.Application.Contracts.ResultadoCambio.DecisionCuentaRequerida deuda)
         {
-            var decision = MessageBox.Show(Window.GetWindow(this),
+            var decision = MessageBox.Show(owner,
                 $"La venta original todavía tiene una deuda pendiente de {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(deuda.DeudaVentaMinor)}.\nEl crédito de la devolución es {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(deuda.CreditoDevolucionMinor)}.\n\n¿Aplicar el crédito a la deuda? Elegí No para reintegrarlo.",
                 "Decisión de cuenta corriente", MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
-            if (decision == MessageBoxResult.Cancel) return;
+            if (decision == MessageBoxResult.Cancel) return false;
             var aplicar = decision == MessageBoxResult.Yes;
             var decisionCuenta = aplicar ? LocalInfantil.Application.Contracts.DecisionCuentaCorrienteCambio.AplicarADeuda : LocalInfantil.Application.Contracts.DecisionCuentaCorrienteCambio.Reintegrar;
             resultado = await vm.ConfirmarAsync(decisionCuenta: decisionCuenta, deudaEsperadaMinor: deuda.DeudaVentaMinor);
@@ -93,26 +134,45 @@ public partial class CambiosView : UserControl
         if (resultado is LocalInfantil.Application.Contracts.ResultadoCambio.ConfirmacionCuenta preview)
         {
             var texto = $"Deuda de la venta antes: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.DeudaAnteriorMinor)}\nCrédito de la devolución: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.CreditoMinor)}\nAplicar a deuda: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.AplicarMinor)}\nDeuda posterior: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.DeudaPosteriorMinor)}\nReintegro en caja: {LocalInfantil.Wpf.ViewModels.PosViewModel.FormatearArs(preview.ReintegrarMinor)}";
-            if (MessageBox.Show(Window.GetWindow(this), texto + "\n\n¿Confirmar esta decisión?", "Confirmar devolución", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
-            var passwordFinal = preview.ReintegrarMinor > 0 && vm.RequiereAutorizacionPresencial ? ContrasenaDuena.Password : null;
-            ContrasenaDuena.Clear();
+            if (MessageBox.Show(owner, texto + "\n\n¿Confirmar esta decisión?", "Confirmar devolución", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return false;
+            var passwordFinal = preview.ReintegrarMinor > 0 && vm.RequiereAutorizacionPresencial ? contrasenaAutorizante : null;
             resultado = await vm.ConfirmarAsync(passwordFinal, preview.Decision, true, preview.DeudaAnteriorMinor);
         }
-        else
-        {
-            ContrasenaDuena.Clear();
-        }
-        if (!string.IsNullOrWhiteSpace(vm.CambioIdReciente) && vm.CambioIdReciente != cambioPrevio)
+        return !string.IsNullOrWhiteSpace(vm.CambioIdReciente) && vm.CambioIdReciente != cambioPrevio;
+    }
+
+    private static async Task MostrarComprobanteSiNuevoAsync(CambiosViewModel vm, Window? owner)
+    {
+        if (string.IsNullOrWhiteSpace(vm.CambioIdReciente)) return;
+        try
         {
             var documento = await vm.ObtenerTicketAsync(vm.CambioIdReciente);
-            if (documento is not null) new TicketCambioWindow(documento) { Owner = Window.GetWindow(this) }.ShowDialog();
+            if (documento is not null) new TicketCambioWindow(documento) { Owner = owner }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            // La operación ya quedó registrada: se informa y no se pierde el shell.
+            MessageBox.Show(owner,
+                $"El cambio quedó registrado, pero no se pudo abrir el comprobante: {ex.Message}\n\nFigura en el historial de cambios y devoluciones.",
+                "Comprobante no disponible", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
     private async void HistorialListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not ListBox { SelectedItem: LocalInfantil.Application.Contracts.ResumenCambio resumen } || DataContext is not CambiosViewModel vm) return;
-        var documento = await vm.ObtenerTicketAsync(resumen.Id);
-        if (documento is not null) new TicketCambioWindow(documento) { Owner = Window.GetWindow(this) }.ShowDialog();
+        if (sender is not DataGrid { SelectedItem: LocalInfantil.Application.Contracts.ResumenCambio resumen } lista
+            || ItemsControl.ContainerFromElement(lista, e.OriginalSource as DependencyObject) is not DataGridRow
+            || DataContext is not CambiosViewModel vm) return;
+        var owner = Window.GetWindow(this);
+        try
+        {
+            var documento = await vm.ObtenerTicketAsync(resumen.Id);
+            if (documento is not null) new TicketCambioWindow(documento) { Owner = owner }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(owner, $"No se pudo abrir el comprobante: {ex.Message}", "Comprobante no disponible",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 }

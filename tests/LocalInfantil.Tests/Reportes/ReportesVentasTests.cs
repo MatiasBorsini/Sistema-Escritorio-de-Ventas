@@ -201,6 +201,31 @@ public sealed class ReportesVentasTests
     }
 
     [Fact]
+    public async Task Detalle_clasifica_devolucion_y_cambio_por_sus_salidas_persistidas()
+    {
+        using var e = await EntornoReportes.CrearAsync(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));
+        await e.AbrirCajaAsync();
+        var (_, v1, v2) = await e.CatalogoConStockAsync();
+        var venta = Assert.IsType<ResultadoConfirmacionVenta.Confirmada>(await e.ConfirmarVenta.EjecutarAsync(
+            [new(v1, 2, 10000)], [new(MediosPago.Efectivo, 20000, 20000)], "op-rv-tipo-venta", e.Sesion));
+        var ficha = (await e.Ventas.ObtenerFichaAsync(venta.VentaId, e.Sesion))!;
+
+        var devolucion = Assert.IsType<ResultadoCambio.Registrado>(await e.RegistrarCambio.EjecutarAsync(new DatosCambio(
+            venta.VentaId, [new(ficha.Lineas[0].Id, 1, true, null)], [], [],
+            MediosPago.Efectivo, "Devolución sin artículos nuevos", "op-rv-tipo-dev", e.Sesion), default));
+        var cambio = Assert.IsType<ResultadoCambio.Registrado>(await e.RegistrarCambio.EjecutarAsync(new DatosCambio(
+            venta.VentaId, [new(ficha.Lineas[0].Id, 1, true, null)], [new(v2, 1, 12000)],
+            [new(MediosPago.Efectivo, 2000, 2000)], MediosPago.Efectivo, "Cambio de talle", "op-rv-tipo-cambio", e.Sesion), default));
+
+        var (d, h) = Rango(new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30));
+        var detalle = await e.Reportes.DetalleVentasAsync(d, h, 20, 0, e.Sesion);
+
+        Assert.Contains(detalle, f => f.Tipo == "devolucion" && f.Referencia == devolucion.Numero && f.AjustesMinor == -10000);
+        Assert.Contains(detalle, f => f.Tipo == "cambio" && f.Referencia == cambio.Numero);
+        Assert.DoesNotContain(detalle, f => f.Tipo == "devolucion" && f.Referencia == cambio.Numero);
+    }
+
+    [Fact]
     public async Task Ajustes_positivos_por_salidas_superiores()
     {
         using var e = await EntornoReportes.CrearAsync(new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero));

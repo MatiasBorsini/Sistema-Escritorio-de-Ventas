@@ -76,7 +76,7 @@ public sealed record FilaStockActual(
     };
 }
 
-/// <summary>Ranking por variante con columnas brutas/devueltas/salidas/netas.</summary>
+/// <summary>Ranking por variante con brutas, anuladas, devueltas, salidas y netas.</summary>
 public sealed record RankingVenta(
     string? ProductoId,
     string CodigoInterno,
@@ -85,9 +85,19 @@ public sealed record RankingVenta(
     string? Talle,
     string? Color,
     long BrutasUnidades,
+    long AnuladasUnidades,
     long DevueltasUnidades,
     long SalidasCambioUnidades,
-    long NetasUnidades);
+    long NetasUnidades)
+{
+    public string TalleColor => (Talle, Color) switch
+    {
+        (null, null) => "—",
+        (null, var c) => c!,
+        (var t, null) => t!,
+        (var t, var c) => $"{t} · {c}",
+    };
+}
 
 /// <summary>Variantes sin ventas en los últimos N días (o nunca vendidas).</summary>
 public sealed record SinVentas(
@@ -99,4 +109,13 @@ public sealed record SinVentas(
     string? UltimaVentaEn,
     string? UltimaRecepcionEn,
     string? UltimoMovimientoEn,
-    bool NuncaVendido);
+    bool NuncaVendido)
+{
+    public string TalleColor => (Talle, Color) switch
+    {
+        (null, null) => "—",
+        (null, var c) => c!,
+        (var t, null) => t!,
+        (var t, var c) => $"{t} · {c}",
+    };
+}

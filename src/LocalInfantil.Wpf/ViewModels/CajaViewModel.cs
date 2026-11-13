@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Threading;
 using System.Windows.Input;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Caja;
@@ -18,6 +19,7 @@ public sealed class CajaViewModel : ViewModelBase
     private DetalleSesionCaja? _detalleHistorico;
     private SesionCajaRegistrada? _sesionSeleccionada;
     private PagoCajaActual? _pagoSeleccionado;
+    private VentaCorreccionSugeridaItemViewModel? _ventaCorreccionSeleccionada;
     private OpcionCategoriaCaja? _categoriaSeleccionada;
     private ArqueoCiegoViewModel? _arqueo;
     private string _fondoInicialTexto = "0";
@@ -38,6 +40,12 @@ public sealed class CajaViewModel : ViewModelBase
     private bool _puedeRetirar;
     private bool _puedeCorregir;
     private bool _hayMasHistorial;
+    private bool _buscandoVentas;
+    private bool _sugerenciasVentasAbiertas;
+    private bool _busquedaVentasInicializada;
+    private string _estadoBusquedaVentas = "Escribí un ticket, producto o código para buscar ventas.";
+    private CancellationTokenSource? _busquedaVentasCts;
+    private int _versionBusquedaVentas;
 
     public CajaViewModel(ServiciosComerciales servicios, Func<string?> idSesion)
     {
@@ -47,6 +55,8 @@ public sealed class CajaViewModel : ViewModelBase
         RegistrarMovimientoCommand = new AsyncRelayCommand(RegistrarMovimientoAsync);
         IniciarArqueoCommand = new RelayCommand(_ => IniciarArqueo());
         BuscarPagosCommand = new AsyncRelayCommand(BuscarPagosAsync);
+        SeleccionarVentaSugeridaCommand = new AsyncRelayCommand(SeleccionarVentaSugeridaAsync);
+        LimpiarBusquedaVentasCommand = new RelayCommand(_ => LimpiarBusquedaVentas());
         CorregirMedioCommand = new AsyncRelayCommand(CorregirMedioAsync);
         CargarMasHistorialCommand = new AsyncRelayCommand(CargarMasHistorialAsync);
         ActualizarCategorias();
@@ -56,6 +66,7 @@ public sealed class CajaViewModel : ViewModelBase
     public ObservableCollection<MovimientoCajaViewModel> MovimientosHistoricos { get; } = [];
     public ObservableCollection<SesionCajaRegistrada> Historial { get; } = [];
     public ObservableCollection<PagoCajaActual> PagosCorregibles { get; } = [];
+    public ObservableCollection<VentaCorreccionSugeridaItemViewModel> VentasSugeridas { get; } = [];
     public ObservableCollection<OpcionCategoriaCaja> CategoriasDisponibles { get; } = [];
     public IReadOnlyList<string> TiposMovimiento { get; } = ["Ingreso", "Egreso"];
     public IReadOnlyList<OpcionMedioCaja> MediosDisponibles { get; } =
@@ -71,6 +82,8 @@ public sealed class CajaViewModel : ViewModelBase
     public ICommand RegistrarMovimientoCommand { get; }
     public ICommand IniciarArqueoCommand { get; }
     public ICommand BuscarPagosCommand { get; }
+    public ICommand SeleccionarVentaSugeridaCommand { get; }
+    public ICommand LimpiarBusquedaVentasCommand { get; }
     public ICommand CorregirMedioCommand { get; }
     public ICommand CargarMasHistorialCommand { get; }
 
@@ -88,8 +101,28 @@ public sealed class CajaViewModel : ViewModelBase
     public PagoCajaActual? PagoSeleccionado
     {
         get => _pagoSeleccionado;
-        set { if (SetProperty(ref _pagoSeleccionado, value)) NotificarCorreccion(); }
+        set
+        {
+            if (value is not null && value.VentaId != VentaCorreccionSeleccionada?.VentaId) value = null;
+            if (SetProperty(ref _pagoSeleccionado, value)) NotificarCorreccion();
+        }
     }
+    public VentaCorreccionSugeridaItemViewModel? VentaCorreccionSeleccionada
+    {
+        get => _ventaCorreccionSeleccionada;
+        private set
+        {
+            if (!SetProperty(ref _ventaCorreccionSeleccionada, value)) return;
+            OnPropertyChanged(nameof(TieneVentaCorreccionSeleccionada));
+            OnPropertyChanged(nameof(VentaCorreccionSeleccionadaTexto));
+        }
+    }
+    public bool TieneVentaCorreccionSeleccionada => VentaCorreccionSeleccionada is not null;
+    public string VentaCorreccionSeleccionadaTexto => VentaCorreccionSeleccionada?.ResumenTexto ?? string.Empty;
+    public bool BuscandoVentas { get => _buscandoVentas; private set => SetProperty(ref _buscandoVentas, value); }
+    public bool SugerenciasVentasAbiertas { get => _sugerenciasVentasAbiertas; private set => SetProperty(ref _sugerenciasVentasAbiertas, value); }
+    public bool HaySugerenciasVentas => VentasSugeridas.Count > 0;
+    public string EstadoBusquedaVentas { get => _estadoBusquedaVentas; private set => SetProperty(ref _estadoBusquedaVentas, value); }
     public ArqueoCiegoViewModel? Arqueo
     {
         get => _arqueo;
@@ -160,7 +193,16 @@ public sealed class CajaViewModel : ViewModelBase
     public string ImporteMovimientoTexto { get => _importeMovimientoTexto; set => SetProperty(ref _importeMovimientoTexto, value); }
     public string MotivoMovimiento { get => _motivoMovimiento; set => SetProperty(ref _motivoMovimiento, value); }
     public string Observacion { get => _observacion; set => SetProperty(ref _observacion, value); }
-    public string BusquedaPago { get => _busquedaPago; set => SetProperty(ref _busquedaPago, value); }
+    public string BusquedaPago
+    {
+        get => _busquedaPago;
+        set
+        {
+            if (!SetProperty(ref _busquedaPago, value)) return;
+            InvalidarVentaCorreccionSeleccionada();
+            IniciarBusquedaVentas(value);
+        }
+    }
     public string MedioNuevo { get => _medioNuevo; set { if (SetProperty(ref _medioNuevo, value)) NotificarCorreccion(); } }
     public string MotivoCorreccion { get => _motivoCorreccion; set { if (SetProperty(ref _motivoCorreccion, value)) NotificarCorreccion(); } }
     public OpcionCategoriaCaja? CategoriaSeleccionada { get => _categoriaSeleccionada; set { if (SetProperty(ref _categoriaSeleccionada, value)) OnPropertyChanged(nameof(EnlaceCategoriaPropietarioVisible)); } }
@@ -185,12 +227,15 @@ public sealed class CajaViewModel : ViewModelBase
     public async Task AbrirCajaAsyncPublic() => await AbrirCajaAsync();
     public async Task RegistrarMovimientoAsyncPublic() => await RegistrarMovimientoAsync();
     public async Task BuscarPagosAsyncPublic() => await BuscarPagosAsync();
+    public async Task SeleccionarVentaSugeridaAsyncPublic(VentaCorreccionSugeridaItemViewModel venta) => await SeleccionarVentaSugeridaAsync(venta);
     public async Task CorregirMedioAsyncPublic() => await CorregirMedioAsync();
     public async Task CargarDetalleHistoricoAsyncPublic(string id) => await CargarDetalleHistoricoAsync(id);
 
     private async Task CargarAsync()
     {
         Error = string.Empty; Mensaje = string.Empty;
+        var actualizarSugerencias = SugerenciasVentasAbiertas && VentaCorreccionSeleccionada is null && !BuscandoVentas;
+        var versionBusquedaAlIniciar = Volatile.Read(ref _versionBusquedaVentas);
         try
         {
             var sesion = _idSesion() ?? throw new InvalidOperationException("La sesión de usuario no está disponible.");
@@ -216,6 +261,10 @@ public sealed class CajaViewModel : ViewModelBase
             OnPropertyChanged(nameof(SinMovimientos));
             NotificarImportes();
             if (PuedeConsultar) await CargarPaginaHistorialAsync(0, reemplazar: true);
+            _busquedaVentasInicializada = false;
+            if (actualizarSugerencias && PuedeCorregir && PuedeConsultar
+                && versionBusquedaAlIniciar == Volatile.Read(ref _versionBusquedaVentas) && !BuscandoVentas)
+                await EjecutarBusquedaVentasAsync(BusquedaPago, aplicarDemora: false);
         }
         catch (Exception ex) { Error = MensajeError(ex); }
     }
@@ -284,17 +333,149 @@ public sealed class CajaViewModel : ViewModelBase
 
     private async Task BuscarPagosAsync()
     {
+        await EjecutarBusquedaVentasAsync(BusquedaPago, aplicarDemora: false);
+    }
+
+    private void IniciarBusquedaVentas(string filtro)
+    {
+        var version = Interlocked.Increment(ref _versionBusquedaVentas);
+        var cts = new CancellationTokenSource();
+        var anterior = Interlocked.Exchange(ref _busquedaVentasCts, cts);
+        anterior?.Cancel();
+        anterior?.Dispose();
+        _ = EjecutarBusquedaVentasAsync(filtro, version, cts, aplicarDemora: true);
+    }
+
+    private async Task EjecutarBusquedaVentasAsync(string filtro, bool aplicarDemora)
+    {
+        VentaCorreccionSeleccionada = null;
+        PagoSeleccionado = null;
+        PagosCorregibles.Clear();
+        OnPropertyChanged(nameof(SinPagosCorregibles));
+        var version = Interlocked.Increment(ref _versionBusquedaVentas);
+        var cts = new CancellationTokenSource();
+        var anterior = Interlocked.Exchange(ref _busquedaVentasCts, cts);
+        anterior?.Cancel();
+        anterior?.Dispose();
+        await EjecutarBusquedaVentasAsync(filtro, version, cts, aplicarDemora);
+    }
+
+    private async Task EjecutarBusquedaVentasAsync(string filtro, int version, CancellationTokenSource cts, bool aplicarDemora)
+    {
+        var cancellationToken = cts.Token;
+        if (!PuedeCorregir || !PuedeConsultar)
+        {
+            Interlocked.CompareExchange(ref _busquedaVentasCts, null, cts);
+            cts.Dispose();
+            return;
+        }
         Error = string.Empty;
-        if (!PuedeCorregir) { Error = "No tenés permiso para corregir medios de pago."; return; }
+        BuscandoVentas = true;
+        SugerenciasVentasAbiertas = true;
+        VaciarSugerenciasVentas();
+        EstadoBusquedaVentas = string.IsNullOrWhiteSpace(filtro) ? "Buscando ventas recientes…" : "Buscando…";
         try
         {
-            var lista = await _servicios.ConsultasCaja.BuscarPagosCorregiblesAsync(BusquedaPago, _idSesion());
-            PagosCorregibles.Clear();
-            foreach (var pago in lista) PagosCorregibles.Add(pago);
-            PagoSeleccionado = null;
+            if (aplicarDemora) await Task.Delay(250, cancellationToken);
+            var resultados = await _servicios.ConsultasCaja.BuscarVentasParaCorreccionAsync(filtro, _idSesion(), cancellationToken);
+            if (version != Volatile.Read(ref _versionBusquedaVentas) || cancellationToken.IsCancellationRequested) return;
+            foreach (var venta in resultados) VentasSugeridas.Add(new VentaCorreccionSugeridaItemViewModel(venta));
+            _busquedaVentasInicializada = true;
+            OnPropertyChanged(nameof(HaySugerenciasVentas));
+            EstadoBusquedaVentas = resultados.Count == 0
+                ? (string.IsNullOrWhiteSpace(filtro) ? "No hay ventas confirmadas recientes con pagos." : "No se encontraron ventas para esa búsqueda.")
+                : string.IsNullOrWhiteSpace(filtro) ? "Ventas recientes" : "Elegí una venta para revisar sus cobros.";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (version == Volatile.Read(ref _versionBusquedaVentas))
+            {
+                Error = MensajeError(ex);
+                EstadoBusquedaVentas = "No se pudo buscar ventas.";
+            }
+        }
+        finally
+        {
+            if (version == Volatile.Read(ref _versionBusquedaVentas)) BuscandoVentas = false;
+            Interlocked.CompareExchange(ref _busquedaVentasCts, null, cts);
+            cts.Dispose();
+        }
+    }
+
+    private async Task SeleccionarVentaSugeridaAsync(object? parameter)
+    {
+        if (parameter is not VentaCorreccionSugeridaItemViewModel item) return;
+        Interlocked.Increment(ref _versionBusquedaVentas);
+        var busquedaPendiente = Interlocked.Exchange(ref _busquedaVentasCts, null);
+        busquedaPendiente?.Cancel();
+        busquedaPendiente?.Dispose();
+        var venta = item.Datos;
+        VentaCorreccionSeleccionada = item;
+        PagoSeleccionado = null;
+        PagosCorregibles.Clear();
+        OnPropertyChanged(nameof(SinPagosCorregibles));
+        SugerenciasVentasAbiertas = false;
+        if (!venta.TienePagosCorregibles)
+        {
+            EstadoBusquedaVentas = venta.SoloPoint
+                ? "Esta venta se cobró únicamente con Mercado Pago Point y no admite corrección por esta vía."
+                : "Esta venta no tiene pagos manuales disponibles para corregir.";
+            return;
+        }
+
+        Error = string.Empty;
+        Ocupado = true;
+        try
+        {
+            var pagos = await _servicios.ConsultasCaja.ListarPagosCorregiblesPorVentaAsync(venta.VentaId, _idSesion());
+            if (!ReferenceEquals(VentaCorreccionSeleccionada, item)) return;
+            foreach (var pago in pagos) PagosCorregibles.Add(pago);
             OnPropertyChanged(nameof(SinPagosCorregibles));
+            EstadoBusquedaVentas = pagos.Count == 0
+                ? "Esta venta ya no tiene pagos disponibles para corregir."
+                : "Seleccioná el pago registrado que necesitás corregir.";
         }
         catch (Exception ex) { Error = MensajeError(ex); }
+        finally { Ocupado = false; }
+    }
+
+    public void CerrarSugerenciasVentas() => SugerenciasVentasAbiertas = false;
+
+    public void AbrirSugerenciasVentas()
+    {
+        if (VentaCorreccionSeleccionada is not null) return;
+        SugerenciasVentasAbiertas = true;
+        if (!_busquedaVentasInicializada && !BuscandoVentas) IniciarBusquedaVentas(BusquedaPago);
+    }
+
+    public void LimpiarBusquedaVentas()
+    {
+        if (!string.IsNullOrEmpty(BusquedaPago))
+        {
+            BusquedaPago = string.Empty;
+            return;
+        }
+        InvalidarVentaCorreccionSeleccionada();
+        IniciarBusquedaVentas(string.Empty);
+    }
+
+    private void InvalidarVentaCorreccionSeleccionada()
+    {
+        _busquedaVentasInicializada = false;
+        VentaCorreccionSeleccionada = null;
+        PagoSeleccionado = null;
+        PagosCorregibles.Clear();
+        VaciarSugerenciasVentas();
+        SugerenciasVentasAbiertas = true;
+        EstadoBusquedaVentas = "Buscando…";
+        OnPropertyChanged(nameof(SinPagosCorregibles));
+    }
+
+    private void VaciarSugerenciasVentas()
+    {
+        VentasSugeridas.Clear();
+        OnPropertyChanged(nameof(HaySugerenciasVentas));
     }
 
     private async Task CorregirMedioAsync()
@@ -311,11 +492,12 @@ public sealed class CajaViewModel : ViewModelBase
         Ocupado = true;
         try
         {
+            var numeroVenta = PagoSeleccionado.NumeroVenta;
             await _servicios.CasoCorregirMedioPago.EjecutarAsync(PagoSeleccionado.PagoId, MedioNuevo, MotivoCorreccion, _servicios.GeneradorIds.NuevoId(), _idSesion());
             NotificarCajaActualizada();
             MotivoCorreccion = string.Empty;
-            Mensaje = $"Se corrigió el medio del pago de la venta {PagoSeleccionado.NumeroVenta}.";
-            await BuscarPagosAsync();
+            Mensaje = $"Se corrigió el medio del pago de la venta {numeroVenta}.";
+            InvalidarVentaCorreccionSeleccionada();
             await CargarAsync();
         }
         catch (Exception ex) { Error = MensajeError(ex); }
@@ -406,6 +588,7 @@ public sealed class CajaViewModel : ViewModelBase
         OnPropertyChanged(nameof(SesionOrigenTexto));
         OnPropertyChanged(nameof(SesionDestinoTexto));
         OnPropertyChanged(nameof(ImpactoEfectivoTexto));
+        OnPropertyChanged(nameof(VentaCorreccionSeleccionadaTexto));
     }
 
     private static string FormatoFecha(string valor)
@@ -416,6 +599,10 @@ public sealed class CajaViewModel : ViewModelBase
         => DateTimeOffset.TryParse(valor, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var fecha)
             ? fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("es-AR")) : "fecha no disponible";
     private static string NombreUsuario(string? nombre) => string.IsNullOrWhiteSpace(nombre) ? "usuario no disponible" : nombre;
+
+    private static string FormatearFechaVenta(string valor)
+        => DateTimeOffset.TryParse(valor, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var fecha)
+            ? fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("es-AR")) : valor;
 
     private static string MensajeError(Exception ex) => ex switch
     {
@@ -429,6 +616,41 @@ public sealed class CajaViewModel : ViewModelBase
 }
 
 public sealed record OpcionMedioCaja(string Valor, string Texto);
+
+public sealed class VentaCorreccionSugeridaItemViewModel
+{
+    private static readonly IReadOnlyDictionary<string, string> NombresMedios = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [MediosPago.Efectivo] = "Efectivo",
+        [MediosPago.Transferencia] = "Transferencia",
+        [MediosPago.Debito] = "Débito",
+        [MediosPago.Credito] = "Crédito",
+        [MediosPago.Billetera] = "Billetera virtual",
+        [MediosPago.MercadoPago] = "Mercado Pago Point",
+    };
+
+    public VentaCorreccionSugeridaItemViewModel(VentaCorreccionSugerida datos)
+    {
+        Datos = datos;
+        Fecha = DateTimeOffset.TryParse(datos.CreadaEn, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var fecha)
+            ? fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("es-AR")) : datos.CreadaEn;
+        Total = PosViewModel.FormatearArs(datos.TotalMinor);
+        Medios = string.Join(" · ", datos.MediosPago.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal).Select(m => NombresMedios.GetValueOrDefault(m, "Forma de pago")));
+        Estado = datos.TienePagosCorregibles ? "Disponible para revisar"
+            : datos.SoloPoint ? "Solo Point · no corregible por esta vía" : "Sin pagos corregibles";
+        ResumenTexto = $"Venta {datos.Numero} · {Fecha} · {Total}";
+    }
+
+    public VentaCorreccionSugerida Datos { get; }
+    public string VentaId => Datos.VentaId;
+    public string Numero => Datos.Numero;
+    public string Fecha { get; }
+    public string Total { get; }
+    public string Medios { get; }
+    public string Estado { get; }
+    public string ResumenTexto { get; }
+}
 
 public sealed class MovimientoCajaViewModel
 {

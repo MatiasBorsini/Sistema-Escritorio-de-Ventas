@@ -36,6 +36,13 @@ public partial class BuscadorAsistido : UserControl
     public static readonly DependencyProperty LimpiarAlSeleccionarProperty =
         DependencyProperty.Register(nameof(LimpiarAlSeleccionar), typeof(bool), typeof(BuscadorAsistido), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty TextoSeleccionadoProperty =
+        DependencyProperty.Register(nameof(TextoSeleccionado), typeof(string), typeof(BuscadorAsistido),
+            new PropertyMetadata(string.Empty, (d, e) => ((BuscadorAsistido)d).MostrarTextoSeleccionado(e.NewValue as string)));
+
+    public static readonly DependencyProperty EnfocarAlLimpiarMotorProperty =
+        DependencyProperty.Register(nameof(EnfocarAlLimpiarMotor), typeof(bool), typeof(BuscadorAsistido), new PropertyMetadata(false));
+
     public static readonly DependencyProperty PlaceholderProperty =
         DependencyProperty.Register(nameof(Placeholder), typeof(string), typeof(BuscadorAsistido), new PropertyMetadata(string.Empty));
 
@@ -43,6 +50,9 @@ public partial class BuscadorAsistido : UserControl
         DependencyProperty.Register(nameof(PatronCodigoExactoEnEnter), typeof(string), typeof(BuscadorAsistido), new PropertyMetadata(null));
 
     public BuscadorAsistido() => InitializeComponent();
+
+    private bool _reflejandoTextoSeleccionado;
+    private string _ultimoTextoMotor = string.Empty;
 
     public MotorSugerencias<SugerenciaVariante>? Motor
     {
@@ -82,6 +92,20 @@ public partial class BuscadorAsistido : UserControl
         set => SetValue(LimpiarAlSeleccionarProperty, value);
     }
 
+    /// <summary>Texto de presentación tras una selección; no modifica la consulta ni inicia otra búsqueda.</summary>
+    public string TextoSeleccionado
+    {
+        get => (string)GetValue(TextoSeleccionadoProperty);
+        set => SetValue(TextoSeleccionadoProperty, value);
+    }
+
+    /// <summary>Devuelve el foco al buscador cuando el host vacía la consulta tras una acción exitosa.</summary>
+    public bool EnfocarAlLimpiarMotor
+    {
+        get => (bool)GetValue(EnfocarAlLimpiarMotorProperty);
+        set => SetValue(EnfocarAlLimpiarMotorProperty, value);
+    }
+
     public string Placeholder
     {
         get => (string)GetValue(PlaceholderProperty);
@@ -105,6 +129,7 @@ public partial class BuscadorAsistido : UserControl
         if (nuevo is not null)
         {
             nuevo.PropertyChanged += Motor_PropertyChanged;
+            _ultimoTextoMotor = nuevo.Texto;
             if (Caja.Text != nuevo.Texto)
                 Caja.Text = nuevo.Texto;
         }
@@ -112,8 +137,13 @@ public partial class BuscadorAsistido : UserControl
 
     private void Motor_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MotorSugerencias<SugerenciaVariante>.Texto) && Motor is not null && Caja.Text != Motor.Texto)
+        if (e.PropertyName != nameof(MotorSugerencias<SugerenciaVariante>.Texto) || Motor is null) return;
+        var textoAnterior = _ultimoTextoMotor;
+        _ultimoTextoMotor = Motor.Texto;
+        if (Caja.Text != Motor.Texto)
             Caja.Text = Motor.Texto;
+        if (EnfocarAlLimpiarMotor && textoAnterior.Length > 0 && Motor.Texto.Length == 0)
+            Dispatcher.BeginInvoke(new Action(() => Caja.Focus()), System.Windows.Threading.DispatcherPriority.Input);
     }
 
     private void AplicarPlantilla()
@@ -121,17 +151,28 @@ public partial class BuscadorAsistido : UserControl
         if (Lista is null) return;
         Lista.ItemTemplate = string.Equals(Modo, "Producto", StringComparison.OrdinalIgnoreCase)
             ? (DataTemplate)Resources["PlantillaProducto"]
-            : string.Equals(Modo, "VarianteAgregar", StringComparison.OrdinalIgnoreCase)
-                ? (DataTemplate)Resources["PlantillaVarianteAgregar"]
-                : (DataTemplate)Resources["PlantillaVariante"];
+            : string.Equals(Modo, "VarianteStock", StringComparison.OrdinalIgnoreCase)
+                ? (DataTemplate)Resources["PlantillaVarianteStock"]
+                : string.Equals(Modo, "VarianteAgregar", StringComparison.OrdinalIgnoreCase)
+                    ? (DataTemplate)Resources["PlantillaVarianteAgregar"]
+                    : (DataTemplate)Resources["PlantillaVariante"];
     }
 
     private void Caja_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (_reflejandoTextoSeleccionado) return;
         // La sincronización VM→Motor también puede reflejar el texto de vuelta
         // en Caja. En ese caso no hay una nueva búsqueda que iniciar.
         if (Motor is null || string.Equals(Caja.Text, Motor.Texto, StringComparison.Ordinal)) return;
         _ = Motor.TextoCambiadoAsync(Caja.Text);
+    }
+
+    private void MostrarTextoSeleccionado(string? texto)
+    {
+        if (string.IsNullOrEmpty(texto) || Caja is null || Caja.Text == texto) return;
+        _reflejandoTextoSeleccionado = true;
+        try { Caja.Text = texto; }
+        finally { _reflejandoTextoSeleccionado = false; }
     }
 
     private void Caja_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -193,13 +234,13 @@ public partial class BuscadorAsistido : UserControl
 
         while (origen is not null && origen is not ListBoxItem)
             origen = VisualTreeHelper.GetParent(origen);
-        if (origen is ListBoxItem item && Lista.ItemContainerGenerator.IndexFromContainer(item) is int i && i >= 0)
+        if (origen is ListBoxItem { DataContext: SugerenciaVariante sugerencia })
         {
-            while (Motor.IndiceActivo < i) Motor.MoverSeleccion(1);
-            while (Motor.IndiceActivo > i) Motor.MoverSeleccion(-1);
-            Confirmar(Motor.ConfirmarSeleccion());
-            // Confirmar antes de que el foco de la celda/DataGrid cierre el
-            // Popup. El clic ya fue consumido por la selección de la sugerencia.
+            // Se toma la sugerencia apuntada por el clic directamente, sin
+            // depender de Motor.Abierto/IndiceActivo: un cierre por foco no
+            // debe invalidar el clic ya iniciado sobre la fila.
+            Motor.Cerrar();
+            Confirmar(sugerencia);
             e.Handled = true;
         }
     }

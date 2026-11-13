@@ -11,17 +11,26 @@
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.sqlite-journal
 *.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
 *.db3
+*.db3-shm
+*.db3-wal
+*.db3-journal
 
 # Respaldos, diagnósticos y secretos
 backups/
 Backups/
 logs/
 *.log
+*.log.*
 *.bak
 *.libackup
 *.dpapi
@@ -32,8 +41,14 @@ logs/
 *.pfx
 *.p12
 *.pem
+*.cer
+*.crt
 *.key
 *.token
+.env
+.env.*
+TestResults/
+*.trx
 secrets.json
 Secrets/
 secrets/

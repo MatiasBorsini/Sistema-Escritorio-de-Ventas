@@ -236,6 +236,66 @@ public sealed class RepositorioVariantes : IRepositorioVariantes
         }
     }
 
+    public async Task<IReadOnlyList<SugerenciaVariante>> BuscarSugerenciasConPrecioStockAsync(ISesionPersistencia sesion, string texto, int limite, string fecha, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        if (limite < 1 || limite > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limite), "El límite debe estar entre 1 y 100.");
+        }
+
+        var t = texto.Trim();
+        if (t.Length == 0)
+        {
+            return Array.Empty<SugerenciaVariante>();
+        }
+
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = """
+                SELECT v.id, v.producto_id, v.codigo_interno, p.nombre, p.marca, c.nombre, v.talle, v.color, v.activa,
+                    (SELECT pr.importe_minor FROM precio pr WHERE pr.variante_id = v.id AND pr.vigente_desde <= $fecha AND (pr.vigente_hasta IS NULL OR $fecha < pr.vigente_hasta) ORDER BY pr.vigente_desde DESC LIMIT 1),
+                    (COALESCE((SELECT SUM(m.cantidad) FROM movimiento_inventario m WHERE m.variante_id = v.id), 0)
+                     - COALESCE((SELECT SUM(CASE WHEN a.tipo = 'apartar' THEN a.cantidad ELSE -a.cantidad END) FROM apartado_movimiento a WHERE a.variante_id = v.id), 0))
+                FROM variante v JOIN producto p ON p.id = v.producto_id LEFT JOIN categoria c ON c.id = p.categoria_id
+                WHERE v.activa = 1 AND (v.codigo_interno LIKE $contiene OR v.sku LIKE $contiene OR p.nombre LIKE $contiene OR p.codigo_interno LIKE $contiene)
+                ORDER BY CASE WHEN v.codigo_interno = $exacto THEN 0 WHEN v.codigo_interno LIKE $prefijo THEN 1 WHEN p.nombre LIKE $prefijo THEN 2 ELSE 3 END, v.codigo_interno
+                LIMIT $limite;
+                """;
+            comando.Parameters.AddWithValue("$contiene", $"%{t}%");
+            comando.Parameters.AddWithValue("$exacto", t);
+            comando.Parameters.AddWithValue("$prefijo", $"{t}%");
+            comando.Parameters.AddWithValue("$fecha", fecha);
+            comando.Parameters.AddWithValue("$limite", limite);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<SugerenciaVariante>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                var disponible = lector.GetInt64(10);
+                resultado.Add(new SugerenciaVariante(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.GetString(2),
+                    lector.GetString(3),
+                    lector.IsDBNull(4) ? null : lector.GetString(4),
+                    lector.IsDBNull(5) ? null : lector.GetString(5),
+                    lector.IsDBNull(6) ? null : lector.GetString(6),
+                    lector.IsDBNull(7) ? null : lector.GetString(7),
+                    lector.GetInt64(8) == 1,
+                    lector.IsDBNull(9) ? null : lector.GetInt64(9),
+                    Math.Max(0, disponible)));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
     public async Task<IReadOnlyList<FichaVariante>> ObtenerFichaPorProductoAsync(ISesionPersistencia sesion, string productoId, string fecha, CancellationToken cancellationToken = default)
     {
         var s = Sesion(sesion);

@@ -23,7 +23,7 @@ public partial class TicketVentaWindow : Window
         DataContext = this;
         InitializeComponent();
 
-        _documentoVisual = new DocumentoTicketVentaRenderer().Renderizar(documento);
+        _documentoVisual = new DocumentoTicketVentaRenderer().Renderizar(documento, Infra.LogoNegocio.ObtenerPng());
         VistaDocumento.Document = _documentoVisual;
         PreviewKeyDown += (_, e) =>
         {

@@ -88,12 +88,12 @@
                              AutomationProperties.Name="Buscar por comprobante o proveedor"/>
           <Button Style="{StaticResource EstiloBotonPrimario}" Content="Buscar" Command="{Binding CargarCommand}" Margin="5,0,10,0"/>
           <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Estado" Margin="0,0,5,0"/>
-          <ComboBox Style="{StaticResource EstiloCombo}" Width="108" ItemsSource="{Binding FiltrosEstado}" SelectedItem="{Binding FiltroEstado}" ToolTip="Filtrar por estado" SelectionChanged="ComboBox_SelectionChanged" Height="13" RenderTransformOrigin="0.5,0.5">
+          <ComboBox Style="{StaticResource EstiloCombo}" Width="105" ItemsSource="{Binding FiltrosEstado}" SelectedItem="{Binding FiltroEstado}" ToolTip="Filtrar por estado" SelectionChanged="ComboBox_SelectionChanged" Height="13" RenderTransformOrigin="0.5,0.5">
             <ComboBox.RenderTransform>
               <TransformGroup>
-                <ScaleTransform ScaleY="-1"/>
+                <ScaleTransform ScaleY="-1" ScaleX="-1"/>
                 <SkewTransform/>
-                <RotateTransform/>
+                <RotateTransform Angle="-179.997"/>
                 <TranslateTransform/>
               </TransformGroup>
             </ComboBox.RenderTransform>
@@ -276,7 +276,7 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <Button Style="{StaticResource EstiloBotonSecundario}" Content="Ver detalle completo" Command="{Binding AbrirDetalleCommand}"
-                                    HorizontalAlignment="Stretch" Margin="0,7,0,0" Background="#FF4C8438" FontWeight="Bold"/>
+                                    HorizontalAlignment="Stretch" Margin="0,7,0,0" Background="#FF4B8437" Foreground="White" Click="Button_Click" FontWeight="Bold"/>
               <Border Style="{StaticResource EstiloSeparador}" Margin="0,7,0,7"/>
 
               <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="10">

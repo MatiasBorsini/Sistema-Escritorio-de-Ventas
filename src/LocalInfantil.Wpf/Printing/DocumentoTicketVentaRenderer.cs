@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using LocalInfantil.Application.Contracts;
 
 namespace LocalInfantil.Wpf.Printing;
@@ -18,13 +20,42 @@ public sealed class DocumentoTicketVentaRenderer
     private static readonly CultureInfo CulturaArgentina = CultureInfo.GetCultureInfo("es-AR");
 
     public FixedDocument Renderizar(DocumentoTicketVenta documento)
+        => Renderizar(documento, null);
+
+    /// <summary>Renderiza el comprobante con bytes de logo provistos por la capa de infraestructura.</summary>
+    public FixedDocument Renderizar(DocumentoTicketVenta documento, byte[]? logoPng)
     {
         ArgumentNullException.ThrowIfNull(documento);
 
         var pagina = new FixedPage { Width = AnchoPagina, Height = AltoPagina };
         var contenido = new StackPanel { Width = AnchoPagina - 96, Margin = new Thickness(48) };
 
-        contenido.Children.Add(new TextBlock { Text = "LocalInfantil", FontSize = 22, FontWeight = FontWeights.Bold });
+        if (logoPng is { Length: > 0 })
+        {
+            var bitmap = new BitmapImage();
+            using (var flujo = new MemoryStream(logoPng, writable: false))
+            {
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = flujo;
+                bitmap.EndInit();
+            }
+            bitmap.Freeze();
+            var imagenLogo = new Image
+            {
+                Source = bitmap,
+                Width = 104,
+                Height = 104,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            System.Windows.Automation.AutomationProperties.SetName(imagenLogo, "TiNA kids — Vistiendo sonrisas");
+            contenido.Children.Add(imagenLogo);
+        }
+        else
+        {
+            contenido.Children.Add(new TextBlock { Text = "LocalInfantil", FontSize = 22, FontWeight = FontWeights.Bold });
+        }
         contenido.Children.Add(new TextBlock
         {
             Margin = new Thickness(0, 2, 0, 0),

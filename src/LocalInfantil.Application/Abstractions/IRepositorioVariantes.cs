@@ -27,6 +27,13 @@ public interface IRepositorioVariantes
     /// </summary>
     Task<IReadOnlyList<SugerenciaVariante>> BuscarSugerenciasAsync(ISesionPersistencia sesion, string texto, int limite, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Como <see cref="BuscarSugerenciasAsync"/> pero solo variantes activas y
+    /// resolviendo precio vigente y stock disponible en la misma lectura, para
+    /// elegir artículos nuevos sin una consulta adicional por candidato.
+    /// </summary>
+    Task<IReadOnlyList<SugerenciaVariante>> BuscarSugerenciasConPrecioStockAsync(ISesionPersistencia sesion, string texto, int limite, string fecha, CancellationToken cancellationToken = default);
+
     Task<int> ObtenerSiguienteNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
 
     Task<int> ObtenerUltimoNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);

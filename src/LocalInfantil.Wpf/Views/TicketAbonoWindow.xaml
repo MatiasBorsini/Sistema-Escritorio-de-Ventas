@@ -1,8 +1,10 @@
-<Window x:Class="LocalInfantil.Wpf.Views.TicketAbonoWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Recibo de abono" Width="440" Height="600" WindowStartupLocation="CenterOwner" Background="White" PreviewKeyDown="Window_PreviewKeyDown">
+﻿<Window x:Class="LocalInfantil.Wpf.Views.TicketAbonoWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Recibo de abono" Width="440" Height="600" WindowStartupLocation="CenterOwner" Background="White" PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel Margin="18">
         <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="20">
-            <TextBlock FontSize="20" FontWeight="Bold" Text="LocalInfantil" TextAlignment="Center"/>
-            <TextBlock Margin="0,3,0,12" FontSize="12" FontWeight="Bold" Text="{Binding Leyenda}" TextAlignment="Center"/>
+                <Image Source="pack://application:,,,/LocalInfantil.Wpf;component/Assets/Branding/logo-tina.png"
+                       Width="100" Height="100" Stretch="Uniform" HorizontalAlignment="Center"
+                       AutomationProperties.Name="TiNA kids — Vistiendo sonrisas"/>
+                <TextBlock Margin="0,3,0,12" FontSize="12" FontWeight="Bold" Text="{Binding Leyenda}" TextAlignment="Center"/>
             <TextBlock FontWeight="Bold" Text="{Binding Numero, StringFormat='Recibo {0}'}"/>
             <TextBlock Text="{Binding ClienteNombre}"/><TextBlock Text="{Binding Fecha, Converter={StaticResource FechaCorta}}"/>
             <Separator Margin="0,8"/><DockPanel><TextBlock Text="Importe abonado"/><TextBlock DockPanel.Dock="Right" FontWeight="Bold" Text="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}"/></DockPanel>

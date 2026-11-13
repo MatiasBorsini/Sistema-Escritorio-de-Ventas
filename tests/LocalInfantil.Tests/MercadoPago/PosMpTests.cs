@@ -43,6 +43,7 @@ public sealed class PosMpTests
 
         Assert.True(vm.OperacionPointIncierta);
         Assert.False(vm.PuedeEditarVenta);
+        Assert.False(vm.PuedeEditarModalidad);
         Assert.False(vm.PuedeCancelarVenta);
         Assert.False(vm.PuedeCobrarPoint);
         Assert.Contains("no está confirmado", vm.EstadoCobroMp ?? string.Empty);

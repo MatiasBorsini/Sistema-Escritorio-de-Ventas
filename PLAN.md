@@ -325,7 +325,7 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 - [ ] **F12-B08.** Descarga automatizada del reporte por API (`/v1/account/release_report*`). *(diseñado; condicionado al alcance del token/cuenta)*
 - [~] **F12-B09.** Pruebas de aceptación: cubiertos los escenarios de modos/cobro manual/V17 y conciliación (parser, importación idempotente, conciliación automática/asistida, V18/V19, deduplicación de filas idénticas y superpuestas). *(resto de los fixtures de la especificación §17 pendiente de validación con CSV real)*
 
-**Estado:** Etapa A implementada en rama `feat/f12-mercado-pago` (V17 + modos + cobro manual + gating de POS). Sin conciliación CSV ni descarga de reportes. Pendiente de confirmación de la Dueña (modalidad/comprobante) y de un CSV real para fijar la clave de dedup. F12-T07 sigue bloqueando la metadata real (payment_id/cuotas/tarjeta).
+**Estado:** Etapa A implementada en rama `feat/f12-mercado-pago` (V17 + modos + cobro manual + gating de POS); conciliación CSV implementada con V18/V19. La descarga automática de reportes por API permanece pendiente. Falta validar el circuito y la deduplicación con CSV real y confirmar con la Dueña modalidad y comprobante. F12-T07 sigue pendiente para validar Point y su metadata real (payment_id/cuotas/tarjeta).
 
 ---
 

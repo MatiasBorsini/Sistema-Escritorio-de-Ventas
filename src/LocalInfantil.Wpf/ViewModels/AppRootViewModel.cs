@@ -171,6 +171,8 @@ public sealed class AppRootViewModel : ViewModelBase
         }
         catch { }
         var resumenInicio = await _servicios.ConsultasInicio.ObtenerAsync(Sesion.IdSesion);
+        var idSesionInicio = Sesion.IdSesion;
+        Func<Task<ResumenInicio>> recargarInicio = () => _servicios.ConsultasInicio.ObtenerAsync(idSesionInicio);
         var permisosActualizaciones = await _servicios.Autorizador.ObtenerPermisosEfectivosAsync(Sesion.IdSesion, [LocalInfantil.Application.Features.Actualizaciones.PermisosActualizaciones.Instalar]);
         var actualizaciones = new ActualizacionesViewModel(_servicios, () => Sesion.IdSesion, _esProduccion,
             Sesion.Rol == "duena" && permisosActualizaciones.Contains(LocalInfantil.Application.Features.Actualizaciones.PermisosActualizaciones.Instalar));
@@ -178,11 +180,11 @@ public sealed class AppRootViewModel : ViewModelBase
         {
             var admin = new AdministracionUsuariosViewModel(_servicios, () => Sesion.IdSesion);
             await admin.CargarAsync();
-            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones, configMp, avisoMp, _servicios.NotificadorCambios);
+            Contenido = new ShellDuenaViewModel(Sesion, resumenInicio, admin, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones, configMp, avisoMp, _servicios.NotificadorCambios, recargarInicio);
         }
         else
         {
-            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones, avisoMp, _servicios.NotificadorCambios);
+            Contenido = new ShellEmpleadaViewModel(Sesion, resumenInicio, catalogo, proveedores, recepcion, recepciones, conteo, apartado, CerrarSesionAsync, pos, ventas, caja, cambios, clientes, cuentaCorriente, respaldos, reportes, actualizaciones, avisoMp, _servicios.NotificadorCambios, recargarInicio);
         }
     }
 }
@@ -229,7 +231,7 @@ public sealed class ShellDuenaViewModel : ViewModelBase, IDisposable
     {
     }
 
-    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null, ConfiguracionMercadoPagoViewModel? configMp = null, string? avisoMp = null, NotificadorCambiosDatos? notificador = null)
+    public ShellDuenaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, AdministracionUsuariosViewModel admin, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null, ConfiguracionMercadoPagoViewModel? configMp = null, string? avisoMp = null, NotificadorCambiosDatos? notificador = null, Func<Task<LocalInfantil.Application.Contracts.ResumenInicio>>? recargarInicio = null)
     {
         Sesion = sesion;
         ConfigMercadoPago = configMp;
@@ -250,12 +252,20 @@ public sealed class ShellDuenaViewModel : ViewModelBase, IDisposable
         Respaldos = respaldos;
         Reportes = reportes;
         Actualizaciones = actualizaciones;
-        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
-        _vistaActual = Portada;
-        SeccionActiva = NavegacionSecciones.Inicio;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
         IrAApartadoCommand = new RelayCommand(IrAApartado);
+        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio,
+            new RelayCommand(_ => MostrarVista(Recepcion)),
+            new RelayCommand(_ => MostrarVista(Catalogo)),
+            new RelayCommand(_ => MostrarVista(Conteo)),
+            new RelayCommand(_ => IrAApartado(null)),
+            recargarInicio,
+            new RelayCommand(_ => MostrarVista(Ventas)),
+            new RelayCommand(_ => MostrarVista(Recepciones)),
+            new RelayCommand(_ => { if (Pos is not null) MostrarVista(Pos); }));
+        _vistaActual = Portada;
+        SeccionActiva = NavegacionSecciones.Inicio;
         if (notificador is not null)
         {
             _coordinadorActualizacion = new CoordinadorActualizacionVistas(notificador);
@@ -276,6 +286,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase, IDisposable
 
     private void RegistrarVistasActualizables(CoordinadorActualizacionVistas coordinador)
     {
+        coordinador.Registrar(Portada, [AreaDatos.Stock, AreaDatos.Recepciones, AreaDatos.Conteos, AreaDatos.Ventas, AreaDatos.Cambios], Portada.RefrescarAsync,
+            () => !Portada.Ocupado, () => Portada.Error is not null);
         coordinador.Registrar(Recepcion, [AreaDatos.Proveedores], Recepcion.RefrescarProveedoresSinTocarRecepcionAsync,
             () => !Recepcion.Ocupado, () => Recepcion.Error is not null);
         coordinador.Registrar(Apartado, [AreaDatos.Stock, AreaDatos.Catalogo, AreaDatos.Recepciones, AreaDatos.Conteos, AreaDatos.Ventas, AreaDatos.Cambios], Apartado.BuscarAsyncPublic,
@@ -296,8 +308,8 @@ public sealed class ShellDuenaViewModel : ViewModelBase, IDisposable
             coordinador.Registrar(CuentaCorriente, [AreaDatos.Clientes, AreaDatos.CuentaCorriente, AreaDatos.Ventas, AreaDatos.Cambios], CuentaCorriente.CargarAsync,
                 () => !CuentaCorriente.Ocupado && CuentaCorriente.Cliente is not null && !CuentaCorriente.FormularioAbono && !CuentaCorriente.FormularioAjuste, () => CuentaCorriente.Error is not null);
         if (Ventas is not null)
-            coordinador.Registrar(Ventas, [AreaDatos.Ventas, AreaDatos.Cambios], Ventas.CargarAsyncPublic,
-                () => !Ventas.Ocupado && Ventas.FilaSeleccionada is null && !Ventas.ConfirmacionVisible,
+            coordinador.Registrar(Ventas, [AreaDatos.Ventas, AreaDatos.Cambios], Ventas.RefrescarAsyncPublic,
+                () => !Ventas.Ocupado && !Ventas.ConfirmacionVisible,
                 () => Ventas.Error is not null, iniciarDesactualizada: true);
         if (Reportes is not null)
             coordinador.Registrar(Reportes, [AreaDatos.Ventas, AreaDatos.Cambios, AreaDatos.Caja, AreaDatos.Stock], Reportes.RefrescarPestanaActivaAsync,
@@ -389,7 +401,7 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase, IDisposable
     {
     }
 
-    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null, string? avisoMp = null, NotificadorCambiosDatos? notificador = null)
+    public ShellEmpleadaViewModel(SesionUsuario sesion, LocalInfantil.Application.Contracts.ResumenInicio resumenInicio, CatalogoViewModel catalogo, ProveedoresViewModel prov, RecepcionViewModel rec, RecepcionesConsultaViewModel cons, ConteoViewModel conteo, ApartadoViewModel apartado, Func<Task> cerrar, PosViewModel? pos = null, VentasConsultaViewModel? ventas = null, CajaViewModel? caja = null, CambiosViewModel? cambios = null, ClientesViewModel? clientes = null, CuentaCorrienteViewModel? cuentaCorriente = null, RespaldosViewModel? respaldos = null, ReportesViewModel? reportes = null, ActualizacionesViewModel? actualizaciones = null, string? avisoMp = null, NotificadorCambiosDatos? notificador = null, Func<Task<LocalInfantil.Application.Contracts.ResumenInicio>>? recargarInicio = null)
     {
         Sesion = sesion;
         AvisoMercadoPago = avisoMp;
@@ -408,12 +420,20 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase, IDisposable
         Respaldos = respaldos;
         Reportes = reportes;
         Actualizaciones = actualizaciones;
-        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio, new RelayCommand(_ => VistaActual = Recepcion), new AsyncRelayCommand(async () => { VistaActual = Catalogo; await Catalogo.InicializarAsyncPublic(); }), new RelayCommand(_ => VistaActual = Conteo), new RelayCommand(_ => IrAApartado(null)));
         CerrarSesion = cerrar;
-        _vistaActual = Portada;
-        SeccionActiva = NavegacionSecciones.Inicio;
         MostrarVistaCommand = new RelayCommand(MostrarVista);
         IrAApartadoCommand = new RelayCommand(IrAApartado);
+        Portada = new PortadaViewModel(sesion.Nombre, resumenInicio,
+            new RelayCommand(_ => MostrarVista(Recepcion)),
+            new RelayCommand(_ => MostrarVista(Catalogo)),
+            new RelayCommand(_ => MostrarVista(Conteo)),
+            new RelayCommand(_ => IrAApartado(null)),
+            recargarInicio,
+            new RelayCommand(_ => MostrarVista(Ventas)),
+            new RelayCommand(_ => MostrarVista(Recepciones)),
+            new RelayCommand(_ => { if (Pos is not null) MostrarVista(Pos); }));
+        _vistaActual = Portada;
+        SeccionActiva = NavegacionSecciones.Inicio;
         if (notificador is not null)
         {
             _coordinadorActualizacion = new CoordinadorActualizacionVistas(notificador);
@@ -434,6 +454,8 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase, IDisposable
 
     private void RegistrarVistasActualizables(CoordinadorActualizacionVistas coordinador)
     {
+        coordinador.Registrar(Portada, [AreaDatos.Stock, AreaDatos.Recepciones, AreaDatos.Conteos, AreaDatos.Ventas, AreaDatos.Cambios], Portada.RefrescarAsync,
+            () => !Portada.Ocupado, () => Portada.Error is not null);
         coordinador.Registrar(Recepcion, [AreaDatos.Proveedores], Recepcion.RefrescarProveedoresSinTocarRecepcionAsync,
             () => !Recepcion.Ocupado, () => Recepcion.Error is not null);
         coordinador.Registrar(Apartado, [AreaDatos.Stock, AreaDatos.Catalogo, AreaDatos.Recepciones, AreaDatos.Conteos, AreaDatos.Ventas, AreaDatos.Cambios], Apartado.BuscarAsyncPublic,
@@ -454,8 +476,8 @@ public sealed class ShellEmpleadaViewModel : ViewModelBase, IDisposable
             coordinador.Registrar(CuentaCorriente, [AreaDatos.Clientes, AreaDatos.CuentaCorriente, AreaDatos.Ventas, AreaDatos.Cambios], CuentaCorriente.CargarAsync,
                 () => !CuentaCorriente.Ocupado && CuentaCorriente.Cliente is not null && !CuentaCorriente.FormularioAbono && !CuentaCorriente.FormularioAjuste, () => CuentaCorriente.Error is not null);
         if (Ventas is not null)
-            coordinador.Registrar(Ventas, [AreaDatos.Ventas, AreaDatos.Cambios], Ventas.CargarAsyncPublic,
-                () => !Ventas.Ocupado && Ventas.FilaSeleccionada is null && !Ventas.ConfirmacionVisible,
+            coordinador.Registrar(Ventas, [AreaDatos.Ventas, AreaDatos.Cambios], Ventas.RefrescarAsyncPublic,
+                () => !Ventas.Ocupado && !Ventas.ConfirmacionVisible,
                 () => Ventas.Error is not null, iniciarDesactualizada: true);
         if (Reportes is not null)
             coordinador.Registrar(Reportes, [AreaDatos.Ventas, AreaDatos.Cambios, AreaDatos.Caja, AreaDatos.Stock], Reportes.RefrescarPestanaActivaAsync,

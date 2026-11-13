@@ -4,6 +4,9 @@
     <DockPanel Background="{StaticResource Color.CanvasBrush}">
         <Border DockPanel.Dock="Top" Background="{StaticResource Color.NavBrush}" Padding="12,8" MinHeight="44">
             <DockPanel>
+                <Image DockPanel.Dock="Left" Width="32" Height="32" Margin="0,0,8,0" Stretch="Uniform"
+                       Source="pack://application:,,,/LocalInfantil.Wpf;component/Assets/Branding/logo-tina.png"
+                       AutomationProperties.Name="TiNA kids — Vistiendo sonrisas"/>
                 <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.CanvasBrush}" Text="LocalInfantil"/>
                 <Menu DockPanel.Dock="Right" AutomationProperties.Name="Menú de usuario" Background="Transparent" VerticalAlignment="Center">
                     <MenuItem Header="Empleada" Style="{StaticResource EstiloItemMenuPrincipal}">

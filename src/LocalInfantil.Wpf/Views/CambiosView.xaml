@@ -1,34 +1,58 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.CambiosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:LocalInfantil.Wpf.Views">
+    <UserControl.Resources>
+        <!-- Grilla de prendas: filas ~40 y encabezados 32, sobre el estilo operativo -->
+        <Style x:Key="EstiloGrillaCambios" TargetType="DataGrid" BasedOn="{StaticResource EstiloGrillaOperativa}">
+            <Setter Property="RowHeight" Value="40"/>
+            <Setter Property="ColumnHeaderHeight" Value="32"/>
+        </Style>
+        <!-- Cantidad compacta: 30 DIP de alto, sin márgenes verticales de sobra -->
+        <Style x:Key="EstiloCantidadCorta" TargetType="TextBox" BasedOn="{StaticResource EstiloCampoTexto}">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding CantidadExcedeDisponible}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Color.ErrorTextBrush}"/>
+                    <Setter Property="Background" Value="{StaticResource Color.ErrorBgBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <DockPanel Background="{StaticResource Color.CanvasBrush}">
-        <StackPanel DockPanel.Dock="Top" Margin="16,8,16,6">
+        <StackPanel DockPanel.Dock="Top" Margin="18,10,18,8">
             <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Cambios y devoluciones"/>
-            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Buscá la venta, elegí qué vuelve y qué se lleva. Comprobante interno no fiscal."/>
+            <TextBlock Style="{StaticResource EstiloAyuda}" Margin="0,2,0,6" Text="Buscá la venta, elegí qué vuelve y qué se lleva. Comprobante interno no fiscal."/>
             <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}" TextWrapping="Wrap"/>
             <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}" TextWrapping="Wrap"/>
         </StackPanel>
 
-        <Grid Margin="16,0,16,12">
+        <Grid Margin="18,0,18,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="28*" MinWidth="260"/>
                 <ColumnDefinition Width="72*" MinWidth="500"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,0,8,0">
+            <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,0,10,0">
                 <DockPanel LastChildFill="True">
                     <StackPanel DockPanel.Dock="Top">
                         <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="BUSCAR VENTA"/>
-                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Número, producto o código" Margin="0,1,0,4"/>
-                        <DockPanel Margin="0,0,0,5">
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Margin="0,2,0,8" Text="Número de ticket, producto o código. Se filtra mientras escribís." TextWrapping="Wrap"/>
+                        <DockPanel Margin="0,0,0,8">
                             <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="Buscar" Click="BuscarVentas_Click" Margin="6,0,0,0"/>
-                            <TextBox x:Name="BuscarVentaTextBox" Style="{StaticResource EstiloCampoTexto}" Text="{Binding Filtro, UpdateSourceTrigger=PropertyChanged}" ToolTip="Número, producto o código" KeyDown="BuscarVentaTextBox_KeyDown"/>
+                            <TextBox x:Name="BuscarVentaTextBox" Style="{StaticResource EstiloCampoTexto}" Text="{Binding Filtro, UpdateSourceTrigger=PropertyChanged}" ToolTip="Número de ticket, producto o código" KeyDown="BuscarVentaTextBox_KeyDown"/>
                         </DockPanel>
-                        <Grid Margin="0,0,0,7">
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <StackPanel><TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Desde"/><DatePicker SelectedDate="{Binding Desde}" HorizontalAlignment="Stretch"/></StackPanel>
                             <StackPanel Grid.Column="1" Margin="6,0,0,0"><TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Hasta"/><DatePicker SelectedDate="{Binding Hasta}" HorizontalAlignment="Stretch"/></StackPanel>
                         </Grid>
+                        <ProgressBar Style="{StaticResource EstiloOcupado}" Height="3" Margin="0,0,0,4"
+                                     Visibility="{Binding BuscandoVentas, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
                     <ListBox x:Name="VentasListBox" ItemsSource="{Binding Ventas}"
                              IsEnabled="{Binding PuedeSeleccionarVenta}" BorderThickness="0" Background="Transparent"
@@ -36,10 +60,10 @@
                              SelectionChanged="VentasListBox_SelectionChanged">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
-                                <Setter Property="Padding" Value="3"/>
+                                <Setter Property="Padding" Value="4,2"/>
                                 <Setter Property="Margin" Value="0,1"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Resumen.Anulada}" Value="True">
+                                    <DataTrigger Binding="{Binding Anulada}" Value="True">
                                         <Setter Property="IsEnabled" Value="False"/>
                                         <Setter Property="Opacity" Value="0.58"/>
                                     </DataTrigger>
@@ -48,19 +72,25 @@
                         </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid Margin="3,4">
+                                <Grid Margin="6,4">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <DockPanel>
-                                            <TextBlock FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Resumen.Numero}"/>
-                                            <TextBlock DockPanel.Dock="Right" Foreground="{StaticResource Color.ErrorTextBrush}" FontSize="11" Text="ANULADA"
-                                                       Visibility="{Binding Resumen.Anulada, Converter={StaticResource BoolToVisibility}}"/>
-                                        </DockPanel>
-                                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding ResumenLineaTexto}"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Color.TextBrush}"
-                                               Text="{Binding Resumen.TotalMinor, Converter={StaticResource MinorToArs}}"/>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Numero}"/>
+                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" HorizontalAlignment="Right" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}" Text="{Binding TotalTexto}"/>
+                                    <TextBlock Grid.Row="1" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding FechaTexto}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Margin="10,0,0,0" HorizontalAlignment="Right" FontSize="12" Text="{Binding EstadoTexto}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Anulada}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource Color.ErrorTextBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -68,8 +98,10 @@
                 </DockPanel>
             </Border>
 
-            <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,0,0,6">
+            <Grid Grid.Column="1" Margin="10,0,0,0">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,0,0,8">
                     <DockPanel>
                         <StackPanel>
                             <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="VENTA SELECCIONADA"/>
@@ -84,75 +116,137 @@
                     </DockPanel>
                 </Border>
 
-                <TabControl SelectedValue="{Binding SeccionActiva}" SelectedValuePath="Tag" IsEnabled="{Binding PuedeConsultar}">
+                <TabControl Grid.Row="1" SelectedValue="{Binding SeccionActiva}" SelectedValuePath="Tag" IsEnabled="{Binding PuedeConsultar}">
                     <TabItem Header="Operación" Tag="operacion">
-                        <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <StackPanel Margin="0,6,4,0">
-                                <StackPanel Orientation="Horizontal" Margin="4,0,4,8">
-                                    <TextBlock Text="Tipo de operación" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                    <RadioButton Content="Cambio" IsChecked="{Binding EsModoCambio, Mode=TwoWay}" GroupName="ModoCambioDevolucion" Margin="0,0,16,0"/>
-                                    <RadioButton Content="Devolución" IsChecked="{Binding EsModoDevolucion, Mode=TwoWay}" GroupName="ModoCambioDevolucion"/>
-                                </StackPanel>
-                                <TextBlock Margin="4,8" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                        <Grid Margin="4,6,4,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Orientation="Horizontal" Margin="4,0,4,10">
+                                <TextBlock Text="Tipo de operación" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <RadioButton Content="Cambio" IsChecked="{Binding EsModoCambio, Mode=TwoWay}" GroupName="ModoCambioDevolucion" Margin="0,0,16,0"/>
+                                <RadioButton Content="Devolución" IsChecked="{Binding EsModoDevolucion, Mode=TwoWay}" GroupName="ModoCambioDevolucion"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Margin="4,4">
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}"
                                            Text="{Binding EstadoVacioOperacion}" TextWrapping="Wrap"
                                            Visibility="{Binding MostrarEstadoVacioOperacion, Converter={StaticResource BoolToVisibility}}"/>
+                                <StackPanel Visibility="{Binding CargandoDetalle, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Style="{StaticResource EstiloAyuda}" Margin="0" Text="Cargando el detalle de la venta..."/>
+                                    <ProgressBar Style="{StaticResource EstiloOcupado}" Height="3" Margin="0,4,0,0" IsIndeterminate="True"/>
+                                </StackPanel>
+                            </StackPanel>
 
-                                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}"
-                                        IsEnabled="{Binding PuedeEditarOperacion}"
-                                        Visibility="{Binding MostrarEstadoVacioOperacion, Converter={StaticResource BoolToVisibilityInverted}}">
+                            <!-- Prendas que vuelven: grilla con scroll propio -->
+                            <Border Grid.Row="2" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}"
+                                    IsEnabled="{Binding PuedeEditarOperacion}"
+                                    Visibility="{Binding MostrarOperacion, Converter={StaticResource BoolToVisibility}}">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="PRENDAS QUE VUELVEN"/>
+                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Style="{StaticResource EstiloAyuda}" Margin="10,0,0,2" Text="Solo unidades aún no devueltas; «Máximo» no es el stock actual"/>
+                                    </Grid>
+                                    <TextBlock DockPanel.Dock="Bottom" Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Color.ErrorTextBrush}"
+                                               Text="{Binding ErrorCantidadesTexto}" TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ErrorCantidadesTexto}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <DataGrid x:Name="EntradasDataGrid" ItemsSource="{Binding Entradas}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                              HeadersVisibility="Column" Margin="0,4"
+                                              Style="{StaticResource EstiloGrillaCambios}"
+                                              IsReadOnly="False" HorizontalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Artículo" Binding="{Binding Descripcion}" Width="2.6*" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="Máximo" Binding="{Binding Item.CantidadDisponible}" Width="86" IsReadOnly="True"/>
+                                            <DataGridTemplateColumn Header="Cantidad" Width="112">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="3,1">
+                                                            <TextBox Style="{StaticResource EstiloCantidadCorta}" MinWidth="64"
+                                                                     Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
+                                                                     ToolTip="{Binding ErrorCantidad}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="Apta" Width="90">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" IsChecked="{Binding Apta}"
+                                                                  ToolTip="Apta para volver a vender. Desmarcá si vuelve no apta: se exigirá el motivo."/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="Motivo" Width="1.3*">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <TextBox Margin="3,1" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}"
+                                                                 ToolTip="Obligatorio si la prenda vuelve no apta">
+                                                            <TextBox.Style>
+                                                                <Style TargetType="TextBox" BasedOn="{StaticResource EstiloCampoTexto}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers><DataTrigger Binding="{Binding Apta}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                                                </Style>
+                                                            </TextBox.Style>
+                                                        </TextBox>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Artículos nuevos (sólo modo cambio) -->
+                            <Border Grid.Row="3" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,8,0,0"
+                                    Visibility="{Binding EsModoCambio, Converter={StaticResource BoolToVisibility}}">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Top" Margin="0,0,0,3">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="ARTÍCULOS NUEVOS"/>
+                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Style="{StaticResource EstiloAyuda}" Margin="10,0,0,2" Text="Buscá por nombre o código; elegí una sugerencia."/>
+                                    </Grid>
                                     <StackPanel>
-                                        <DockPanel Margin="0,0,0,4">
-                                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="PRENDAS QUE VUELVEN"/>
-                                            <TextBlock DockPanel.Dock="Right" Style="{StaticResource EstiloAyuda}" Text="Solo unidades aún no devueltas"/>
-                                        </DockPanel>
-                                        <DataGrid x:Name="EntradasDataGrid" ItemsSource="{Binding Entradas}" AutoGenerateColumns="False" CanUserAddRows="False"
-                                                  HeadersVisibility="Column" MinHeight="100" MaxHeight="210" Margin="0,2,0,8"
-                                                  IsReadOnly="False" HorizontalScrollBarVisibility="Disabled">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="Artículo" Binding="{Binding Descripcion}" Width="2.3*" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Disponible para devolver" Binding="{Binding Item.CantidadDisponible}" Width="1.05*" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Cantidad a devolver" Binding="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}" Width="0.9*"/>
-                                                <DataGridTemplateColumn Header="Estado al regresar" Width="1.2*">
-                                                    <DataGridTemplateColumn.CellTemplate>
-                                                        <DataTemplate><CheckBox Content="Apta para volver a vender" IsChecked="{Binding Apta}" ToolTip="Desmarcá si vuelve no apta para la venta"/></DataTemplate>
-                                                    </DataGridTemplateColumn.CellTemplate>
-                                                </DataGridTemplateColumn>
-                                                <DataGridTemplateColumn Header="Motivo" Width="1.3*">
-                                                    <DataGridTemplateColumn.CellTemplate>
-                                                        <DataTemplate>
-                                                            <TextBox Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}"
-                                                                     ToolTip="Obligatorio si la prenda vuelve no apta">
-                                                                <TextBox.Style>
-                                                                    <Style TargetType="TextBox" BasedOn="{StaticResource EstiloCampoTexto}">
-                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                        <Style.Triggers><DataTrigger Binding="{Binding Apta}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
-                                                                    </Style>
-                                                                </TextBox.Style>
-                                                            </TextBox>
-                                                        </DataTemplate>
-                                                    </DataGridTemplateColumn.CellTemplate>
-                                                </DataGridTemplateColumn>
-                                            </DataGrid.Columns>
-                                        </DataGrid>
-
-                                        <StackPanel Visibility="{Binding EsModoCambio, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="ARTÍCULOS NUEVOS" Margin="0,2,0,0"/>
-                                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Buscá por código y agregá la cantidad que se lleva." Margin="0,1,0,4"/>
-                                        <Grid Margin="0,0,0,5">
+                                        <Grid Margin="0,2,0,4">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="82"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <TextBox x:Name="CodigoSalidaTextBox" Style="{StaticResource EstiloCampoTexto}"
-                                                     Text="{Binding CodigoSalida, UpdateSourceTrigger=PropertyChanged}" ToolTip="Código interno exacto"
-                                                     KeyDown="CodigoSalidaTextBox_KeyDown"/>
+                                            <views:BuscadorAsistido x:Name="BuscadorArticulo" Modo="VarianteStock"
+                                                                    Motor="{Binding MotorArticulos}"
+                                                                    SeleccionCommand="{Binding SeleccionarArticuloCommand}"
+                                                                    TextoSeleccionado="{Binding TextoArticuloPresentacion}"
+                                                                    EnfocarAlLimpiarMotor="True"
+                                                                    BusquedaDirectaCommand="{Binding AgregarSalidaDirectaCommand}"
+                                                                    PatronCodigoExactoEnEnter="^[A-Za-z]{2,5}-[0-9]{3}-[A-Za-z0-9-]+$"
+                                                                    AutomationProperties.Name="Buscar artículo nuevo"
+                                                                    Placeholder="Nombre, SKU o código..."
+                                                                    ToolTip="Elegí una sugerencia; el botón Agregar valida cantidad, stock y precio"/>
                                             <TextBox Grid.Column="1" Style="{StaticResource EstiloCampoTexto}" Margin="6,0"
                                                      Text="{Binding CantidadSalida, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad"/>
-                                            <Button Grid.Column="2" Style="{StaticResource EstiloBotonSecundario}" Content="Agregar" Command="{Binding AgregarSalidaCommand}"/>
+                                            <Button Grid.Column="2" Style="{StaticResource EstiloBotonSecundario}" Content="Agregar" Command="{Binding AgregarSalidaCommand}" IsEnabled="{Binding PuedeAgregarArticulo}"/>
                                         </Grid>
-                                        <ItemsControl ItemsSource="{Binding Salidas}" Margin="0,0,0,6">
+                                        <TextBlock Margin="2,0,0,3" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                   Text="{Binding ArticuloSeleccionadoDetalle}" TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding TieneArticuloSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
+                                        <ItemsControl ItemsSource="{Binding Salidas}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Grid Margin="1,3">
+                                                    <Grid Margin="1,2">
                                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="65"/><ColumnDefinition Width="95"/><ColumnDefinition Width="95"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                                         <TextBlock VerticalAlignment="Center" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Descripcion}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding Cantidad, StringFormat=Cant. {0}}"/>
@@ -167,148 +261,79 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        </StackPanel>
                                     </StackPanel>
-                                </Border>
-
-                                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,6,0,0"
-                                        Visibility="{Binding MostrarEstadoVacioOperacion, Converter={StaticResource BoolToVisibilityInverted}}">
-                                    <StackPanel>
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="RESUMEN DEL CAMBIO"/>
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                            <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Crédito por prendas que vuelven"/>
-                                            <TextBlock Grid.Column="1" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CreditoEntradasTexto}"/>
-                                            <TextBlock Grid.Row="1" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Artículos nuevos" Margin="0,3,0,0"/>
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TotalSalidasTexto}" Margin="0,3,0,0"/>
-                                            <Border Grid.Row="2" Grid.ColumnSpan="2" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Margin="0,6,0,0" Padding="0,5,0,0">
-                                                <DockPanel>
-                                                <TextBlock FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding ResultadoDiferenciaTexto}"/>
-                                                </DockPanel>
-                                            </Border>
-                                        </Grid>
-                                        <TextBlock Margin="0,5,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                                   Text="No hay diferencia para cobrar ni reintegrar."
-                                                   Visibility="{Binding MuestraAvisoSinDiferencia, Converter={StaticResource BoolToVisibility}}"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,6,0,0"
-                                        Visibility="{Binding DiferenciaPositiva, Converter={StaticResource BoolToVisibility}}">
-                                    <StackPanel IsEnabled="{Binding PuedeEditarOperacion}">
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="COBRAR DIFERENCIA"/>
-                                        <ItemsControl ItemsSource="{Binding Pagos}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,4">
-                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1*"/><ColumnDefinition Width="1*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Medio de pago"/>
-                                                        <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiqueta}" Text="Importe"/>
-                                                        <TextBlock Grid.Column="2" Style="{StaticResource EstiloEtiqueta}" Text="Efectivo recibido"
-                                                                   Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}"/>
-                                                        <ComboBox Grid.Row="1" Style="{StaticResource EstiloCombo}" ItemsSource="{Binding DataContext.Medios, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                  DisplayMemberPath="Texto" SelectedValuePath="Valor" SelectedValue="{Binding Medio}"/>
-                                                        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource EstiloCampoTexto}" Margin="5,0"
-                                                                 Text="{Binding ImporteTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Importe cobrado con este medio"/>
-                                                        <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource EstiloCampoTexto}"
-                                                                 Text="{Binding RecibidoTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Dinero entregado por el cliente"
-                                                                 Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}"/>
-                                                        <Button Grid.RowSpan="2" Grid.Column="3" Style="{StaticResource EstiloBotonQuiet}" Content="Quitar" Margin="5,0,0,0"
-                                                                Command="{Binding DataContext.QuitarPagoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}" IsEnabled="{Binding DataContext.PuedeQuitarPago, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <Button HorizontalAlignment="Left" Style="{StaticResource EstiloBotonQuiet}" Content="+ Agregar medio de pago" Command="{Binding AgregarPagoCommand}"/>
-                                        <TextBlock Margin="0,3,0,0" Foreground="{StaticResource Color.ErrorTextBrush}" Text="{Binding ErrorCobro}" TextWrapping="Wrap"/>
-                                        <TextBlock Margin="0,3,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                                   Text="Mercado Pago Point no está integrado para cobrar esta diferencia; registrá el cobro con un medio manual."/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,6,0,0"
-                                        Visibility="{Binding DiferenciaNegativa, Converter={StaticResource BoolToVisibility}}">
-                                    <StackPanel IsEnabled="{Binding PuedeEditarOperacion}">
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="REINTEGRO"/>
-                                        <TextBlock FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource Color.PrimaryBrush}"
-                                                   Text="{Binding ResultadoDiferenciaTexto}"/>
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Medio de reintegro" Margin="0,8,0,2"/>
-                                        <ComboBox Style="{StaticResource EstiloCombo}" Width="220" HorizontalAlignment="Left" ItemsSource="{Binding MediosReintegro}"
-                                                  SelectedItem="{Binding MedioReintegro}">
-                                            <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Converter={StaticResource MedioAEtiqueta}}"/></DataTemplate></ComboBox.ItemTemplate>
-                                        </ComboBox>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{StaticResource Color.WarningTextBrush}" Text="{Binding AvisoReintegroMp}"
-                                                   TextWrapping="Wrap" Visibility="{Binding AvisoReintegroMpVisible, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Margin="0,4,0,0" Foreground="{StaticResource Color.WarningTextBrush}"
-                                                   Text="El cambio registra el crédito local. El reembolso de Mercado Pago es una operación remota separada."
-                                                   Visibility="{Binding AvisoReembolsoMpSeparadoVisible, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Motivo del reintegro" Margin="0,7,0,2"/>
-                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="Obligatorio cuando hay dinero que reintegrar"/>
-                                        <TextBlock Foreground="{StaticResource Color.ErrorTextBrush}" Text="{Binding ErrorMotivo}" Margin="0,2,0,0"/>
-                                        <StackPanel Margin="0,7,0,0" Visibility="{Binding RequiereAutorizacionPresencial, Converter={StaticResource BoolToVisibility}}">
-                                            <TextBlock Foreground="{StaticResource Color.TextBrush}" Text="Autorización presencial de Dueña" FontWeight="SemiBold"/>
-                                            <Grid Margin="0,3,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                                <StackPanel><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Usuario"/><TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding UsuarioAutorizante, UpdateSourceTrigger=PropertyChanged}"/></StackPanel>
-                                                <StackPanel Grid.Column="1" Margin="7,0,0,0"><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Contraseña"/><PasswordBox x:Name="ContrasenaDuena" PasswordChanged="ContrasenaDuena_PasswordChanged"/></StackPanel>
-                                            </Grid>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,6,0,0"
-                                        Visibility="{Binding ReintegroMpPendienteVisible, Converter={StaticResource BoolToVisibility}}">
-                                    <StackPanel>
-                                        <TextBlock Foreground="{StaticResource Color.WarningTextBrush}" Text="{Binding ReintegroMpPendienteTexto}" TextWrapping="Wrap"/>
-                                        <Button Margin="0,6,0,0" HorizontalAlignment="Left" Style="{StaticResource EstiloBotonSecundario}"
-                                                Content="Reembolsar en Mercado Pago" Command="{Binding ReembolsarMpCommand}"
-                                                IsEnabled="{Binding PuedeReembolsarMp}"/>
-                                    </StackPanel>
-                                </Border>
-
-                            </StackPanel>
-                        </ScrollViewer>
-                            <Border Grid.Row="1" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,5,4,0"
-                                    Visibility="{Binding MostrarEstadoVacioOperacion, Converter={StaticResource BoolToVisibilityInverted}}">
-                                <DockPanel LastChildFill="False">
-                                    <TextBlock VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                               Text="Revisá prendas, artículos y diferencia antes de registrar." TextTrimming="CharacterEllipsis"/>
-                                    <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonPrimario}" Content="{Binding TextoConfirmarOperacion}"
-                                            IsEnabled="{Binding PuedeRegistrarOperacion}" Click="Confirmar_Click" Margin="8,0,0,0"/>
                                 </DockPanel>
+                            </Border>
+
+                            <!-- Reintegro Mercado Pago pendiente -->
+                            <Border Grid.Row="4" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,8,0,0"
+                                    Visibility="{Binding ReintegroMpPendienteVisible, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Foreground="{StaticResource Color.WarningTextBrush}" Text="{Binding ReintegroMpPendienteTexto}" TextWrapping="Wrap"/>
+                                    <Button Margin="0,6,0,0" HorizontalAlignment="Left" Style="{StaticResource EstiloBotonSecundario}"
+                                            Content="Reembolsar en Mercado Pago" Command="{Binding ReembolsarMpCommand}"
+                                            IsEnabled="{Binding PuedeReembolsarMp}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Resumen económico + Continuar: fijos en pantalla -->
+                            <Border Grid.Row="5" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,10,0,0"
+                                    Visibility="{Binding MostrarOperacion, Converter={StaticResource BoolToVisibility}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Grid Margin="0,0,14,0" VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                        <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Crédito por prendas devueltas"/>
+                                        <TextBlock Grid.Column="1" HorizontalAlignment="Right" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CreditoEntradasTexto}"/>
+                                        <TextBlock Grid.Row="1" Margin="0,2,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Total de artículos nuevos"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Margin="12,2,0,0" HorizontalAlignment="Right" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TotalSalidasTexto}"/>
+                                        <TextBlock Grid.Row="2" Margin="0,3,0,0" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Diferencia"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Margin="12,3,0,0" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                                   Foreground="{StaticResource Color.PrimaryBrush}" Text="{Binding ResultadoDiferenciaTexto}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ResultadoDiferenciaTexto}"/>
+                                    </Grid>
+                                    <Button Grid.Column="1" MinWidth="142" Style="{StaticResource EstiloBotonPrimario}" Content="Continuar"
+                                            IsEnabled="{Binding PuedeContinuarOperacion}" Click="Continuar_Click" VerticalAlignment="Center"/>
+                                </Grid>
                             </Border>
                         </Grid>
                     </TabItem>
 
                     <TabItem Header="Historial" Tag="historial">
-                        <Grid Margin="8">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                             <TextBlock VerticalAlignment="Top" Foreground="{StaticResource Color.TextSecondaryBrush}"
                                        Text="Seleccioná una venta para ver su historial de cambios."
                                        Visibility="{Binding SinVentaSeleccionada, Converter={StaticResource BoolToVisibility}}"/>
-                            <StackPanel Visibility="{Binding Venta, Converter={StaticResource NullToVisibility}}">
-                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="HISTORIAL · DOBLE CLIC PARA ABRIR COMPROBANTE" Margin="0,0,0,5"/>
+                            <StackPanel Margin="0,0,0,12" Visibility="{Binding Venta, Converter={StaticResource NullToVisibility}}">
+                                <TextBlock FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Cambios y devoluciones registrados"/>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding VentaContexto}" Margin="0,4,0,2"/>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" Text="Doble clic sobre una fila para abrir e imprimir el comprobante."/>
                                 <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Esta venta todavía no tiene cambios registrados."
+                                           Margin="0,10,0,0"
                                            Visibility="{Binding HistorialVacio, Converter={StaticResource BoolToVisibility}}"/>
-                                <ListBox ItemsSource="{Binding Historial}" BorderThickness="0" Background="Transparent"
-                                         MouseDoubleClick="HistorialListBox_MouseDoubleClick">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="4,5"><Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                <TextBlock Foreground="{StaticResource Color.TextBrush}" FontWeight="SemiBold" Text="{Binding Numero}"/>
-                                                <TextBlock Grid.Column="1" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Fecha, Converter={StaticResource FechaCorta}}"/>
-                                                <TextBlock Grid.Column="2" Foreground="{StaticResource Color.TextBrush}" Text="{Binding DiferenciaMinor, Converter={StaticResource MinorToArs}}"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
                             </StackPanel>
+                            <DataGrid x:Name="HistorialDataGrid" Grid.Row="1" ItemsSource="{Binding Historial}" Style="{StaticResource EstiloGrillaCambios}"
+                                      Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}"
+                                      IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single"
+                                      EnableRowVirtualization="True" Visibility="{Binding HistorialVacio, Converter={StaticResource BoolToVisibilityInverted}}"
+                                      MouseDoubleClick="HistorialListBox_MouseDoubleClick">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Comprobante" Binding="{Binding Numero}" Width="1*" MinWidth="95"/>
+                                    <DataGridTextColumn Header="Fecha / hora" Binding="{Binding Fecha, Converter={StaticResource FechaCorta}}" Width="1.15*" MinWidth="105"/>
+                                    <DataGridTextColumn Header="Tipo" Binding="{Binding TipoTexto}" Width="1*" MinWidth="92"/>
+                                    <DataGridTextColumn Header="Venta original" Binding="{Binding VentaNumero}" Width="1*" MinWidth="95"/>
+                                    <DataGridTextColumn Header="Resultado" Binding="{Binding ResultadoTexto}" Width="1.25*" MinWidth="112"/>
+                                    <DataGridTextColumn Header="Importe" Binding="{Binding ImporteResultadoMinor, Converter={StaticResource MinorToArs}}" Width="1.25*" MinWidth="112">
+                                        <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="TextAlignment" Value="Right"/><Setter Property="Margin" Value="6,0"/><Setter Property="VerticalAlignment" Value="Center"/></Style></DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Responsable" Binding="{Binding Responsable}" Width="1*" MinWidth="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
                         </Grid>
                     </TabItem>
                 </TabControl>
-            </StackPanel>
+            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

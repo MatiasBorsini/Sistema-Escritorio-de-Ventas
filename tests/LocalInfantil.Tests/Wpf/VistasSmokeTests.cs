@@ -7,11 +7,14 @@ using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Input;
+using System.Windows.Data;
+using System.Windows.Automation;
 using System.Windows.Threading;
 using System.Xml;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Application.Features.Autenticacion;
 using LocalInfantil.Application.Features.Caja;
+using LocalInfantil.Application.Features.Inicio;
 using LocalInfantil.Infrastructure.Persistence.Migrations;
 using LocalInfantil.Wpf.Infra;
 using LocalInfantil.Wpf.ViewModels;
@@ -147,6 +150,7 @@ public sealed class VistasSmokeTests
     }
 
     [Theory]
+    [InlineData(1680, 900)]
     [InlineData(1480, 900)]
     [InlineData(1280, 720)]
     [InlineData(1024, 576)]
@@ -159,6 +163,8 @@ public sealed class VistasSmokeTests
         {
             AsegurarAplicacion();
             var vista = new CajaView { DataContext = vm };
+            Assert.IsType<TextBox>(vista.FindName("BusquedaVentaCajaTextBox"));
+            Assert.IsType<ListBox>(vista.FindName("SugerenciasVentasCajaListBox"));
             vista.Measure(new Size(ancho, alto));
             vista.Arrange(new Rect(0, 0, ancho, alto));
             vista.UpdateLayout();
@@ -237,6 +243,102 @@ public sealed class VistasSmokeTests
         }
     }
 
+    [Fact]
+    public void Cuenta_corriente_consulta_los_bindings_del_listado_en_el_viewmodel_padre()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            // El listado y la búsqueda se enlazan al VM padre (sin DataContext interno).
+            var vm = new CuentaCorrienteViewModel(new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"cuenta-busqueda-{Guid.NewGuid():N}.db")), () => null, false, false, false, false);
+            var vista = new CuentaCorrienteView { DataContext = vm };
+            Medir(vista);
+
+            var grilla = Assert.IsType<DataGrid>(vista.FindName("ClientesCuentaDataGrid"));
+            Assert.Same(vm, grilla.DataContext);
+            Assert.Same(vm.Clientes, grilla.ItemsSource);
+            var buscador = Assert.IsType<TextBox>(vista.FindName("BusquedaCuentaTextBox"));
+            Assert.Same(vm, buscador.DataContext);
+        });
+    }
+
+    [Fact]
+    public async Task Cuenta_corriente_cambiar_filtro_en_ComboBox_real_no_cierra_WPF_con_clientes_sin_fiado()
+    {
+        using var e = await EntornoCaja.CrearAsync();
+        await e.Servicios.CasoCrearCliente.EjecutarAsync(new NuevoCliente("Cliente sin fiado A", "11-4100", null), e.Sesion);
+        await e.Servicios.CasoCrearCliente.EjecutarAsync(new NuevoCliente("Cliente sin fiado B", "11-4200", null), e.Sesion);
+        var vm = new CuentaCorrienteViewModel(e.Servicios, () => e.Sesion, true, true, true, true);
+        await vm.CargarClientesAsync();
+
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new CuentaCorrienteView { DataContext = vm };
+            Medir(vista);
+            var filtro = Assert.IsType<ComboBox>(vista.FindName("FiltroClientesCuentaComboBox"));
+            Assert.Equal((int)FiltroClientesCuentaCorriente.Todos, filtro.SelectedIndex);
+
+            // Cambia el ComboBox WPF real rápidamente; el último filtro debe
+            // ganar y la grilla debe materializar filas con propiedades de solo lectura.
+            filtro.SelectedIndex = (int)FiltroClientesCuentaCorriente.ConDeuda;
+            filtro.SelectedIndex = (int)FiltroClientesCuentaCorriente.FiadoHabilitado;
+            filtro.SelectedIndex = (int)FiltroClientesCuentaCorriente.Todos;
+            EsperarDispatcher(() => !vm.OcupadoListado && vm.Clientes.Count == 2);
+            vista.UpdateLayout();
+
+            Assert.Equal(FiltroClientesCuentaCorriente.Todos, vm.FiltroClientes);
+            Assert.Equal(2, vm.Clientes.Count);
+            Assert.All(vm.Clientes, cliente => Assert.Null(cliente.LimiteMinor));
+            var busqueda = Assert.IsType<TextBox>(vista.FindName("BusquedaCuentaTextBox"));
+            var grilla = Assert.IsType<DataGrid>(vista.FindName("ClientesCuentaDataGrid"));
+            grilla.SelectedItem = vm.Clientes[0];
+            vista.UpdateLayout();
+            Assert.Equal(vm.Clientes[0].Id, vm.Cliente?.Id);
+            Assert.Equal(string.Empty, vm.TextoCliente);
+            Assert.Equal(2, vm.Clientes.Count);
+
+            grilla.SelectedItem = vm.Clientes[1];
+            vista.UpdateLayout();
+            EsperarDispatcher(() => !vm.Ocupado && vm.Cliente?.Id == vm.Clientes[1].Id);
+            Assert.Equal(string.Empty, vm.TextoCliente);
+            Assert.Equal(2, vm.Clientes.Count);
+            Assert.Equal(Visibility.Collapsed, Assert.IsType<Button>(vista.FindName("AjustarDeudaButton")).Visibility);
+
+            Assert.Same(vm, busqueda.DataContext);
+            Assert.Equal(string.Empty, busqueda.Text);
+            Assert.Equal(string.Empty, vm.TextoCliente);
+        });
+    }
+
+    private static void EsperarDispatcher(Func<bool> condicion)
+    {
+        var frame = new DispatcherFrame();
+        var limite = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var timer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(10),
+        };
+        timer.Tick += (_, _) =>
+        {
+            if (condicion() || DateTime.UtcNow >= limite)
+            {
+                timer.Stop();
+                frame.Continue = false;
+            }
+        };
+        timer.Start();
+        Dispatcher.PushFrame(frame);
+        Assert.True(condicion(), "El filtro real de Cuenta corriente no terminó a tiempo.");
+    }
+
+    private sealed class ContextoBuscadorCliente
+    {
+        public MotorSugerencias<SugerenciaCliente> MotorClientes { get; } = new(
+            (_, _) => Task.FromResult<IReadOnlyList<SugerenciaCliente>>([]), TimeSpan.Zero);
+        public RelayCommand SeleccionarClienteCommand { get; } = new(_ => { });
+    }
+
     [Theory]
     [MemberData(nameof(VistasPrincipales))]
     public void Vista_carga_recursos_y_mide_sin_excepciones(Type tipoVista)
@@ -265,8 +367,90 @@ public sealed class VistasSmokeTests
             vista.UpdateLayout();
 
             Assert.True(vista.ActualWidth <= ancho + 1);
+            // Sin scroll horizontal en contenedores de página; el interno de la
+            // grilla de prendas queda excluido (red de seguridad en 1024).
+            Assert.All(Descendientes(vista).OfType<ScrollViewer>().Where(s => s.TemplatedParent is not DataGrid), scroll =>
+                Assert.NotEqual(ScrollBarVisibility.Auto, scroll.HorizontalScrollBarVisibility));
+        });
+    }
+
+    [Theory]
+    [InlineData(1680, 900)]
+    [InlineData(1280, 720)]
+    [InlineData(1024, 576)]
+    public void Portada_muestra_indicadores_reales_y_mide_sin_scroll_horizontal(int ancho, int alto)
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var resumen = new ResumenInicio(
+                new HashSet<string> { ConsultasInicio.RecibirMercaderia, ConsultasInicio.NuevoProducto, ConsultasInicio.ConteoFisico },
+                2,
+                new ResumenInventarioInicio(14, 10, 4),
+                [new ActividadInicio("Recepción confirmada", "Ropa Sur", 7, "Ana", "2026-10-17T15:00:00Z")],
+                new VentasDelDiaInicio(123450, 3),
+                new RecepcionRecienteInicio("Ropa Sur", 7, "2026-10-17T15:00:00Z"));
+            var vm = new PortadaViewModel("María", resumen,
+                new RelayCommand(_ => { }), new RelayCommand(_ => { }), new RelayCommand(_ => { }), new RelayCommand(_ => { }),
+                null, new RelayCommand(_ => { }), new RelayCommand(_ => { }));
+            var vista = new PortadaView { DataContext = vm };
+            vista.Measure(new Size(ancho, alto));
+            vista.Arrange(new Rect(0, 0, ancho, alto));
+            vista.UpdateLayout();
+
+            Assert.True(vista.ActualWidth <= ancho + 1);
             Assert.All(Descendientes(vista).OfType<ScrollViewer>(), scroll =>
                 Assert.NotEqual(ScrollBarVisibility.Auto, scroll.HorizontalScrollBarVisibility));
+            var textos = Descendientes(vista).OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains("Inicio", textos);
+            Assert.Contains("Ventas de hoy", textos);
+            Assert.Contains("ARS 1.234,50", textos);
+            Assert.Contains("Inventario disponible", textos);
+            Assert.Contains("Recepción más reciente", textos);
+            Assert.Contains("Ropa Sur", textos);
+            Assert.Contains("Acciones frecuentes", textos);
+            Assert.Contains("2 conteos esperan revisión", textos);
+            Assert.Contains("4 unidades están apartadas", textos);
+            Assert.Contains("Para revisar", textos);
+            Assert.Contains("Actividad reciente", textos);
+            Assert.Contains("Recepción confirmada", textos);
+        });
+    }
+
+    [Theory]
+    [InlineData(1480, 900)]
+    [InlineData(1280, 720)]
+    public void VentasConsulta_muestra_filtros_fecha_y_cabe_en_resoluciones_objetivo(int ancho, int alto)
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new VentasConsultaView();
+            vista.Measure(new Size(ancho, alto));
+            vista.Arrange(new Rect(0, 0, ancho, alto));
+            vista.UpdateLayout();
+
+            Assert.Equal(2, Descendientes(vista).OfType<DatePicker>().Count());
+            Assert.Single(Descendientes(vista).OfType<Button>(), b => (string?)b.Content == "Limpiar filtros");
+            Assert.True(vista.ActualWidth <= ancho + 1);
+        });
+    }
+
+    [Fact]
+    public void VentasConsulta_enlaza_buscador_reactivo_y_etiqueta_filtros()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var vista = new VentasConsultaView();
+            var buscador = Assert.IsType<TextBox>(vista.FindName("BuscarVentaTextBox"));
+            Assert.Equal("Buscar venta por número de ticket, nombre de producto o código", AutomationProperties.GetName(buscador));
+            var binding = BindingOperations.GetBinding(buscador, TextBox.TextProperty);
+
+            Assert.NotNull(binding);
+            Assert.Equal("TextoBusqueda", binding!.Path.Path);
+            Assert.Equal(UpdateSourceTrigger.PropertyChanged, binding.UpdateSourceTrigger);
+
         });
     }
 
@@ -395,17 +579,109 @@ public sealed class VistasSmokeTests
                 vista.UpdateLayout();
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-                var scroll = Assert.IsType<ScrollViewer>(vista.Content);
-                Assert.Equal(ScrollBarVisibility.Disabled, scroll.HorizontalScrollBarVisibility);
-                Assert.True(scroll.ViewportWidth > 0);
-                Assert.True(scroll.ExtentWidth <= scroll.ViewportWidth + 1,
-                    $"El POS desborda horizontalmente a {ancho}x{alto}: contenido {scroll.ExtentWidth}px, viewport {scroll.ViewportWidth}px.");
+                // Rediseño POS: raíz en grilla de dos columnas, sin scroll de
+                // página; se verifica que ningún panel interno desborde.
+                Assert.IsType<Grid>(vista.Content);
+                Assert.True(Descendientes(vista).OfType<ScrollViewer>().Any());
+                foreach (var interno in Descendientes(vista).OfType<ScrollViewer>())
+                    Assert.True(interno.ExtentWidth <= interno.ViewportWidth + 1,
+                        $"El POS desborda horizontalmente a {ancho}x{alto}: contenido {interno.ExtentWidth}px, viewport {interno.ViewportWidth}px.");
                 var buscador = Assert.IsType<BuscadorAsistido>(vista.FindName("Buscador"));
                 var caja = Assert.IsType<TextBox>(buscador.FindName("Caja"));
                 Assert.Equal(Visibility.Visible, Assert.IsType<TextBlock>(buscador.FindName("TextoPlaceholder")).Visibility);
                 Assert.True(caja.IsKeyboardFocused, $"El buscador no recibió foco al abrir a {ancho}x{alto}.");
                 Assert.Equal(Visibility.Collapsed,
                     Assert.Single(Descendientes(vista).OfType<Button>(), b => (string?)b.Content == "Cancelar venta").Visibility);
+            }
+            finally
+            {
+                ventana.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void CobrarVentaWindow_reutiliza_el_mismo_viewmodel_y_carga_sus_controles()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"pos-cobro-modal-{Guid.NewGuid():N}.db"));
+            var vm = new PosViewModel(servicios, () => null);
+            vm.Filas.Add(new FilaVentaViewModel
+            {
+                VarianteId = "variante-fixture",
+                CodigoInterno = "REM-001-01",
+                NombreProducto = "Remera de ejemplo",
+                Talle = "M",
+                Color = "Azul",
+                PrecioUnitarioMinor = 3500,
+            });
+            vm.AbrirCobroCommand.Execute(null);
+
+            var ventana = new CobrarVentaWindow(vm);
+            try
+            {
+                ventana.WindowStartupLocation = WindowStartupLocation.Manual;
+                ventana.Left = 20;
+                ventana.Top = 20;
+                ventana.ShowInTaskbar = false;
+                ventana.Show();
+                ventana.UpdateLayout();
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                Assert.Same(vm, ventana.DataContext);
+                Assert.Equal("Cobrar venta", ventana.Title);
+                var botones = Descendientes(ventana).OfType<Button>().ToArray();
+                Assert.Contains(botones, b => (string?)b.Content == "Volver al carrito");
+                Assert.Contains(botones, b => (string?)b.Content == "Confirmar venta");
+                var modalidades = Descendientes(ventana).OfType<RadioButton>().ToArray();
+                Assert.Equal(3, modalidades.Length);
+                Assert.All(modalidades, radio => Assert.Same(modalidades[0].Style, radio.Style));
+                Assert.True(modalidades[0].IsChecked);
+                Assert.All(modalidades.Skip(1), radio => Assert.False(radio.IsEnabled));
+                var textosModalidad = Descendientes(ventana).OfType<TextBlock>().Select(t => t.Text).ToArray();
+                Assert.Contains("Paga todo ahora", textosModalidad);
+                Assert.Contains("Toda la venta a cuenta", textosModalidad);
+                Assert.Contains("Pago parcial y resto a cuenta", textosModalidad);
+                Assert.Contains("Elegí un cliente para habilitar la venta a cuenta.", textosModalidad);
+                Assert.True(vm.CobroVisible);
+                Assert.Single(vm.Filas);
+            }
+            finally
+            {
+                ventana.Close();
+            }
+
+            Assert.False(vm.CobroVisible);
+            Assert.Single(vm.Filas);
+        });
+    }
+
+    [Fact]
+    public void ConfirmarCambioWindow_reutiliza_el_borrador_y_carga_los_controles_de_cobro()
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"cambio-confirmacion-modal-{Guid.NewGuid():N}.db"));
+            var vm = new CambiosViewModel(servicios, () => null, puedeConsultar: true, puedeRegistrar: true);
+            var ventana = new ConfirmarCambioWindow(vm);
+            try
+            {
+                ventana.WindowStartupLocation = WindowStartupLocation.Manual;
+                ventana.Left = 20;
+                ventana.Top = 20;
+                ventana.ShowInTaskbar = false;
+                ventana.Show();
+                ventana.UpdateLayout();
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                Assert.Same(vm, ventana.DataContext);
+                var listaPagos = Assert.Single(Descendientes(ventana).OfType<ItemsControl>().Where(x => x is not ComboBox));
+                Assert.Same(vm.Pagos, listaPagos.ItemsSource);
+                Assert.Contains(Descendientes(ventana).OfType<Button>(), b => (string?)b.Content == "Volver a la preparación");
+                Assert.Contains(Descendientes(ventana).OfType<Button>(), b => (string?)b.Content == "Confirmar operación");
             }
             finally
             {
@@ -601,10 +877,13 @@ public sealed class VistasSmokeTests
                 vista.UpdateLayout();
                 Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-                var scroll = Assert.IsType<ScrollViewer>(vista.Content);
-                Assert.Equal(ScrollBarVisibility.Disabled, scroll.HorizontalScrollBarVisibility);
-                Assert.True(scroll.ExtentWidth <= scroll.ViewportWidth + 1,
-                    $"Cobro desborda horizontalmente a {ancho}x{alto}.");
+                // Rediseño POS: la raíz es una grilla de dos columnas sin scroll
+                // de página; el desborde horizontal se verifica en cada
+                // ScrollViewer interno (carrito y medios de pago).
+                Assert.IsType<Grid>(vista.Content);
+                foreach (var interno in Descendientes(vista).OfType<ScrollViewer>())
+                    Assert.True(interno.ExtentWidth <= interno.ViewportWidth + 1,
+                        $"Cobro desborda horizontalmente a {ancho}x{alto}.");
                 var textos = Descendientes(vista).OfType<TextBlock>().Select(tb => tb.Text).ToArray();
                 Assert.Contains("Medio de pago", textos);
                 Assert.Contains("Importe", textos);
@@ -650,6 +929,57 @@ public sealed class VistasSmokeTests
                 var ajustes = Descendientes(vista).OfType<Button>().Where(b => (string?)b.Content is "−" or "+").ToArray();
                 Assert.Equal(2, ajustes.Length);
                 Assert.All(ajustes, b => Assert.True(b.ActualWidth >= 34));
+            }
+            finally
+            {
+                ventana.Close();
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(1680, 900)]
+    [InlineData(1280, 720)]
+    public void Clientes_mantiene_listado_compacto_y_ficha_financiera_separada(int ancho, int alto)
+    {
+        EjecutarEnSta(() =>
+        {
+            AsegurarAplicacion();
+            var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"clientes-layout-{Guid.NewGuid():N}.db"));
+            var vm = new ClientesViewModel(servicios, () => null, puedeAdministrar: true, puedeConsultarCuenta: true);
+            vm.Clientes.Add(new ClienteRegistrado("cliente-1", "María López", "11-5555-0101", "v", true, "", ""));
+            vm.Clientes.Add(new ClienteRegistrado("cliente-2", "María Pérez", null, null, false, "", ""));
+            vm.Seleccionado = vm.Clientes[0];
+
+            var vista = new ClientesView { DataContext = vm };
+            var ventana = new Window
+            {
+                Content = vista,
+                Width = ancho,
+                Height = alto,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Left = 20,
+                Top = 20,
+                ShowInTaskbar = false,
+            };
+            try
+            {
+                ventana.Show();
+                vista.UpdateLayout();
+                Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+                var grilla = Assert.Single(Descendientes(vista).OfType<DataGrid>());
+                Assert.Equal(2, grilla.Items.Count);
+                Assert.Same(vm.Seleccionado, grilla.SelectedItem);
+                Assert.True(grilla.ActualHeight < vista.ActualHeight * 0.55,
+                    $"El listado con pocos clientes ocupa demasiado alto a {ancho}x{alto}: {grilla.ActualHeight}px.");
+
+                var textos = Descendientes(vista).OfType<TextBlock>().Select(t => t.Text).ToArray();
+                Assert.Contains("Activo", textos);
+                Assert.Contains("Saldo pendiente", textos);
+                Assert.Contains("Fiado no habilitado", textos);
+                Assert.Contains("Observación:", textos);
+                Assert.DoesNotContain(textos, t => t.Contains("Disponible ARS", StringComparison.Ordinal) && t.Contains("Activo", StringComparison.Ordinal));
             }
             finally
             {

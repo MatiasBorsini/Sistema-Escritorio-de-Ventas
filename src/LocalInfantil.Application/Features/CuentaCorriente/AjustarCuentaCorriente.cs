@@ -3,7 +3,7 @@ using LocalInfantil.Application.Contracts;
 
 namespace LocalInfantil.Application.Features.CuentaCorriente;
 
-public sealed class AjustarCuentaCorriente(IRepositorioCuentaCorriente cuenta, IAutorizador auth,
+public sealed class AjustarCuentaCorriente(IRepositorioCuentaCorriente cuenta, IRepositorioClientes clientes, IAutorizador auth,
     IAutorizadorEnSesion authTx, IFabricaSesionesPersistencia fabrica, IRepositorioAuditoria auditoria,
     IReloj reloj)
 {
@@ -12,6 +12,8 @@ public sealed class AjustarCuentaCorriente(IRepositorioCuentaCorriente cuenta, I
         await auth.AutorizarAsync(ConsultasCuentaCorriente.ExigirSesion(idSesion), PermisosCuentaCorriente.Ajustar, ct);
         if (importe <= 0) throw new ArgumentOutOfRangeException(nameof(importe), "El importe debe ser mayor que cero.");
         await using var read = await fabrica.IniciarLecturaAsync(ct);
+        var cliente = await clientes.ObtenerPorIdAsync(read, clienteId, ct) ?? throw new InvalidOperationException("El cliente no existe.");
+        ExigirFiadoHabilitado(cliente.LimiteCreditoMinor);
         var saldo = await cuenta.ObtenerSaldoAsync(read, clienteId, ct); var firmado = aumentar ? importe : -importe;
         if (saldo + firmado < 0) throw new InvalidOperationException("El ajuste no puede dejar un saldo a favor del cliente.");
         return new(saldo, firmado, saldo + firmado);
@@ -27,6 +29,8 @@ public sealed class AjustarCuentaCorriente(IRepositorioCuentaCorriente cuenta, I
         await using var tx = await fabrica.IniciarAsync(ct);
         var actor = await authTx.AutorizarAsync(tx, d.UsuarioSesionId, PermisosCuentaCorriente.Ajustar, ct);
         if (actor.Id != authAntes.Id) throw new SesionInvalidaException();
+        var cliente = await clientes.ObtenerPorIdAsync(tx, d.ClienteId, ct) ?? throw new InvalidOperationException("El cliente no existe.");
+        ExigirFiadoHabilitado(cliente.LimiteCreditoMinor);
         var saldo = await cuenta.ObtenerSaldoAsync(tx, d.ClienteId, ct);
         if (saldo != d.SaldoEsperadoMinor) throw new InvalidOperationException("El saldo cambió. Revisá nuevamente el ajuste.");
         var firmado = d.AumentarDeuda ? d.ImporteMinor : -d.ImporteMinor;
@@ -46,5 +50,11 @@ public sealed class AjustarCuentaCorriente(IRepositorioCuentaCorriente cuenta, I
         }
         await auditoria.RegistrarAsync(tx, new(d.OperacionId, "cuenta_corriente.ajuste", ActorAuditoria.Usuario, actor.Id, "cliente", d.ClienteId, $"tipo={(d.AumentarDeuda ? "ajuste_positivo" : "ajuste_negativo")}; importe_minor={firmado}; saldo_anterior_minor={saldo}; saldo_posterior_minor={saldo+firmado}; motivo={d.Motivo.Trim()}"), ct);
         await tx.ConfirmarAsync(ct);
+    }
+
+    private static void ExigirFiadoHabilitado(long? limiteMinor)
+    {
+        if (limiteMinor is null)
+            throw new InvalidOperationException("No se puede ajustar la deuda: el fiado no está habilitado para este cliente.");
     }
 }

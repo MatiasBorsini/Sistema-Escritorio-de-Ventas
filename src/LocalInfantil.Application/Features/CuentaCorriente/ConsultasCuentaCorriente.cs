@@ -6,6 +6,15 @@ namespace LocalInfantil.Application.Features.CuentaCorriente;
 public sealed class ConsultasCuentaCorriente(IAutorizador auth, IFabricaSesionesPersistencia fabrica,
     IRepositorioCuentaCorriente cuenta, IRepositorioClientes clientes)
 {
+    public async Task<IReadOnlyList<ClienteCuentaCorrienteListado>> BuscarClientesAsync(string texto,
+        FiltroClientesCuentaCorriente filtro, int limite, int desplazamiento, string? idSesion, CancellationToken ct = default)
+    {
+        await auth.AutorizarAsync(ExigirSesion(idSesion), PermisosCuentaCorriente.Consultar, ct);
+        if (limite is < 1 or > 50 || desplazamiento < 0) throw new ArgumentOutOfRangeException(nameof(limite));
+        await using var read = await fabrica.IniciarLecturaAsync(ct);
+        return await cuenta.BuscarClientesAsync(read, texto ?? string.Empty, filtro, limite, desplazamiento, ct);
+    }
+
     public async Task<ResumenCuentaCorriente?> ObtenerAsync(string clienteId, string? idSesion, CancellationToken ct = default)
     {
         await auth.AutorizarAsync(ExigirSesion(idSesion), PermisosCuentaCorriente.Consultar, ct);

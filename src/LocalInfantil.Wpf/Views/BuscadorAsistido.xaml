@@ -30,6 +30,28 @@
                 <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SubProducto}"/>
             </StackPanel>
         </DataTemplate>
+        <DataTemplate x:Key="PlantillaVarianteStock">
+            <Grid Margin="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CodigoInterno}"/>
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DetalleTalleColor, StringFormat= · \{0\}}"/>
+                    </StackPanel>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding StockTexto}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0">
+                    <TextBlock FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" Foreground="{StaticResource Color.TextBrush}"
+                               Text="{Binding PrecioMinor, Converter={StaticResource MinorToArs}}"
+                               Visibility="{Binding TienePrecio, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock FontSize="11" HorizontalAlignment="Right" Foreground="{StaticResource Color.WarningTextBrush}" Text="Sin precio vigente"
+                               Visibility="{Binding SinPrecio, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock FontSize="11" HorizontalAlignment="Right" Foreground="{StaticResource Color.ErrorTextBrush}" Text="Sin stock"
+                               Visibility="{Binding SinStock, Converter={StaticResource BoolToVisibility}}"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
     <Grid x:Name="Raiz">
         <TextBox x:Name="Caja" Style="{StaticResource EstiloCampoTexto}" Margin="0,0,0,0"

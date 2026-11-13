@@ -1,44 +1,95 @@
-<UserControl x:Class="LocalInfantil.Wpf.Views.PosView"
+﻿<UserControl x:Class="LocalInfantil.Wpf.Views.PosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="clr-namespace:LocalInfantil.Wpf.Views"
              AutomationProperties.Name="Punto de venta">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="20,12,20,18">
-            <Grid Margin="0,0,0,3">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+
+    <!-- Copia local de la fuente de iconos (misma que Inicio). -->
+    <UserControl.Resources>
+        <FontFamily x:Key="FuenteIcono">Segoe Fluent Icons,Segoe MDL2 Assets</FontFamily>
+    </UserControl.Resources>
+
+    <Grid Margin="20,10,20,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Encabezado -->
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="20" Foreground="{StaticResource Color.PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,9,0" Text="&#xE7BF;"/>
                 <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Punto de venta"/>
-                <Button Grid.Column="1" HorizontalAlignment="Right" Padding="12,0" MinHeight="32"
-                        Style="{StaticResource EstiloBotonSecundario}"
-                        Content="Cancelar venta" Command="{Binding SolicitarCancelarCommand}"
-                        Visibility="{Binding PuedeCancelarVenta, Converter={StaticResource BoolToVisibility}}"
-                        ToolTip="Solicita confirmación antes de descartar el carrito"/>
-            </Grid>
-            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Escaneá una etiqueta o buscá un producto, agregalo al carrito y cobrá." Margin="0,0,0,8"/>
+            </StackPanel>
+            <Button Grid.Column="1" VerticalAlignment="Center" Padding="12,0" MinHeight="32"
+                    Style="{StaticResource EstiloBotonSecundario}"
+                    Content="Cancelar venta" Command="{Binding SolicitarCancelarCommand}"
+                    Visibility="{Binding PuedeCancelarVenta, Converter={StaticResource BoolToVisibility}}"
+                    ToolTip="Solicita confirmación antes de descartar el carrito"/>
+        </Grid>
 
-            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
-            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
-            <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
+        <ProgressBar Grid.Row="1" Style="{StaticResource EstiloOcupado}" Margin="0,8,0,0"
+                     Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+        <StackPanel Grid.Row="1">
+            <!-- Sin texto ocupan altura por el margen del estilo; sin texto, margen cero -->
+            <TextBlock Text="{Binding Error}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloMensajeError}">
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Error}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <!-- Mensaje de éxito/aviso; oculto mientras la banda de venta confirmada esté visible -->
+            <TextBlock Text="{Binding Mensaje}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloMensajeExito}">
+                        <Setter Property="Margin" Value="0,4,0,0"/>
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding UltimoNumero}" Value="{x:Null}">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
 
-            <Border Margin="0,0,0,8" Padding="10" Background="{StaticResource Color.SuccessBgBrush}"
-                    BorderBrush="{StaticResource Color.SuccessTextBrush}" BorderThickness="1" CornerRadius="4"
+            <!-- Última venta confirmada -->
+            <Border Margin="0,4,0,0" Padding="12,10"
+                    Background="{StaticResource Color.SuccessBgBrush}"
+                    BorderBrush="{StaticResource Color.SuccessTextBrush}" BorderThickness="1" CornerRadius="6"
                     Visibility="{Binding UltimoNumero, Converter={StaticResource NullToVisibility}}">
-                <DockPanel>
-                    <StackPanel>
-                        <TextBlock FontWeight="Bold" Foreground="{StaticResource Color.SuccessTextBrush}"
-                                   Text="{Binding UltimoNumero, StringFormat=VENTA {0} REALIZADA}"/>
-                        <TextBlock Foreground="{StaticResource Color.TextBrush}"
-                                   Text="{Binding UltimoTotal, Converter={StaticResource MinorToArs}, StringFormat=Total {0}}"/>
-                    </StackPanel>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Top" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.SuccessTextBrush}"
+                               Text="Venta realizada correctamente"/>
+                    <TextBlock DockPanel.Dock="Top" Margin="0,2,0,0"
+                               Foreground="{StaticResource Color.TextBrush}">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="Ticket {0} · {1}">
+                                <Binding Path="UltimoNumero"/>
+                                <Binding Path="UltimoTotal" Converter="{StaticResource MinorToArs}"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="18,0,0,0">
                         <Button Style="{StaticResource EstiloBotonPrimario}" Content="Nueva venta" Command="{Binding NuevaVentaCommand}"/>
                         <Button Style="{StaticResource EstiloBotonSecundario}" Content="Ver comprobante" Command="{Binding VerTicketCommand}" Margin="8,0,0,0"/>
                     </StackPanel>
                 </DockPanel>
             </Border>
 
-            <Border Margin="0,0,0,8" Padding="10" Background="{StaticResource Color.WarningBgBrush}"
-                    BorderBrush="{StaticResource Color.WarningTextBrush}" BorderThickness="1" CornerRadius="4"
+            <!-- Confirmación de cancelación -->
+            <Border Margin="0,4,0,0" Padding="10" Background="{StaticResource Color.WarningBgBrush}"
+                    BorderBrush="{StaticResource Color.WarningTextBrush}" BorderThickness="1" CornerRadius="6"
                     Visibility="{Binding ConfirmacionCancelarVisible, Converter={StaticResource BoolToVisibility}}">
                 <DockPanel>
                     <TextBlock VerticalAlignment="Center" Foreground="{StaticResource Color.WarningTextBrush}"
@@ -49,275 +100,407 @@
                     </StackPanel>
                 </DockPanel>
             </Border>
+        </StackPanel>
 
-            <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,0,0,8"
-                    IsEnabled="{Binding PuedeEditarVenta}">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Escanear código o buscar producto" Margin="0,0,0,4"/>
-                    <views:BuscadorAsistido x:Name="Buscador" Height="{StaticResource AlturaCampo}"
-                                            Modo="Variante" Motor="{Binding MotorSugerencias}"
-                                            AutomationProperties.Name="Escanear código o buscar producto"
-                                            PatronCodigoExactoEnEnter="^[A-Za-z]{2,5}-[0-9]{3}-[A-Za-z0-9-]+$"
-                                            SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
-                                            BusquedaDirectaCommand="{Binding BuscarDirectaCommand}"
-                                            Placeholder="Escaneá una etiqueta o escribí código / nombre..."
-                                            ToolTip="Enter agrega el código exacto o la única coincidencia; con varias opciones, elegí una"/>
-                </StackPanel>
-            </Border>
+        <!-- Contenido: buscador + carrito (izquierda) / resumen y cobro (derecha) -->
+        <Grid Grid.Row="3" Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="7*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
 
-            <Border Style="{StaticResource EstiloTarjeta}" Padding="10" Margin="0,0,0,8"
-                    IsEnabled="{Binding PuedeEditarVenta}"
-                    Visibility="{Binding PuedeAsociarCliente, Converter={StaticResource BoolToVisibility}}">
+            <!-- IZQUIERDA: buscador destacado + carrito -->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Buscador principal -->
+                <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0"
+                        IsEnabled="{Binding PuedeEditarVenta}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="34" Height="34" CornerRadius="7" Background="{StaticResource Color.BorderSoftBrush}" VerticalAlignment="Center">
+                            <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="15"
+                                       Foreground="{StaticResource Color.PrimaryBrush}"
+                                       Text="&#xE721;" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                            <views:BuscadorAsistido x:Name="Buscador" Height="{StaticResource AlturaCampo}"
+                                                    Modo="Variante" Motor="{Binding MotorSugerencias}"
+                                                    AutomationProperties.Name="Escanear código o buscar producto"
+                                                    PatronCodigoExactoEnEnter="^[A-Za-z]{2,5}-[0-9]{3}-[A-Za-z0-9-]+$"
+                                                    SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
+                                                    BusquedaDirectaCommand="{Binding BuscarDirectaCommand}"
+                                                    Placeholder="Escaneá una etiqueta o escribí código / nombre..."
+                                                    ToolTip="Enter agrega el código exacto o la única coincidencia; con varias opciones, elegí una"/>
+                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Margin="1,5,0,0"
+                                       Text="Enter agrega el código exacto o la única coincidencia; con varias opciones, elegí una."/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Carrito: crece y desplaza internamente -->
+                <Border Grid.Row="1" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,10,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="14" Foreground="{StaticResource Color.TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,8,0" Text="&#xE7BF;"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Carrito" VerticalAlignment="Center"/>
+                                <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                           Text="{Binding ResumenCarrito}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center"
+                                   Text="Escaneá una etiqueta o buscá un producto para comenzar.">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloEstadoVacio}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HayLineas}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <DataGrid Grid.Row="1" IsReadOnly="True" Background="{StaticResource Color.SurfaceBrush}"
+                                  SelectionMode="Single" SelectionUnit="FullRow" CanUserSortColumns="False"
+                                  CanUserAddRows="False" CanUserDeleteRows="False" ItemsSource="{Binding Filas}"
+                                  BorderBrush="{StaticResource Color.BorderBrush}" SelectionChanged="DataGrid_SelectionChanged" AutoGenerateColumns="False">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource EstiloGrillaOperativa}">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HayLineas}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Producto" Binding="{Binding NombreProducto}" Width="*" MinWidth="110"/>
+                                <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="92"/>
+                                <DataGridTextColumn Header="Talle / Color" Binding="{Binding DetalleTalleColor}" Width="92"/>
+                                <DataGridTemplateColumn Header="Cantidad" Width="132">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource EstiloBotonQuiet}" Content="−" Width="36" MinHeight="34" FontSize="16" Command="{Binding DataContext.DecrementarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" ToolTip="Restar una unidad"/>
+                                                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="48" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" HorizontalContentAlignment="Center"/>
+                                                <Button Style="{StaticResource EstiloBotonQuiet}" Content="+" Width="36" MinHeight="34" FontSize="16" Command="{Binding DataContext.IncrementarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" ToolTip="Sumar una unidad"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Precio" Binding="{Binding PrecioUnitarioMinor, Converter={StaticResource MinorToArs}}" Width="92"/>
+                                <DataGridTextColumn Header="Subtotal" Binding="{Binding SubtotalMinor, Converter={StaticResource MinorToArs}}" Width="102"/>
+                                <DataGridTemplateColumn Header="" Width="44">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource EstiloBotonQuiet}" Content="✕" ToolTip="Quitar del carrito"
+                                                    Command="{Binding DataContext.QuitarFilaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- DERECHA: resumen del carrito; el cobro vive en una ventana modal. -->
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="CLIENTE OPCIONAL" Margin="0,0,12,0"/>
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                Text="Sin cliente" Visibility="{Binding SinClienteSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
-                    <Button Grid.Column="3" HorizontalAlignment="Left" Style="{StaticResource EstiloBotonQuiet}"
-                            Content="Asignar cliente" Command="{Binding MostrarBuscadorClienteCommand}"
-                            Visibility="{Binding MostrarBotonAsignarCliente, Converter={StaticResource BoolToVisibility}}"/>
-                    <views:BuscadorCliente Grid.Column="2" Width="340" HorizontalAlignment="Left"
-                                           Motor="{Binding MotorClientes}" SeleccionCommand="{Binding SeleccionarClienteCommand}"
-                                           Visibility="{Binding MostrarBuscadorCliente, Converter={StaticResource BoolToVisibility}}"/>
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontWeight="SemiBold"
-                               Text="{Binding ClienteSeleccionado.NombreCompleto}"
-                               Visibility="{Binding ClienteSeleccionado, Converter={StaticResource NullToVisibility}}"/>
-                    <StackPanel Grid.Column="3" Orientation="Horizontal" Visibility="{Binding PuedeQuitarCliente, Converter={StaticResource BoolToVisibility}}">
-                        <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cambiar" Command="{Binding CambiarClienteCommand}"/>
-                        <Button Style="{StaticResource EstiloBotonQuiet}" Content="Quitar" Command="{Binding LimpiarClienteCommand}" Margin="4,0,0,0"/>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="16" Foreground="{StaticResource Color.PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" Text="&#xE8C7;"/>
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Resumen de la venta" VerticalAlignment="Center"/>
                     </StackPanel>
+                    <Border Grid.Row="1" Background="{StaticResource Color.Surface2Brush}" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="14" Foreground="{StaticResource Color.TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" Text="&#xE77B;"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Cliente"/>
+                                <TextBlock FontSize="14" FontWeight="SemiBold" Text="Sin cliente" Visibility="{Binding SinClienteSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
+                                <TextBlock FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Text="{Binding ClienteSeleccionado.NombreCompleto}"
+                                           Visibility="{Binding ClienteSeleccionado, Converter={StaticResource NullToVisibility}}"/>
+                            </StackPanel>
+                            <Button Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource EstiloBotonQuiet}" Padding="9,0" MinHeight="28" Content="Asignar cliente" Command="{Binding MostrarBuscadorClienteCommand}"
+                                    Visibility="{Binding MostrarBotonAsignarCliente, Converter={StaticResource BoolToVisibility}}"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding PuedeQuitarCliente, Converter={StaticResource BoolToVisibility}}">
+                                <Button Style="{StaticResource EstiloBotonQuiet}" Padding="8,0" MinHeight="28" Content="Cambiar cliente" Command="{Binding CambiarClienteCommand}"/>
+                                <Button Style="{StaticResource EstiloBotonQuiet}" Padding="8,0" MinHeight="28" Content="Quitar" Command="{Binding LimpiarClienteCommand}" Margin="4,0,0,0"/>
+                            </StackPanel>
+                            <views:BuscadorCliente Grid.ColumnSpan="3" Grid.Column="0" MaxWidth="260" HorizontalAlignment="Right" Motor="{Binding MotorClientes}"
+                                                   SeleccionCommand="{Binding SeleccionarClienteCommand}" Visibility="{Binding MostrarBuscadorCliente, Converter={StaticResource BoolToVisibility}}"/>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Row="2" Margin="2,0,2,8">
+                        <DockPanel Margin="0,0,0,5">
+                            <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="14" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="&#xE7BF;" Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding ResumenCarrito}" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <DockPanel>
+                            <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="14" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="&#xE8EC;" Margin="0,0,8,0"/>
+                            <TextBlock VerticalAlignment="Center"><Run Text="Subtotal  "/><Run Language="es-mx" Text=" "/></TextBlock>
+                            <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold" Text="{Binding Total, Converter={StaticResource MinorToArs}}"/>
+                        </DockPanel>
+                    </StackPanel>
+                    <Border Grid.Row="3" Background="{StaticResource Color.Surface2Brush}" CornerRadius="6" Padding="12,10">
+                        <DockPanel>
+                            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.PrimaryBrush}" Text="Total" VerticalAlignment="Center"/>
+                            <TextBlock DockPanel.Dock="Right" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}"
+                                       Text="{Binding Total, Converter={StaticResource MinorToArs}}"/>
+                        </DockPanel>
+                    </Border>
+                    <Button Grid.Row="5" Style="{StaticResource EstiloBotonPrimario}" Content="Continuar al cobro" IsEnabled="{Binding PuedeAbrirCobro}"
+                            MinHeight="48" FontSize="15" FontWeight="Bold" Click="ContinuarCobro_Click"/>
                 </Grid>
             </Border>
 
-            <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}"
-                    IsEnabled="{Binding PuedeEditarVenta}">
-                <StackPanel>
-                    <Grid Margin="0,0,0,6">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Carrito" VerticalAlignment="Center"/>
-                            <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                       Text="{Binding ResumenCarrito}"/>
-                        </StackPanel>
-                        <TextBlock Grid.Column="2" FontSize="19" FontWeight="Bold"
-                                   Foreground="{StaticResource Color.PrimaryBrush}"
-                                   Text="{Binding Total, Converter={StaticResource MinorToArs}, StringFormat=Total {0}}"/>
-                    </Grid>
+            <!-- El cobro se conserva en el mismo PosViewModel, pero ya no se presenta en el carrito. -->
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                    <TextBlock Text="Escaneá una etiqueta o buscá un producto para comenzar." Margin="0,12,0,14">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloEstadoVacio}">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HayLineas}" Value="False">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <!-- Encabezado del resumen -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="14" Foreground="{StaticResource Color.TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,8,0" Text="&#xE8C7;"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Resumen de la venta"/>
+                    </StackPanel>
 
-                    <DataGrid AutoGenerateColumns="False" IsReadOnly="True"
-                              SelectionMode="Single" SelectionUnit="FullRow" CanUserSortColumns="False"
-                              CanUserAddRows="False" CanUserDeleteRows="False" ItemsSource="{Binding Filas}"
-                              BorderBrush="{StaticResource Color.BorderBrush}" MaxHeight="340">
-                        <DataGrid.Style>
-                            <Style TargetType="DataGrid" BasedOn="{StaticResource EstiloGrillaOperativa}">
-                                <Setter Property="Visibility" Value="Visible"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HayLineas}" Value="False">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </DataGrid.Style>
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Producto" Binding="{Binding NombreProducto}" Width="1.5*" MinWidth="100"/>
-                            <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="90"/>
-                            <DataGridTextColumn Header="Talle / Color" Binding="{Binding DetalleTalleColor}" Width="90"/>
-                            <DataGridTemplateColumn Header="Cantidad" Width="130">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Style="{StaticResource EstiloBotonQuiet}" Content="−" Width="36" MinHeight="34" FontSize="16" Command="{Binding DataContext.DecrementarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" ToolTip="Restar una unidad"/>
-                                            <TextBox Style="{StaticResource EstiloCampoTexto}" Width="48" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" HorizontalContentAlignment="Center"/>
-                                            <Button Style="{StaticResource EstiloBotonQuiet}" Content="+" Width="36" MinHeight="34" FontSize="16" Command="{Binding DataContext.IncrementarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" ToolTip="Sumar una unidad"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Precio" Binding="{Binding PrecioUnitarioMinor, Converter={StaticResource MinorToArs}}" Width="90"/>
-                            <DataGridTextColumn Header="Subtotal" Binding="{Binding SubtotalMinor, Converter={StaticResource MinorToArs}}" Width="100"/>
-                            <DataGridTemplateColumn Header="" Width="44">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Style="{StaticResource EstiloBotonQuiet}" Content="✕" ToolTip="Quitar del carrito"
-                                                Command="{Binding DataContext.QuitarFilaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-
-                    <Button Style="{StaticResource EstiloBotonPrimario}" HorizontalAlignment="Right"
-                            Content="{Binding Total, Converter={StaticResource MinorToArs}, StringFormat=Cobrar {0}}" Command="{Binding AbrirCobroCommand}"
-                            IsEnabled="{Binding PuedeAbrirCobro}" Margin="0,10,0,0"
-                            MinHeight="{StaticResource AlturaToolbar}" MinWidth="190"
-                            Visibility="{Binding MostrarCtaCobrar, Converter={StaticResource BoolToVisibility}}"/>
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}" Margin="0,8,0,0"
-                    Visibility="{Binding CobroVisible, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,7">
-                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Cobro" VerticalAlignment="Center"/>
-                        <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonSecundario}" Content="Volver al carrito"
-                                Command="{Binding CerrarCobroCommand}" IsEnabled="{Binding PuedeCerrarCobro}"/>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,0,10,0">
-                        <Button Style="{StaticResource EstiloBotonSecundario}" Content="+ Agregar medio" Command="{Binding AgregarPagoCommand}"
-                                IsEnabled="{Binding PuedeEditarVenta}"/>
-                        </StackPanel>
-                    </DockPanel>
-                    <ItemsControl ItemsSource="{Binding Pagos}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="9" Margin="0,0,0,6">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="1.2*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Medio de pago" Margin="0,0,8,3"/>
-                                        <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiqueta}" Text="Importe" Margin="0,0,8,3"/>
-                                        <TextBlock Grid.Column="2" Style="{StaticResource EstiloEtiqueta}" Text="Efectivo recibido" Margin="0,0,8,3"
-                                                   Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}"/>
-                                        <ComboBox Grid.Row="1" Style="{StaticResource EstiloCombo}" ItemsSource="{Binding DataContext.MediosDisponibles, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                  DisplayMemberPath="Texto" SelectedValuePath="Valor" SelectedValue="{Binding Medio}" Margin="0,0,8,0"
-                                                  IsEnabled="{Binding DataContext.PuedeEditarVenta, RelativeSource={RelativeSource AncestorType=UserControl}}">
-                                        </ComboBox>
-                                        <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource EstiloCampoTexto}"
-                                                 Text="{Binding ImporteTexto, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="Importe que se cobra con este medio" Margin="0,0,8,0"
-                                                 IsEnabled="{Binding DataContext.PuedeEditarVenta, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                        <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource EstiloCampoTexto}"
-                                                 Text="{Binding RecibidoTexto, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="Efectivo entregado por el cliente"
-                                                 Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}" Margin="0,0,8,0"
-                                                 IsEnabled="{Binding DataContext.PuedeEditarVenta, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                        <Button Grid.RowSpan="2" Grid.Column="3" Style="{StaticResource EstiloBotonQuiet}" Content="Quitar"
-                                                Command="{Binding DataContext.QuitarPagoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}" VerticalAlignment="Center"
-                                                IsEnabled="{Binding DataContext.PuedeQuitarPago, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                                        <TextBlock Grid.Row="2" Grid.ColumnSpan="4" Margin="0,4,0,0" Foreground="{StaticResource Color.ErrorTextBrush}"
-                                                   Text="El efectivo recibido debe cubrir el importe aplicado."
-                                                   Visibility="{Binding EfectivoInsuficiente, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Grid.Row="2" Grid.ColumnSpan="4" Margin="0,4,0,0" Foreground="{StaticResource Color.SuccessTextBrush}"
-                                                   Text="{Binding VueltoMinor, Converter={StaticResource MinorToArs}, StringFormat=Vuelto {0}}"
-                                                   Visibility="{Binding VueltoPositivo, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Grid.Row="2" Grid.ColumnSpan="4" Margin="0,4,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                                   Text="Sin vuelto" Visibility="{Binding VueltoCero, Converter={StaticResource BoolToVisibility}}"/>
-                                        <TextBlock Grid.Row="3" Grid.ColumnSpan="4" Margin="0,5,0,0" FontSize="12"
-                                                   Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
-                                                   Text="{Binding AyudaMedio}"
-                                                   Visibility="{Binding MostrarAyudaMedio, Converter={StaticResource BoolToVisibility}}"/>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <Border Background="{StaticResource Color.Surface2Brush}" CornerRadius="4" Padding="8" Margin="0,0,0,7"
-                            Visibility="{Binding MostrarAyudaPoint, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="{Binding AyudaPointMostrada}"/>
-                    </Border>
-
-                    <Border Margin="0,0,0,7" Padding="10" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="5"
-                            IsEnabled="{Binding PuedeEditarVenta}"
-                            Visibility="{Binding MostrarPanelManualPoint, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="COBRO MANUAL POINT"/>
-                            <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Cobrá el importe total en la terminal Point. Cuando la terminal lo apruebe, declaralo acá para registrar la venta."/>
-                            <CheckBox Margin="0,6,0,0" Foreground="{StaticResource Color.TextBrush}"
-                                      Content="Verifiqué que el Point aprobó este importe."
-                                      IsChecked="{Binding ConfirmacionManualPointAceptada}"/>
-                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Comprobante (opcional)" Margin="0,6,0,3"/>
-                            <TextBox Style="{StaticResource EstiloCampoTexto}" MaxLength="64"
-                                     Text="{Binding ReferenciaComprobanteManual, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Número o referencia del comprobante de la terminal"/>
-                            <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Queda pendiente de conciliación: no se verifica automáticamente contra Mercado Pago."/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Background="{StaticResource Color.Surface2Brush}" CornerRadius="5" Padding="10" Margin="0,2,0,0">
+                    <!-- Cliente opcional (compacto) -->
+                    <Border Grid.Row="1" Background="{StaticResource Color.Surface2Brush}" CornerRadius="6" Padding="10,8" Margin="0,2,0,10">
                         <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="TOTAL DE VENTA"/>
-                                <TextBlock FontSize="20" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}"
-                                           Text="{Binding Total, Converter={StaticResource MinorToArs}}"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock FontFamily="{StaticResource FuenteIcono}" FontSize="13" Foreground="{StaticResource Color.TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,1,8,0" Text="&#xE77B;"/>
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="13" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       Text="Sin cliente" Visibility="{Binding SinClienteSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       Text="{Binding ClienteSeleccionado.NombreCompleto}"
+                                       Visibility="{Binding ClienteSeleccionado, Converter={StaticResource NullToVisibility}}"/>
+                            <!-- Sin cliente: asignar / buscador asistido -->
+                            <Button Grid.Column="2" VerticalAlignment="Center" Style="{StaticResource EstiloBotonQuiet}" Padding="10,0" MinHeight="26" Content="Asignar cliente" Command="{Binding MostrarBuscadorClienteCommand}"
+                                    Visibility="{Binding MostrarBotonAsignarCliente, Converter={StaticResource BoolToVisibility}}"/>
+                            <views:BuscadorCliente Grid.ColumnSpan="3" Grid.Column="0" MaxWidth="260" HorizontalAlignment="Right"
+                                                   Motor="{Binding MotorClientes}" SeleccionCommand="{Binding SeleccionarClienteCommand}"
+                                                   Visibility="{Binding MostrarBuscadorCliente, Converter={StaticResource BoolToVisibility}}"/>
+                            <!-- Con cliente: cambiar / quitar -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                        Visibility="{Binding PuedeQuitarCliente, Converter={StaticResource BoolToVisibility}}">
+                                <Button Style="{StaticResource EstiloBotonQuiet}" Padding="8,0" MinHeight="26" Content="Cambiar" Command="{Binding CambiarClienteCommand}"/>
+                                <Button Style="{StaticResource EstiloBotonQuiet}" Padding="8,0" MinHeight="26" Content="Quitar" Command="{Binding LimpiarClienteCommand}" Margin="4,0,0,0"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="20,0">
-                                <TextBlock Foreground="{StaticResource Color.TextBrush}" FontWeight="SemiBold" Text="{Binding TextoEstadoPago}"/>
-                                <TextBlock Foreground="{StaticResource Color.SuccessTextBrush}" Text="{Binding TextoVuelto}"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="16" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Color.TextBrush}"
-                                       Text="{Binding ClienteSeleccionado.NombreCompleto, StringFormat=Cliente: {0}}"
-                                       Visibility="{Binding MostrarOpcionesFiado, Converter={StaticResource BoolToVisibility}}"/>
                         </Grid>
                     </Border>
 
-                    <Border Margin="0,8,0,0" Padding="8" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="5"
-                            IsEnabled="{Binding PuedeEditarVenta}"
-                            Visibility="{Binding MostrarOpcionesFiado, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="FORMA DE PAGO"/>
-                            <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SaldoClienteMinor, Converter={StaticResource MinorToArs}, StringFormat=Saldo del cliente: {0}}"/>
-                            <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding LimiteClienteMinor, Converter={StaticResource MinorToArs}, StringFormat=Límite: {0}}"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                <RadioButton Content="Pago completo" IsChecked="{Binding EsFiado, Converter={StaticResource BoolInvertido}}" Margin="0,0,14,0"/>
-                                <RadioButton Content="Cuenta corriente" IsChecked="{Binding EsFiado}"/>
-                            </StackPanel>
-                            <StackPanel Visibility="{Binding EsFiado, Converter={StaticResource BoolToVisibility}}">
-                                <DatePicker SelectedDate="{Binding Vencimiento}" Margin="0,5,0,0" ToolTip="Vencimiento informativo, opcional"/>
-                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DeudaNuevaMinor, Converter={StaticResource MinorToArs}, StringFormat=Queda en cuenta: {0}}" Margin="0,4,0,0"/>
-                                <TextBlock Foreground="{StaticResource Color.TextBrush}" FontWeight="SemiBold" Text="{Binding SaldoPosteriorMinor, Converter={StaticResource MinorToArs}, StringFormat=Saldo posterior: {0}}"/>
-                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DisponibleCreditoMinor, Converter={StaticResource MinorToArs}, StringFormat=Disponible de crédito: {0}}"/>
+                    <!-- Artículos + total destacado -->
+                    <Grid Grid.Row="2" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding ResumenCarrito}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" HorizontalAlignment="Right" Text="TOTAL"/>
+                            <TextBlock FontSize="26" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}"
+                                       Text="{Binding Total, Converter={StaticResource MinorToArs}}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Medios de pago (sólo en el paso de cobro) -->
+                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding CobroVisible, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel IsEnabled="{Binding PuedeEditarVenta}">
+                            <!-- La decisión de pago aparece antes de los campos que dependen de ella. -->
+                            <Border Padding="9" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Margin="0,0,0,8"
+                                    Visibility="{Binding MostrarOpcionesFiado, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="¿Cómo paga el cliente?"/>
+                                    <RadioButton Content="Paga todo ahora" IsChecked="{Binding EsFiado, Converter={StaticResource BoolInvertido}}" Margin="0,5,0,0"/>
+                                    <Button Style="{StaticResource EstiloBotonSecundario}" HorizontalAlignment="Left" Padding="9,2" Margin="0,4,0,0"
+                                            Content="Dejar toda la venta a cuenta" Command="{Binding ElegirFiadoTotalCommand}"/>
+                                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Margin="0,2,0,0"
+                                               Text="Esta opción quita los importes asignados a medios de pago."/>
+                                    <Button Style="{StaticResource EstiloBotonSecundario}" HorizontalAlignment="Left" Padding="9,2" Margin="0,5,0,0"
+                                            Content="Paga una parte y deja el resto a cuenta" Command="{Binding MostrarCobroParcialCommand}"
+                                            Visibility="{Binding MostrarOpcionCobroParcial, Converter={StaticResource BoolToVisibility}}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid Margin="0,0,0,7" Visibility="{Binding MostrarDistribucionPago, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Medios para cobrar ahora" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Style="{StaticResource EstiloBotonSecundario}" Padding="10,0" MinHeight="28" Content="+ Agregar medio" Command="{Binding AgregarPagoCommand}"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Pagos}"
+                                          Visibility="{Binding MostrarDistribucionPago, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="9" Margin="0,0,0,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Medio de pago" Margin="0,0,8,3"/>
+                                                <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiqueta}" Text="Importe" Margin="0,0,8,3"/>
+                                                <Button Grid.Column="2" Grid.RowSpan="2" VerticalAlignment="Center" Style="{StaticResource EstiloBotonQuiet}" Content="Quitar"
+                                                        Command="{Binding DataContext.QuitarPagoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        IsEnabled="{Binding DataContext.PuedeQuitarPago, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                                <ComboBox Grid.Row="1" Style="{StaticResource EstiloCombo}" ItemsSource="{Binding DataContext.MediosDisponibles, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                          DisplayMemberPath="Texto" SelectedValuePath="Valor" SelectedValue="{Binding Medio}" Margin="0,0,8,0"/>
+                                                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource EstiloCampoTexto}"
+                                                         Text="{Binding ImporteTexto, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="Importe que se cobra con este medio" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,4,0,0">
+                                                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
+                                                               Text="{Binding AyudaMedio}"
+                                                               Visibility="{Binding MostrarAyudaMedio, Converter={StaticResource BoolToVisibility}}"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Efectivo recibido" VerticalAlignment="Center" Margin="8,0,10,0"
+                                                                   Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}"/>
+                                                        <TextBox Width="110" VerticalAlignment="Center" Style="{StaticResource EstiloCampoTexto}"
+                                                                 Text="{Binding RecibidoTexto, UpdateSourceTrigger=PropertyChanged}"
+                                                                 ToolTip="Efectivo entregado por el cliente"
+                                                                 Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisibility}}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Border Background="{StaticResource Color.Surface2Brush}" CornerRadius="6" Padding="9" Margin="0,0,0,7"
+                                    Visibility="{Binding MostrarAyudaPoint, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
+                                           Text="{Binding AyudaPointMostrada}"/>
+                            </Border>
+
+                            <!-- Cobro manual Point (modo manual) -->
+                            <Border Margin="0,0,0,7" Padding="10" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6"
+                                    Visibility="{Binding MostrarPanelManualPoint, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="COBRO MANUAL POINT"/>
+                                    <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
+                                               Text="Cobrá el importe total en la terminal Point. Cuando la terminal lo apruebe, declaralo acá para registrar la venta."/>
+                                    <CheckBox Margin="0,6,0,0" Foreground="{StaticResource Color.TextBrush}"
+                                              Content="Verifiqué que el Point aprobó este importe."
+                                              IsChecked="{Binding ConfirmacionManualPointAceptada}"/>
+                                    <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Comprobante (opcional)" Margin="0,6,0,3"/>
+                                    <TextBox Style="{StaticResource EstiloCampoTexto}" MaxLength="64"
+                                             Text="{Binding ReferenciaComprobanteManual, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Número o referencia del comprobante de la terminal"/>
+                                    <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap"
+                                               Text="Queda pendiente de conciliación: no se verifica automáticamente contra Mercado Pago."/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Resumen compacto: solo presenta deuda/crédito cuando se genera deuda nueva. -->
+                            <Border Padding="9" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Margin="0,5,0,0">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="RESUMEN DEL COBRO"/>
+                                    <TextBlock FontWeight="SemiBold" Margin="0,3,0,0"
+                                               Text="{Binding CobradoAhoraMinor, Converter={StaticResource MinorToArs}, StringFormat=A cobrar ahora: {0}}"/>
+                                    <StackPanel Visibility="{Binding MostrarResumenCuentaCobro, Converter={StaticResource BoolToVisibility}}" Margin="0,5,0,0">
+                                        <TextBlock FontWeight="SemiBold" Text="{Binding DeudaNuevaMinor, Converter={StaticResource MinorToArs}, StringFormat=Deuda nueva: {0}}"/>
+                                        <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                   Text="{Binding DisponibleCreditoPosteriorMostradoMinor, Converter={StaticResource MinorToArs}, StringFormat=Crédito disponible después: {0}}"/>
+                                        <Expander Header="Ver saldo y límite" Margin="0,3,0,0">
+                                            <StackPanel Margin="4,2,0,0">
+                                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SaldoClienteMinor, Converter={StaticResource MinorToArs}, StringFormat=Saldo anterior: {0}}"/>
+                                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SaldoPosteriorMinor, Converter={StaticResource MinorToArs}, StringFormat=Saldo después: {0}}"/>
+                                                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding LimiteClienteMinor, Converter={StaticResource MinorToArs}, StringFormat=Límite autorizado: {0}}"/>
+                                            </StackPanel>
+                                        </Expander>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Vencimiento (opcional)" Margin="0,4,0,2"/>
+                                        <DatePicker SelectedDate="{Binding Vencimiento}" ToolTip="Vencimiento informativo, opcional"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Estado del cobro: visible sólo durante el paso de cobro -->
+                    <StackPanel Grid.Row="4" Margin="0,0,0,8"
+                                Visibility="{Binding CobroVisible, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TextoEstadoPago}"/>
+                        <TextBlock FontSize="13" Foreground="{StaticResource Color.SuccessTextBrush}" Text="{Binding TextoVuelto}"/>
+                    </StackPanel>
+
+                    <!-- Acciones: continuar o confirmar -->
+                    <StackPanel Grid.Row="5">
+                        <Button Style="{StaticResource EstiloBotonPrimario}" HorizontalAlignment="Stretch"
+                                Content="Continuar al cobro" Command="{Binding AbrirCobroCommand}"
+                                IsEnabled="{Binding PuedeAbrirCobro}"
+                                MinHeight="{StaticResource AlturaToolbar}" Margin="0,0,0,6"
+                                FontSize="15" FontWeight="Bold"
+                                ToolTip="{Binding TextoEstadoPago}"
+                                Visibility="{Binding CobroVisible, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                        <StackPanel Visibility="{Binding CobroVisible, Converter={StaticResource BoolToVisibility}}">
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Confirmar venta" Command="{Binding ConfirmarCommand}"
+                                    IsEnabled="{Binding PuedeConfirmar}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                    MinHeight="{StaticResource AlturaToolbar}" FontSize="15" FontWeight="Bold"
+                                    ToolTip="{Binding TextoEstadoPago}"
+                                    Visibility="{Binding TieneMercadoPago, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="{Binding TextoAccionPoint}" Command="{Binding CobrarEnPointCommand}"
+                                    IsEnabled="{Binding PuedeCobrarPoint}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                    MinHeight="{StaticResource AlturaToolbar}" ToolTip="{Binding TextoEstadoPago}"
+                                    Visibility="{Binding MostrarAccionPointIntegrada, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="{Binding TextoAccionManual}" Command="{Binding RegistrarCobroManualCommand}"
+                                    IsEnabled="{Binding PuedeRegistrarCobroManual}" HorizontalAlignment="Stretch" Margin="0,0,0,6"
+                                    MinHeight="{StaticResource AlturaToolbar}" ToolTip="{Binding TextoEstadoPago}"
+                                    Visibility="{Binding MostrarAccionPointManual, Converter={StaticResource BoolToVisibility}}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar cobro" Command="{Binding CancelarCobroPointCommand}"
+                                        IsEnabled="{Binding PuedeCancelarCobro}"
+                                        Visibility="{Binding CobroEnCurso, Converter={StaticResource BoolToVisibility}}"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Volver al carrito"
+                                        Command="{Binding CerrarCobroCommand}" IsEnabled="{Binding PuedeCerrarCobro}" Margin="8,0,0,0"/>
                             </StackPanel>
                         </StackPanel>
-                    </Border>
-
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,9,0,0">
-                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Confirmar venta" Command="{Binding ConfirmarCommand}"
-                                IsEnabled="{Binding PuedeConfirmar}" MinHeight="{StaticResource AlturaToolbar}"
-                                Visibility="{Binding TieneMercadoPago, Converter={StaticResource BoolToVisibilityInverted}}"/>
-                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="{Binding TextoAccionPoint}" Command="{Binding CobrarEnPointCommand}"
-                                IsEnabled="{Binding PuedeCobrarPoint}" MinHeight="{StaticResource AlturaToolbar}"
-                                Visibility="{Binding MostrarAccionPointIntegrada, Converter={StaticResource BoolToVisibility}}"/>
-                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="{Binding TextoAccionManual}" Command="{Binding RegistrarCobroManualCommand}"
-                                IsEnabled="{Binding PuedeRegistrarCobroManual}" MinHeight="{StaticResource AlturaToolbar}"
-                                Visibility="{Binding MostrarAccionPointManual, Converter={StaticResource BoolToVisibility}}"/>
-                        <Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar cobro" Command="{Binding CancelarCobroPointCommand}"
-                                IsEnabled="{Binding PuedeCancelarCobro}" Margin="8,0,0,0"
-                            Visibility="{Binding CobroEnCurso, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
-                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Color.TextBrush}"
+
+                    <TextBlock Grid.Row="5" Margin="0,6,0,12" FontSize="12" Foreground="{StaticResource Color.TextBrush}"
                                Text="{Binding EstadoCobroMp}" TextWrapping="Wrap"
                                Visibility="{Binding EstadoCobroMp, Converter={StaticResource NullToVisibility}}"/>
-                </StackPanel>
+                </Grid>
             </Border>
-        </StackPanel>
-    </ScrollViewer>
+        </Grid>
+    </Grid>
 </UserControl>

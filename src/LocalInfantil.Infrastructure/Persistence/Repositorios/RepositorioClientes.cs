@@ -52,7 +52,7 @@ public sealed class RepositorioClientes(IGeneradorIds ids) : IRepositorioCliente
     public async Task<IReadOnlyList<ClienteRegistrado>> BuscarAsync(ISesionPersistencia sesion, string texto, bool incluirInactivos, int limite, int desplazamiento, CancellationToken cancellationToken = default)
     {
         ValidarPagina(limite, desplazamiento); var s = Sesion(sesion); var filtro = texto.Trim();
-        var sql = $"{SelectCliente} WHERE ($incluir=1 OR activo=1) AND ($filtro='' OR nombre_completo LIKE $patron COLLATE NOCASE OR telefono LIKE $patron COLLATE NOCASE) ORDER BY nombre_completo COLLATE NOCASE,id LIMIT $limite OFFSET $offset;";
+        var sql = $"{SelectCliente} WHERE ($incluir=1 OR activo=1) AND ($filtro='' OR nombre_completo LIKE $patron COLLATE NOCASE OR telefono LIKE $patron COLLATE NOCASE) ORDER BY CASE WHEN $filtro='' THEN creado_en END DESC,nombre_completo COLLATE NOCASE,id LIMIT $limite OFFSET $offset;";
         using var cmd = CrearComando(s, sql); cmd.Parameters.AddWithValue("$incluir", incluirInactivos ? 1 : 0);
         cmd.Parameters.AddWithValue("$filtro", filtro); cmd.Parameters.AddWithValue("$patron", filtro + "%"); cmd.Parameters.AddWithValue("$limite", limite + 1); cmd.Parameters.AddWithValue("$offset", desplazamiento);
         await using var r = await cmd.ExecuteReaderAsync(cancellationToken); var rows = new List<ClienteRegistrado>();

@@ -27,6 +27,8 @@
          para hover/pressed. Mismo matiz, sin azules del tema Windows. -->
     <Color x:Key="Color.DestructiveDark">#6F2227</Color>
 
+    <BitmapImage x:Key="LogoBannerTiNA" UriSource="pack://application:,,,/LocalInfantil.Wpf;component/Assets/Branding/logo.png"/>
+
     <SolidColorBrush x:Key="Color.NavBrush" Color="{StaticResource Color.Nav}"/>
     <SolidColorBrush x:Key="Color.CanvasBrush" Color="{StaticResource Color.Canvas}"/>
     <SolidColorBrush x:Key="Color.SurfaceBrush" Color="{StaticResource Color.Surface}"/>

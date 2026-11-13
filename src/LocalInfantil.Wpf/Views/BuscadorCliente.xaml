@@ -8,7 +8,9 @@
                    IsHitTestVisible="False" Text="Buscar por nombre o teléfono…"/>
         <Popup x:Name="PopupSugerencias" PlacementTarget="{Binding ElementName=Caja}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Closed="Popup_Closed">
             <Border Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4" MinWidth="280">
-                <ListBox x:Name="Lista" MaxHeight="220" BorderThickness="0" ItemsSource="{Binding Sugerencias}" PreviewMouseLeftButtonUp="Lista_Click">
+                <ListBox x:Name="Lista" MaxHeight="220" BorderThickness="0"
+                         ItemsSource="{Binding Motor.Sugerencias, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                         PreviewMouseLeftButtonUp="Lista_Click">
                     <ListBox.ItemTemplate>
                         <DataTemplate><StackPanel Margin="3"><TextBlock FontWeight="SemiBold" Text="{Binding NombreCompleto}"/><TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Telefono, TargetNullValue=Sin teléfono}"/></StackPanel></DataTemplate>
                     </ListBox.ItemTemplate>

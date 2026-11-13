@@ -6,6 +6,7 @@ using LocalInfantil.Application.Features.Ventas;
 using LocalInfantil.Infrastructure.Persistence.Migrations;
 using LocalInfantil.Wpf.Infra;
 using LocalInfantil.Wpf.ViewModels;
+using Microsoft.Data.Sqlite;
 
 namespace LocalInfantil.Tests.Wpf;
 
@@ -54,7 +55,9 @@ public sealed class WpfVentasConsultaTests
         Assert.Null(vm.Error);
         Assert.Empty(vm.Historial);
         Assert.True(vm.MostrarEstadoVacio);
+        Assert.Equal("Todavía no hay ventas registradas.", vm.TextoEstadoVacio);
         Assert.True(vm.MostrarEstadoSinSeleccion);
+        Assert.Equal("No hay una venta seleccionada.", vm.TextoEstadoSinSeleccion);
         Assert.Null(vm.Ficha);
     }
 
@@ -84,6 +87,187 @@ public sealed class WpfVentasConsultaTests
         Assert.Equal(anulada, vm.Historial[0].Resumen.Numero);
         Assert.Equal("Anulada", vm.EstadoFichaTexto);
         Assert.False(vm.PuedeAnular);
+    }
+
+    [Fact]
+    public async Task Rango_de_fechas_incluye_los_dos_limites_del_dia_y_filtra_antes_de_paginar()
+    {
+        using var e = await EntornoVentasUi.CrearAsync();
+        var anterior = await e.VenderAsync(1, 10000);
+        var medianoche = await e.VenderAsync(1, 10000);
+        var finDelDia = await e.VenderAsync(1, 10000);
+        var siguienteDia = await e.VenderAsync(1, 10000);
+        var dia = DateOnly.FromDateTime(DateTime.Today.AddDays(-2));
+        await e.FijarFechaAsync(anterior, dia.AddDays(-1).ToDateTime(new TimeOnly(23, 59)));
+        await e.FijarFechaAsync(medianoche, dia.ToDateTime(TimeOnly.MinValue));
+        await e.FijarFechaAsync(finDelDia, dia.ToDateTime(new TimeOnly(23, 59, 59)));
+        await e.FijarFechaAsync(siguienteDia, dia.AddDays(1).ToDateTime(TimeOnly.MinValue));
+
+        var desde = await e.Servicios.ConsultasVentas.BuscarResumenAsync("", "todas", 10, 0, e.Sesion, desde: dia);
+        Assert.Equal(3, desde.Count);
+        var desdePaginado = await e.Servicios.ConsultasVentas.BuscarResumenAsync("", "todas", 1, 0, e.Sesion, desde: dia);
+        Assert.Equal(2, desdePaginado.Count); // página + peek; no incluye la venta anterior al rango
+        Assert.DoesNotContain(desdePaginado, v => v.Numero == anterior);
+        var hasta = await e.Servicios.ConsultasVentas.BuscarResumenAsync("", "todas", 10, 0, e.Sesion, hasta: dia);
+        Assert.Equal(3, hasta.Count);
+        var rangoCompleto = await e.Servicios.ConsultasVentas.BuscarResumenAsync("", "todas", 10, 0, e.Sesion, desde: dia, hasta: dia.AddDays(1));
+        Assert.Equal(3, rangoCompleto.Count);
+        var mismoDia = await e.Servicios.ConsultasVentas.BuscarResumenAsync("", "todas", 10, 0, e.Sesion, desde: dia, hasta: dia);
+        Assert.Equal(new[] { finDelDia, medianoche }.OrderBy(x => x), mismoDia.Select(x => x.Numero).OrderBy(x => x));
+        var sinResultados = await e.Servicios.ConsultasVentas.BuscarResumenAsync("", "todas", 10, 0, e.Sesion, desde: dia.AddDays(3), hasta: dia.AddDays(4));
+        Assert.Empty(sinResultados);
+    }
+
+    [Fact]
+    public async Task Busca_por_nombre_y_codigo_y_combina_estado_con_fecha()
+    {
+        using var e = await EntornoVentasUi.CrearAsync();
+        var confirmada = await e.VenderAsync(1, 10000);
+        var anulada = await e.VenderAsync(1, 10000);
+        var dia = DateOnly.FromDateTime(DateTime.Today);
+        await e.FijarFechaAsync(confirmada, dia.ToDateTime(new TimeOnly(11, 0)));
+        await e.FijarFechaAsync(anulada, dia.ToDateTime(new TimeOnly(12, 0)));
+        var anuladaRegistrada = (await e.Servicios.ConsultasVentas.BuscarPorNumeroAsync(anulada, e.Sesion))!;
+        await e.Servicios.CasoAnularVenta.EjecutarAsync(anuladaRegistrada.Id, "test de filtro", Guid.NewGuid().ToString("N"), e.Sesion);
+
+        var porProducto = await e.Servicios.ConsultasVentas.BuscarResumenAsync("Remera Consulta", "confirmadas", 10, 0, e.Sesion, desde: dia, hasta: dia);
+        Assert.Equal(confirmada, Assert.Single(porProducto).Numero);
+        var ficha = (await e.Servicios.ConsultasVentas.ObtenerFichaAsync(anuladaRegistrada.Id, e.Sesion))!;
+        var codigo = Assert.Single(ficha.Lineas).CodigoInterno;
+        var porCodigo = await e.Servicios.ConsultasVentas.BuscarResumenAsync(codigo, "anuladas", 10, 0, e.Sesion, desde: dia, hasta: dia);
+        Assert.Equal(anulada, Assert.Single(porCodigo).Numero);
+    }
+
+    [Fact]
+    public async Task Filtros_reactivos_borrado_de_texto_y_paginacion_conservan_los_otros_criterios()
+    {
+        using var e = await EntornoVentasUi.CrearAsync();
+        var dentroA = await e.VenderAsync(1, 10000);
+        var dentroB = await e.VenderAsync(1, 10000);
+        var fuera = await e.VenderAsync(1, 10000);
+        var dia = DateOnly.FromDateTime(DateTime.Today.AddDays(-1));
+        await e.FijarFechaAsync(dentroA, dia.ToDateTime(new TimeOnly(10, 0)));
+        await e.FijarFechaAsync(dentroB, dia.ToDateTime(new TimeOnly(11, 0)));
+        await e.FijarFechaAsync(fuera, dia.AddDays(-1).ToDateTime(new TimeOnly(11, 0)));
+        var vm = new VentasConsultaViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        vm.TamanoPagina = 1;
+        vm.Desde = dia.ToDateTime(TimeOnly.MinValue);
+        vm.Hasta = dia.ToDateTime(TimeOnly.MinValue);
+        vm.FiltroEstado = FiltroVentas.Confirmadas;
+        vm.TextoBusqueda = "T-";
+        await vm.EsperarBusquedaAsyncPublic();
+        Assert.Single(vm.Historial);
+        Assert.True(vm.HaySiguiente);
+        await vm.SiguienteAsyncPublic();
+        Assert.Equal("Página 2", vm.PaginaTexto);
+        Assert.Single(vm.Historial);
+
+        vm.Hasta = dia.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        await vm.EsperarBusquedaAsyncPublic();
+        Assert.Equal("Página 1", vm.PaginaTexto);
+
+        vm.TextoBusqueda = "";
+        await vm.EsperarBusquedaAsyncPublic();
+        Assert.Equal("Página 1", vm.PaginaTexto);
+        Assert.Equal(dentroB, vm.FilaSeleccionada!.Resumen.Numero);
+        Assert.True(vm.HaySiguiente);
+        Assert.Equal("Confirmada", vm.EstadoFichaTexto);
+        Assert.Equal(dia, DateOnly.FromDateTime(vm.Desde!.Value));
+        Assert.Equal(dia.AddDays(1), DateOnly.FromDateTime(vm.Hasta!.Value));
+
+        await vm.LimpiarFiltrosAsyncPublic();
+        Assert.Null(vm.Desde);
+        Assert.Null(vm.Hasta);
+        Assert.Equal(FiltroVentas.Todas, vm.FiltroEstado);
+        Assert.Equal(string.Empty, vm.TextoBusqueda);
+        Assert.Single(vm.Historial);
+        Assert.True(vm.HaySiguiente);
+
+        vm.TextoBusqueda = "sin-coincidencias";
+        await vm.EsperarBusquedaAsyncPublic();
+        Assert.Empty(vm.Historial);
+        Assert.Null(vm.Ficha);
+        Assert.True(vm.MostrarEstadoVacio);
+        Assert.Equal("No hay ventas que coincidan con estos filtros.", vm.TextoEstadoVacio);
+    }
+
+    [Fact]
+    public async Task Rango_invalido_no_consulta_y_limpia_detalle_obsoleto()
+    {
+        using var e = await EntornoVentasUi.CrearAsync();
+        await e.VenderAsync(1, 10000);
+        var llamadas = 0;
+        var vm = new VentasConsultaViewModel(e.Servicios, () => e.Sesion, e.Dialogos,
+            (texto, estado, limite, desplazamiento, sesion, desde, hasta, ct) =>
+            {
+                llamadas++;
+                return e.Servicios.ConsultasVentas.BuscarResumenAsync(texto, estado, limite, desplazamiento, sesion, ct, desde, hasta);
+            });
+        await vm.CargarAsyncPublic();
+        Assert.NotNull(vm.Ficha);
+        vm.Desde = DateTime.Today;
+        await vm.EsperarBusquedaAsyncPublic();
+        var llamadasAntes = llamadas;
+        vm.Hasta = DateTime.Today.AddDays(-1);
+        await vm.EsperarBusquedaAsyncPublic();
+        Assert.Equal(llamadasAntes, llamadas);
+        Assert.Equal("La fecha Desde no puede ser posterior a la fecha Hasta.", vm.Error);
+        Assert.Null(vm.Ficha);
+        Assert.Empty(vm.Historial);
+    }
+
+    [Fact]
+    public async Task Respuesta_vieja_no_pisa_una_busqueda_mas_nueva()
+    {
+        var servicios = new ServiciosComerciales(Path.Combine(Path.GetTempPath(), $"ventas-concurrencia-{Guid.NewGuid():N}.db"));
+        const string numeroA = "T-000001";
+        const string numeroB = "T-000002";
+        var creada = DateTimeOffset.UtcNow.ToString("O");
+        var resumenA = new ResumenVenta("venta-a", numeroA, creada, 10000, "confirmada", null, false, 1);
+        var resumenB = new ResumenVenta("venta-b", numeroB, creada, 10000, "confirmada", null, false, 1);
+        var inicioA = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var inicioB = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var respuestaA = new TaskCompletionSource<IReadOnlyList<ResumenVenta>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var respuestaB = new TaskCompletionSource<IReadOnlyList<ResumenVenta>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var vm = new VentasConsultaViewModel(servicios, () => null, null,
+            (texto, _, _, _, _, _, _, _) =>
+            {
+                if (texto == "A") { inicioA.TrySetResult(); return respuestaA.Task; }
+                inicioB.TrySetResult();
+                return respuestaB.Task;
+            }, (_, _) => Task.CompletedTask);
+
+        vm.TextoBusqueda = "A";
+        var tareaA = vm.EsperarBusquedaAsyncPublic();
+        Assert.False(tareaA.IsCompleted);
+        await inicioA.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        vm.TextoBusqueda = "B";
+        var tareaB = vm.EsperarBusquedaAsyncPublic();
+        await inicioB.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        respuestaB.SetResult([resumenB]);
+        await tareaB;
+        respuestaA.SetResult([resumenA]);
+        await tareaA;
+
+        Assert.Equal(numeroB, Assert.Single(vm.Historial).Resumen.Numero);
+    }
+
+    [Fact]
+    public async Task Refresco_de_datos_conserva_la_venta_seleccionada_si_sigue_en_la_pagina()
+    {
+        using var e = await EntornoVentasUi.CrearAsync();
+        await e.VenderAsync(1, 10000);
+        await e.VenderAsync(1, 10000);
+        var vm = new VentasConsultaViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.CargarAsyncPublic();
+        var seleccion = vm.Historial[1];
+        vm.FilaSeleccionada = seleccion;
+        await vm.CargarFichaSeleccionadaAsyncPublic();
+
+        await vm.RefrescarAsyncPublic();
+
+        Assert.Equal(seleccion.Resumen.Id, vm.FilaSeleccionada!.Resumen.Id);
+        Assert.Equal(seleccion.Resumen.Id, vm.Ficha!.Venta.Id);
     }
 
     [Fact]
@@ -165,6 +349,7 @@ public sealed class WpfVentasConsultaTests
         public ServiciosComerciales Servicios { get; }
         public string Sesion { get; }
         public DialogosVentasFake Dialogos { get; } = new();
+        public string Ruta { get; }
         private readonly string _dir;
 
         private EntornoVentasUi(string dir, ServiciosComerciales servicios, string sesion)
@@ -172,6 +357,7 @@ public sealed class WpfVentasConsultaTests
             _dir = dir;
             Servicios = servicios;
             Sesion = sesion;
+            Ruta = Path.Combine(dir, "ventas-ui-f04.db");
         }
 
         public static async Task<EntornoVentasUi> CrearAsync()
@@ -230,6 +416,26 @@ public sealed class WpfVentasConsultaTests
                     Guid.NewGuid().ToString("N"),
                     Sesion);
             }
+        }
+
+        public async Task FijarFechaAsync(string numero, DateTime fechaLocal)
+        {
+            // La venta se confirmó con el reloj real: si se le asigna una
+            // creada_en posterior a ese instante, el CHECK de la base exigue
+            // que confirmada_en quede acorde. max() con confirmada en NULL
+            // devuelve NULL en SQLite y una venta pendiente sigue siéndolo.
+            var ahora = DateTime.Now;
+            var confirmadaLocal = fechaLocal > ahora ? fechaLocal : ahora;
+            var utc = new DateTimeOffset(DateTime.SpecifyKind(fechaLocal, DateTimeKind.Local)).ToUniversalTime().ToString("O");
+            var utcConfirmada = new DateTimeOffset(DateTime.SpecifyKind(confirmadaLocal, DateTimeKind.Local)).ToUniversalTime().ToString("O");
+            await using var conexion = new SqliteConnection($"Data Source={Ruta};Pooling=False");
+            await conexion.OpenAsync();
+            await using var comando = conexion.CreateCommand();
+            comando.CommandText = "UPDATE venta SET creada_en = $fecha, confirmada_en = max(confirmada_en, $confirmada) WHERE numero = $numero;";
+            comando.Parameters.AddWithValue("$fecha", utc);
+            comando.Parameters.AddWithValue("$confirmada", utcConfirmada);
+            comando.Parameters.AddWithValue("$numero", numero);
+            Assert.Equal(1, await comando.ExecuteNonQueryAsync());
         }
 
         public void Dispose()

@@ -158,7 +158,8 @@ public sealed class ServiciosComerciales
         RepoRecepciones = new RepositorioRecepciones(GeneradorIds);
         RepoConteos = new RepositorioConteos(GeneradorIds);
         RepoApartados = new RepositorioApartados(GeneradorIds);
-        RepoInicio = new RepositorioInicio();
+        RepoReportes = new RepositorioReportes();
+        RepoInicio = new RepositorioInicio(RepoReportes);
         Autorizador = new Autorizador(Gestor, RepoUsuarios, RepoPermisos, Fabrica, Matriz, Hasher);
         var managerBackups = new GestorRespaldosLocales(RutaBaseDatos);
         CoordinadorRespaldos = new CoordinadorRespaldos(managerBackups, new ClienteGoogleDriveRespaldos(managerBackups.DirectorioSecretos), Autorizador);
@@ -211,7 +212,7 @@ public sealed class ServiciosComerciales
         ConsultasCuentaCorriente = new ConsultasCuentaCorriente(Autorizador, Fabrica, RepoCuentaCorriente, RepoClientes);
         CasoConfigurarLimiteCredito = new ConfigurarLimiteCredito(RepoClientes, Autorizador, Fabrica, RepoAuditoria, GeneradorIds, Reloj);
         CasoRegistrarAbono = new RegistrarAbono(RepoCuentaCorriente, RepoClientes, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj);
-        CasoAjustarCuentaCorriente = new AjustarCuentaCorriente(RepoCuentaCorriente, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj);
+        CasoAjustarCuentaCorriente = new AjustarCuentaCorriente(RepoCuentaCorriente, RepoClientes, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj);
         CasoGenerarTicketAbono = new GenerarTicketAbono(Autorizador, Fabrica, RepoCuentaCorriente);
         CasoAbrirCaja = new AbrirCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
         CasoRegistrarMovimientoCaja = new RegistrarMovimientoCaja(RepoCaja, Autorizador, Fabrica, RepoAuditoria, Reloj);
@@ -225,7 +226,6 @@ public sealed class ServiciosComerciales
         CasoRegistrarCambio = new RegistrarCambio(RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, RepoCaja, Autorizador, AutorizadorEnSesion, Fabrica, RepoAuditoria, Reloj, RepoCuentaCorriente, RepoPagos, RepoMercadoPago);
         ConsultasCambios = new ConsultasCambios(Autorizador, Fabrica, RepoCambios, RepoVentas, RepoVariantes, RepoProductos, RepoPrecios, RepoMovimientos, RepoApartados, Reloj);
         CasoGenerarTicketCambio = new GenerarTicketCambio(Autorizador, Fabrica, RepoCambios);
-        RepoReportes = new RepositorioReportes();
         ConsultasReportes = new ConsultasReportes(RepoReportes, RepoCaja, Autorizador, Fabrica);
         var dirSecretosMp = DirSecretosMercadoPago(RutaBaseDatos);
         CredencialMercadoPago = new CredencialPropiaDpapi(dirSecretosMp);

@@ -40,6 +40,7 @@ public sealed class CuentaCorrienteTests
     {
         using var e = await VentasTests.EntornoVentas.CrearAsync();
         var cliente = await e.Servicios.CasoCrearCliente.EjecutarAsync(new("Cliente ajustes", null, null), e.Sesion);
+        await e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, 50_000, e.Sesion);
         var preview = await e.Servicios.CasoAjustarCuentaCorriente.PrevisualizarAsync(cliente, true, 7_000, e.Sesion);
         Assert.Equal(0, preview.SaldoAnteriorMinor);
         await Assert.ThrowsAsync<ArgumentException>(() => e.Servicios.CasoAjustarCuentaCorriente.EjecutarAsync(
@@ -53,6 +54,37 @@ public sealed class CuentaCorrienteTests
         var empleada = await e.SesionEmpleadaAsync();
         await Assert.ThrowsAsync<LocalInfantil.Application.Abstractions.AccesoDenegadoException>(() => e.Servicios.CasoAjustarCuentaCorriente.PrevisualizarAsync(cliente, true, 1_000, empleada));
         await Assert.ThrowsAsync<LocalInfantil.Application.Abstractions.AccesoDenegadoException>(() => e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, 30_000, empleada));
+    }
+
+    [Fact]
+    public async Task Ajustes_requieren_fiado_habilitado_pero_abonos_conservan_deuda_historica()
+    {
+        using var e = await VentasTests.EntornoVentas.CrearAsync();
+        var cliente = await ClienteHabilitado(e, 30_000);
+        await e.Servicios.CasoAjustarCuentaCorriente.EjecutarAsync(
+            new(cliente, true, 10_000, "Deuda previa", 0, "cc-deuda-previa-habilitada", e.Sesion));
+        await e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, null, e.Sesion);
+
+        var errorPreviewAumento = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            e.Servicios.CasoAjustarCuentaCorriente.PrevisualizarAsync(cliente, true, 1_000, e.Sesion));
+        Assert.Contains("fiado no está habilitado", errorPreviewAumento.Message, StringComparison.OrdinalIgnoreCase);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            e.Servicios.CasoAjustarCuentaCorriente.PrevisualizarAsync(cliente, false, 1_000, e.Sesion));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => e.Servicios.CasoAjustarCuentaCorriente.EjecutarAsync(
+            new(cliente, true, 1_000, "No debe aumentar", 10_000, "cc-ajuste-sin-fiado-pos", e.Sesion)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => e.Servicios.CasoAjustarCuentaCorriente.EjecutarAsync(
+            new(cliente, false, 1_000, "No debe ajustar", 10_000, "cc-ajuste-sin-fiado-neg", e.Sesion)));
+        Assert.Equal(10_000, (await e.Servicios.ConsultasCuentaCorriente.ObtenerAsync(cliente, e.Sesion))!.SaldoMinor);
+        Assert.Null((await e.Servicios.ConsultasCuentaCorriente.ObtenerAsync(cliente, e.Sesion))!.LimiteMinor);
+
+        var pagos = new[] { new NuevoPago(MediosPago.Efectivo, 4_000, 4_000) };
+        var previewAbono = await e.Servicios.ConsultasCuentaCorriente.PrevisualizarAbonoAsync(cliente, 4_000, pagos, e.Sesion);
+        await e.Servicios.CasoRegistrarAbono.EjecutarAsync(new(
+            cliente, 4_000, pagos, previewAbono.Aplicaciones, previewAbono.SaldoAnteriorMinor, "cc-abono-fiado-deshabilitado", e.Sesion));
+
+        var final = await e.Servicios.ConsultasCuentaCorriente.ObtenerAsync(cliente, e.Sesion);
+        Assert.Equal(6_000, final!.SaldoMinor);
+        Assert.Null(final.LimiteMinor);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using LocalInfantil.Wpf.Infra;
 
 namespace LocalInfantil.Tests.Wpf;
 
@@ -48,6 +49,62 @@ public sealed class VistasRecursosTests
         var texto = File.ReadAllText(Path.Combine(wpf, "Views", "CajaView.xaml"));
         Assert.DoesNotContain("{StaticResource EstiloComboBox}", texto);
         Assert.Contains("{StaticResource EstiloCombo}", texto);
+    }
+
+    [Fact]
+    public void Logo_TiNA_se_empaqueta_una_vez_y_las_pantallas_usan_el_PNG_transparente()
+    {
+        var raiz = RaizRepo();
+        var wpf = Path.Combine(raiz, "src", "LocalInfantil.Wpf");
+        var proyecto = File.ReadAllText(Path.Combine(wpf, "LocalInfantil.Wpf.csproj"));
+        Assert.Contains("<Resource Include=\"Assets\\Branding\\logo-tina.png\" />", proyecto);
+
+        var png = File.ReadAllBytes(Path.Combine(wpf, "Assets", "Branding", "logo-tina.png"));
+        Assert.True(png.Length > 32);
+        Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, png[..8]);
+        Assert.Equal(6, png[25]); // PNG RGBA: mantiene transparencia.
+        Assert.Equal(png, LogoNegocio.ObtenerPng());
+
+        var uri = "pack://application:,,,/LocalInfantil.Wpf;component/Assets/Branding/logo-tina.png";
+        foreach (var archivo in new[]
+        {
+            "ShellDuenaView.xaml", "ShellEmpleadaView.xaml",
+            "TicketAbonoWindow.xaml",
+        })
+            Assert.Contains(uri, File.ReadAllText(Path.Combine(wpf, "Views", archivo)));
+
+        Assert.Contains("LogoNegocio.ObtenerPng()", File.ReadAllText(Path.Combine(wpf, "Views", "TicketVentaWindow.xaml.cs")));
+        Assert.Contains("Renderizar(DocumentoTicketVenta documento, byte[]? logoPng)", File.ReadAllText(Path.Combine(wpf, "Printing", "DocumentoTicketVentaRenderer.cs")));
+        Assert.Contains("LogoNegocio.ObtenerBannerPng()", File.ReadAllText(Path.Combine(wpf, "Views", "TicketCambioWindow.xaml.cs")));
+    }
+
+    [Fact]
+    public void Banner_TiNA_se_empaqueta_y_se_comparte_entre_Login_y_Reportes()
+    {
+        var raiz = RaizRepo();
+        var wpf = Path.Combine(raiz, "src", "LocalInfantil.Wpf");
+        var proyecto = File.ReadAllText(Path.Combine(wpf, "LocalInfantil.Wpf.csproj"));
+        Assert.Contains("<Resource Include=\"Assets\\Branding\\logo.png\" />", proyecto);
+
+        var png = File.ReadAllBytes(Path.Combine(wpf, "Assets", "Branding", "logo.png"));
+        Assert.True(png.Length > 32);
+        Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, png[..8]);
+        var width = ((long)png[16] << 24) | ((long)png[17] << 16) | ((long)png[18] << 8) | png[19];
+        var height = ((long)png[20] << 24) | ((long)png[21] << 16) | ((long)png[22] << 8) | png[23];
+        Assert.Equal(1024, width);
+        Assert.Equal(205, height);
+        Assert.Equal(png, LogoNegocio.ObtenerBannerPng());
+
+        var uri = "pack://application:,,,/LocalInfantil.Wpf;component/Assets/Branding/logo.png";
+        var recursos = File.ReadAllText(Path.Combine(wpf, "Recursos", "DisenoRecursos.xaml"));
+        Assert.Contains("x:Key=\"LogoBannerTiNA\"", recursos);
+        Assert.Contains($"UriSource=\"{uri}\"", recursos);
+        foreach (var archivo in new[] { "LoginView.xaml", "ReportesView.xaml" })
+        {
+            var xaml = File.ReadAllText(Path.Combine(wpf, "Views", archivo));
+            Assert.Contains("{StaticResource LogoBannerTiNA}", xaml);
+            Assert.Contains("Stretch=\"Uniform\"", xaml);
+        }
     }
 
     private static readonly HashSet<string> AtributosTwoWay = new(StringComparer.Ordinal)

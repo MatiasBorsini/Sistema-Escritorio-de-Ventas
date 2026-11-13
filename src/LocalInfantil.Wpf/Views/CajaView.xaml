@@ -118,21 +118,71 @@
                                 </TabItem>
                                 <TabItem Header="Corregir forma de cobro" IsEnabled="{Binding PuedeCorregir}">
                                     <Grid Margin="14">
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                                        <Grid Margin="0,0,0,10">
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="260"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                             <TextBlock Text="Buscar venta" Style="{StaticResource EstiloEtiqueta}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBox Grid.Column="1" Text="{Binding BusquedaPago, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}"
-                                                     ToolTip="Ingresá el número de venta"/>
-                                            <Button Grid.Column="2" Content="Buscar" Command="{Binding BuscarPagosCommand}" Style="{StaticResource EstiloBotonSecundario}" Margin="8,0,0,0"/>
+                                            <TextBox x:Name="BusquedaVentaCajaTextBox" Grid.Column="1" Text="{Binding BusquedaPago, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}"
+                                                     ToolTip="Ticket, producto o código" AutomationProperties.Name="Buscar venta por ticket, producto o código"
+                                                     GotKeyboardFocus="BusquedaVentaCaja_GotKeyboardFocus" PreviewKeyDown="BusquedaVentaCaja_PreviewKeyDown"/>
+                                            <Button Grid.Column="2" Content="×" Command="{Binding LimpiarBusquedaVentasCommand}" Style="{StaticResource EstiloBotonSecundario}"
+                                                    Margin="6,0,0,0" Padding="10,2" ToolTip="Borrar búsqueda" AutomationProperties.Name="Borrar búsqueda"/>
                                         </Grid>
-                                        <Grid Grid.Row="1">
+                                        <Border Grid.Row="1" Margin="0,0,0,8" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1"
+                                                Background="{StaticResource Color.SurfaceBrush}" CornerRadius="5" MaxHeight="225"
+                                                Visibility="{Binding SugerenciasVentasAbiertas, Converter={StaticResource BoolToVisibility}}">
+                                            <Grid>
+                                                <ListBox x:Name="SugerenciasVentasCajaListBox" ItemsSource="{Binding VentasSugeridas}"
+                                                         PreviewMouseLeftButtonUp="SugerenciasVentasCaja_PreviewMouseLeftButtonUp"
+                                                         PreviewKeyDown="SugerenciasVentasCaja_PreviewKeyDown"
+                                                         Visibility="{Binding HaySugerenciasVentas, Converter={StaticResource BoolToVisibility}}"
+                                                         MaxHeight="225" BorderThickness="0" Background="Transparent"
+                                                         ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Ventas encontradas">
+                                                    <ListBox.ItemContainerStyle>
+                                                        <Style TargetType="ListBoxItem">
+                                                            <Setter Property="Padding" Value="9,6"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource Color.Surface2Brush}"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ListBox.ItemContainerStyle>
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="{Binding Numero, StringFormat=Venta {0}}" FontWeight="SemiBold"/>
+                                                                    <TextBlock Text="{Binding Fecha}" Style="{StaticResource EstiloAyuda}" Margin="0,1,0,0"/>
+                                                                    <TextBlock Text="{Binding Medios}" Style="{StaticResource EstiloAyuda}" Margin="0,1,0,0"/>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                                    <TextBlock Text="{Binding Total}" FontWeight="SemiBold" TextAlignment="Right"/>
+                                                                    <TextBlock Text="{Binding Estado}" Style="{StaticResource EstiloAyuda}" TextAlignment="Right"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                                <TextBlock Text="{Binding EstadoBusquedaVentas}" Style="{StaticResource EstiloAyuda}"
+                                                           TextAlignment="Center" VerticalAlignment="Center" Margin="12"
+                                                           Visibility="{Binding HaySugerenciasVentas, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                                            </Grid>
+                                        </Border>
+                                        <Grid Grid.Row="2">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.3*"/></Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="1" Text="Seleccioná un pago de la lista para revisar y confirmar la corrección."
+                                            <TextBlock Grid.Column="1" Text="{Binding EstadoBusquedaVentas}"
                                                        TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="20"
                                                        Foreground="{StaticResource Color.TextSecondaryBrush}"
                                                        Visibility="{Binding SinPagoSeleccionado, Converter={StaticResource BoolToVisibility}}"/>
-                                            <DataGrid ItemsSource="{Binding PagosCorregibles}" SelectedItem="{Binding PagoSeleccionado}"
+                                            <Grid Grid.Column="0">
+                                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                                <TextBlock Text="{Binding VentaCorreccionSeleccionadaTexto}" Style="{StaticResource EstiloEtiqueta}"
+                                                           TextWrapping="Wrap" Margin="2,0,0,6"
+                                                           Visibility="{Binding TieneVentaCorreccionSeleccionada, Converter={StaticResource BoolToVisibility}}"/>
+                                                <DataGrid Grid.Row="1" ItemsSource="{Binding PagosCorregibles}" SelectedItem="{Binding PagoSeleccionado}"
                                                       Style="{StaticResource EstiloGrillaOperativa}" IsReadOnly="True" AutoGenerateColumns="False"
                                                       CanUserAddRows="False" CanUserReorderColumns="False" HeadersVisibility="Column"
                                                       Visibility="{Binding SinPagosCorregibles, Converter={StaticResource BoolToVisibilityInverted}}">
@@ -141,11 +191,8 @@
                                                     <DataGridTextColumn Header="Forma original" Binding="{Binding MedioOriginal, Converter={StaticResource CajaTextoHumano}}" Width="*"/>
                                                     <DataGridTextColumn Header="Importe" Binding="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}" Width="115"/>
                                                 </DataGrid.Columns>
-                                            </DataGrid>
-                                            <TextBlock Text="Buscá una venta para ver sus pagos. Los cobros de Mercado Pago Point no se pueden reclasificar aquí."
-                                                       TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" Margin="18"
-                                                       Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                                       Visibility="{Binding SinPagosCorregibles, Converter={StaticResource BoolToVisibility}}"/>
+                                                </DataGrid>
+                                            </Grid>
                                             <Border Grid.Column="1" Margin="12,0,0,0" Padding="14" BorderThickness="1" BorderBrush="{StaticResource Color.BorderBrush}"
                                                     Background="{StaticResource Color.SurfaceBrush}" CornerRadius="6"
                                                     Visibility="{Binding TienePagoSeleccionado, Converter={StaticResource BoolToVisibility}}">

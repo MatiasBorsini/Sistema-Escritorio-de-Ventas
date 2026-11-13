@@ -5,6 +5,13 @@ namespace LocalInfantil.Application.Features.Clientes;
 
 public sealed class ConsultasClientes(IAutorizador autorizador, IFabricaSesionesPersistencia fabrica, IRepositorioClientes clientes)
 {
+    public async Task<ClienteRegistrado?> ObtenerAsync(string clienteId, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await autorizador.AutorizarAsync(CrearCliente.ExigirSesion(idSesion), PermisosClientes.Consultar, cancellationToken);
+        await using var sesion = await fabrica.IniciarLecturaAsync(cancellationToken);
+        return await clientes.ObtenerPorIdAsync(sesion, clienteId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ClienteRegistrado>> BuscarAsync(string texto, bool incluirInactivos, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
     {
         await autorizador.AutorizarAsync(CrearCliente.ExigirSesion(idSesion), PermisosClientes.Consultar, cancellationToken);

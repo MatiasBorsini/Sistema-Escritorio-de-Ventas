@@ -32,10 +32,31 @@ public sealed class ConsultasVentas
     /// Resumen por página en una sola lectura (hasta limite+1 filas para el
     /// peek de HaySiguiente). Estado: "todas", "confirmadas" o "anuladas".
     /// </summary>
-    public async Task<IReadOnlyList<ResumenVenta>> BuscarResumenAsync(string texto, string estado, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ResumenVenta>> BuscarResumenAsync(
+        string texto,
+        string estado,
+        int limite,
+        int desplazamiento,
+        string? idSesion,
+        CancellationToken cancellationToken = default,
+        DateOnly? desde = null,
+        DateOnly? hasta = null)
     {
+        if (desde.HasValue && hasta.HasValue && desde.Value > hasta.Value)
+            throw new ArgumentException("La fecha Desde no puede ser posterior a la fecha Hasta.");
+        if (hasta == DateOnly.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(hasta), "La fecha Hasta no permite calcular el día siguiente.");
+
+        DateTimeOffset? desdeUtc = desde.HasValue ? InicioDiaLocalUtc(desde.Value) : null;
+        DateTimeOffset? hastaUtc = hasta.HasValue ? InicioDiaLocalUtc(hasta.Value.AddDays(1)) : null;
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
-        return await _ventas.BuscarResumenAsync(sesion, texto ?? string.Empty, estado, limite, desplazamiento, cancellationToken);
+        return await _ventas.BuscarResumenAsync(sesion, texto ?? string.Empty, estado, limite, desplazamiento, cancellationToken, desdeUtc, hastaUtc);
+    }
+
+    private static DateTimeOffset InicioDiaLocalUtc(DateOnly fecha)
+    {
+        var inicioLocal = DateTime.SpecifyKind(fecha.ToDateTime(TimeOnly.MinValue), DateTimeKind.Unspecified);
+        return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(inicioLocal, TimeZoneInfo.Local), TimeSpan.Zero);
     }
 
     public async Task<FichaVenta?> ObtenerFichaAsync(string ventaId, string? idSesion, CancellationToken cancellationToken = default)

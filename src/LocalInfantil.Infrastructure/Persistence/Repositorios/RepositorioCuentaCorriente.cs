@@ -7,6 +7,36 @@ namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 /// <summary>Persistencia del libro inmutable de cuenta corriente (V14).</summary>
 public sealed class RepositorioCuentaCorriente(IGeneradorIds ids) : IRepositorioCuentaCorriente
 {
+    public async Task<IReadOnlyList<ClienteCuentaCorrienteListado>> BuscarClientesAsync(ISesionPersistencia sesion, string texto,
+        FiltroClientesCuentaCorriente filtro, int limite, int desplazamiento, CancellationToken ct = default)
+    {
+        if (limite is < 1 or > 50 || desplazamiento < 0) throw new ArgumentOutOfRangeException(nameof(limite));
+        var patron = texto.Trim() + "%";
+        using var cmd = Crear(sesion, """
+            WITH saldo AS (
+                SELECT cliente_id, SUM(importe_minor) AS importe
+                FROM cuenta_corriente_movimiento GROUP BY cliente_id
+            ), datos AS (
+                SELECT c.id,c.nombre_completo,c.telefono,COALESCE(s.importe,0) AS saldo,c.limite_credito_minor,c.activo,
+                       CASE WHEN c.limite_credito_minor IS NULL THEN 0 ELSE MAX(0,c.limite_credito_minor-COALESCE(s.importe,0)) END AS disponible
+                FROM cliente c LEFT JOIN saldo s ON s.cliente_id=c.id
+            )
+            SELECT id,nombre_completo,telefono,saldo,limite_credito_minor,disponible,activo FROM datos
+            WHERE ($texto='' OR nombre_completo LIKE $patron COLLATE NOCASE OR telefono LIKE $patron COLLATE NOCASE)
+              AND ($filtro=3 OR ($filtro=0 AND (saldo>0 OR limite_credito_minor IS NOT NULL))
+                   OR ($filtro=1 AND saldo>0) OR ($filtro=2 AND activo=1 AND limite_credito_minor IS NOT NULL))
+            ORDER BY CASE WHEN $filtro=0 AND saldo>0 THEN 0 WHEN $filtro=0 AND limite_credito_minor IS NOT NULL THEN 1 ELSE 2 END,
+                     CASE WHEN saldo>0 THEN saldo ELSE 0 END DESC,nombre_completo COLLATE NOCASE,id
+            LIMIT $limite OFFSET $offset;
+            """);
+        cmd.Parameters.AddWithValue("$texto", texto.Trim()); cmd.Parameters.AddWithValue("$patron", patron);
+        cmd.Parameters.AddWithValue("$filtro", (int)filtro); cmd.Parameters.AddWithValue("$limite", limite + 1); cmd.Parameters.AddWithValue("$offset", desplazamiento);
+        var rows = new List<ClienteCuentaCorrienteListado>();
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) rows.Add(new(r.GetString(0), r.GetString(1), N(r, 2), r.GetInt64(3), r.IsDBNull(4) ? null : r.GetInt64(4), r.GetInt64(5), r.GetInt64(6) == 1));
+        return rows;
+    }
+
     public async Task<long> ObtenerSaldoAsync(ISesionPersistencia sesion, string clienteId, CancellationToken ct = default)
     {
         using var cmd = Crear(sesion, "SELECT COALESCE(SUM(importe_minor),0) FROM cuenta_corriente_movimiento WHERE cliente_id=$cliente;");

@@ -122,6 +122,15 @@ public sealed record PagoCajaActual(
     string? SesionOriginalAbiertaEn = null,
     string? UsuarioSesionOriginal = null);
 
+public sealed record VentaCorreccionSugerida(
+    string VentaId,
+    string Numero,
+    string CreadaEn,
+    long TotalMinor,
+    string MediosPago,
+    bool TienePagosCorregibles,
+    bool SoloPoint);
+
 public sealed record ResultadoCierreCaja(
     string SesionId,
     string OperacionId,

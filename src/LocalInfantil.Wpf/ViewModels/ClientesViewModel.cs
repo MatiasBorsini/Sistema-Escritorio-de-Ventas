@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Windows.Input;
+using System.Windows.Threading;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Wpf.Infra;
 
@@ -9,6 +11,9 @@ public sealed class ClientesViewModel : ViewModelBase
     private readonly ServiciosComerciales _servicios;
     private readonly Func<string?> _idSesion;
     private ClienteRegistrado? _seleccionado;
+    private ClienteRegistrado? _pendienteSeleccion;
+    private bool _haySeleccionPendiente;
+    private bool _altaPendiente;
     private string _busqueda = string.Empty;
     private string _nombre = string.Empty;
     private string _telefono = string.Empty;
@@ -21,7 +26,12 @@ public sealed class ClientesViewModel : ViewModelBase
     private bool _haySiguiente;
     private bool _ocupado;
     private bool _confirmacionDesactivacionVisible;
+    private bool _confirmacionCambiosVisible;
+    private bool _aplicandoRefresh;
+    private bool _suprimirBusquedaReactiva;
     private int _desplazamiento;
+    private int _versionBusqueda;
+    private DispatcherTimer? _debounceBusqueda;
     private ResumenCuentaCorriente? _resumenCuenta;
     private const int TamanoPagina = 50;
 
@@ -42,6 +52,31 @@ public sealed class ClientesViewModel : ViewModelBase
         CambiarActivoCommand = new AsyncRelayCommand(SolicitarCambioActivoAsync);
         ConfirmarDesactivacionCommand = new AsyncRelayCommand(CambiarActivoAsync);
         CancelarDesactivacionCommand = new RelayCommand(_ => ConfirmacionDesactivacionVisible = false);
+        ConfirmarPerderCambiosCommand = new RelayCommand(_ =>
+        {
+            ConfirmacionCambiosVisible = false;
+            if (_altaPendiente)
+            {
+                _altaPendiente = false;
+                _pendienteSeleccion = null;
+                _haySeleccionPendiente = false;
+                AbrirAltaAhora();
+            }
+            else if (_haySeleccionPendiente)
+            {
+                var pendiente = _pendienteSeleccion;
+                _pendienteSeleccion = null;
+                _haySeleccionPendiente = false;
+                AplicarSeleccion(pendiente);
+            }
+        });
+        VolverAEditarCommand = new RelayCommand(_ =>
+        {
+            ConfirmacionCambiosVisible = false;
+            _pendienteSeleccion = null;
+            _haySeleccionPendiente = false;
+            _altaPendiente = false;
+        });
     }
 
     public ObservableCollection<ClienteRegistrado> Clientes { get; }
@@ -52,19 +87,68 @@ public sealed class ClientesViewModel : ViewModelBase
     public ResumenCuentaCorriente? ResumenCuenta { get => _resumenCuenta; private set => SetProperty(ref _resumenCuenta, value); }
     public bool Ocupado { get => _ocupado; private set => SetProperty(ref _ocupado, value); }
     public bool ConfirmacionDesactivacionVisible { get => _confirmacionDesactivacionVisible; private set => SetProperty(ref _confirmacionDesactivacionVisible, value); }
-    public string Busqueda { get => _busqueda; set => SetProperty(ref _busqueda, value); }
-    public bool IncluirInactivos { get => _incluirInactivos; set => SetProperty(ref _incluirInactivos, value); }
+    public string Busqueda
+    {
+        get => _busqueda;
+        set
+        {
+            if (!SetProperty(ref _busqueda, value)) return;
+            _versionBusqueda++;
+            if (!_suprimirBusquedaReactiva) ProgramarBusquedaReactiva();
+        }
+    }
+    public bool IncluirInactivos
+    {
+        get => _incluirInactivos;
+        set
+        {
+            if (!SetProperty(ref _incluirInactivos, value)) return;
+            _versionBusqueda++;
+            ProgramarBusquedaReactiva();
+        }
+    }
     public ClienteRegistrado? Seleccionado
     {
         get => _seleccionado;
         set
         {
-            if (!SetProperty(ref _seleccionado, value)) return;
-            OnPropertyChanged(nameof(HaySeleccion));
-            OnPropertyChanged(nameof(EstadoSeleccion));
-            ConfirmacionDesactivacionVisible = false;
-            if (value is not null) { _modoEdicion = false; CargarDatos(value); FormularioVisible = false; OnPropertyChanged(nameof(TituloFormulario)); _ = CargarHistorialAsync(value.Id); _ = CargarCuentaAsync(value.Id); }
-            else { Historial.Clear(); HistorialCuenta.Clear(); ResumenCuenta = null; CerrarFormulario(); }
+            // No se descarta un formulario con cambios sin advertir al operador.
+            if (!_aplicandoRefresh && FormularioVisible && HayCambiosSinGuardar && !ReferenceEquals(value, _seleccionado))
+            {
+                _pendienteSeleccion = value;
+                _haySeleccionPendiente = true;
+                _altaPendiente = false;
+                ConfirmacionCambiosVisible = true;
+                OnPropertyChanged(nameof(ConfirmacionCambiosVisible));
+                // Devuelve la fila resaltada de la grilla al cliente que se está editando.
+                OnPropertyChanged(nameof(Seleccionado));
+                return;
+            }
+            AplicarSeleccion(value);
+        }
+    }
+
+    private void AplicarSeleccion(ClienteRegistrado? value)
+    {
+        if (!SetProperty(ref _seleccionado, value)) return;
+        OnPropertyChanged(nameof(HaySeleccion));
+        OnPropertyChanged(nameof(EstadoSeleccion));
+        ConfirmacionDesactivacionVisible = false;
+        if (value is not null) { _modoEdicion = false; CargarDatos(value); FormularioVisible = false; OnPropertyChanged(nameof(TituloFormulario)); _ = CargarHistorialAsync(value.Id); _ = CargarCuentaAsync(value.Id); }
+        else { Historial.Clear(); HistorialCuenta.Clear(); ResumenCuenta = null; CerrarFormulario(); }
+    }
+    public bool ConfirmacionCambiosVisible { get => _confirmacionCambiosVisible; private set => SetProperty(ref _confirmacionCambiosVisible, value); }
+    public RelayCommand ConfirmarPerderCambiosCommand { get; }
+    public RelayCommand VolverAEditarCommand { get; }
+    /// <summary>El formulario está abierto y difiere de los datos del cliente.</summary>
+    public bool HayCambiosSinGuardar
+    {
+        get
+        {
+            if (!FormularioVisible || _seleccionado is null || !_modoEdicion) return false;
+            return Nombre != _seleccionado.NombreCompleto
+                || Telefono != (_seleccionado.Telefono ?? string.Empty)
+                || Observacion != (_seleccionado.Observacion ?? string.Empty);
         }
     }
     public bool HaySeleccion => Seleccionado is not null;
@@ -96,20 +180,83 @@ public sealed class ClientesViewModel : ViewModelBase
         if (reiniciar) _desplazamiento = 0;
         else _desplazamiento = Math.Max(0, _desplazamiento + delta);
         Error = null; Ocupado = true;
+        var version = ++_versionBusqueda;
         try
         {
             var rows = await _servicios.ConsultasClientes.BuscarAsync(Busqueda, IncluirInactivos, TamanoPagina, _desplazamiento, _idSesion());
+            // Resultado obsoleto: llegó una búsqueda más nueva mientras esperaba.
+            if (version != _versionBusqueda) return;
             HaySiguiente = rows.Count > TamanoPagina;
-            var selectedId = Seleccionado?.Id;
-            Clientes.Clear(); foreach (var row in rows.Take(TamanoPagina)) Clientes.Add(row);
-            Seleccionado = selectedId is null ? null : Clientes.FirstOrDefault(c => c.Id == selectedId);
+            var seleccionActual = Seleccionado;
+            var preservarFormulario = FormularioVisible && HayCambiosSinGuardar;
+            var filas = rows.Take(TamanoPagina).ToList();
+            _aplicandoRefresh = true;
+            try
+            {
+                if (!FilasIguales(filas))
+                {
+                    Clientes.Clear();
+                    foreach (var row in filas) Clientes.Add(row);
+                }
+                // Si el filtro deja fuera al cliente editado, preservamos la
+                // ficha y el borrador aunque la fila ya no pertenezca a esta página.
+                var seleccion = preservarFormulario
+                    ? seleccionActual
+                    : seleccionActual is null ? null : Clientes.FirstOrDefault(c => c.Id == seleccionActual.Id);
+                Seleccionado = seleccion;
+            }
+            finally { _aplicandoRefresh = false; }
             OnPropertyChanged(nameof(HayAnterior)); OnPropertyChanged(nameof(TextoPagina));
         }
-        catch (Exception ex) { Error = ex.Message; }
-        finally { Ocupado = false; }
+        catch (Exception ex) { if (version == _versionBusqueda) Error = ex.Message; }
+        finally { if (version == _versionBusqueda) Ocupado = false; }
+    }
+
+    private bool FilasIguales(List<ClienteRegistrado> filas)
+    {
+        if (Clientes.Count != filas.Count) return false;
+        for (var i = 0; i < filas.Count; i++)
+        {
+            if (Clientes[i].Id != filas[i].Id) return false;
+            if (Clientes[i].NombreCompleto != filas[i].NombreCompleto
+                || Clientes[i].Telefono != filas[i].Telefono
+                || Clientes[i].Activo != filas[i].Activo) return false;
+        }
+        return true;
+    }
+
+    /// <summary>Búsqueda con debounce: dispara la consulta al dejar de escribir.</summary>
+    private void ProgramarBusquedaReactiva()
+    {
+        if (System.Windows.Application.Current is null) return;
+        _debounceBusqueda ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(275) };
+        _debounceBusqueda.Tick -= BusquedaTick;
+        _debounceBusqueda.Tick += BusquedaTick;
+        _debounceBusqueda.Stop();
+        _debounceBusqueda.Start();
+    }
+
+    private async void BusquedaTick(object? sender, EventArgs e)
+    {
+        var timer = (DispatcherTimer)sender!;
+        timer.Stop();
+        await CargarAsync(true);
     }
 
     private void AbrirAlta()
+    {
+        if (FormularioVisible && HayCambiosSinGuardar)
+        {
+            _altaPendiente = true;
+            _haySeleccionPendiente = false;
+            _pendienteSeleccion = null;
+            ConfirmacionCambiosVisible = true;
+            return;
+        }
+        AbrirAltaAhora();
+    }
+
+    private void AbrirAltaAhora()
     {
         Seleccionado = null; _modoEdicion = false; Nombre = Telefono = Observacion = string.Empty;
         OnPropertyChanged(nameof(TituloFormulario)); FormularioVisible = true; Error = Mensaje = null;
@@ -125,24 +272,75 @@ public sealed class ClientesViewModel : ViewModelBase
         Nombre = cliente.NombreCompleto; Telefono = cliente.Telefono ?? string.Empty; Observacion = cliente.Observacion ?? string.Empty;
         Mensaje = null; OnPropertyChanged(nameof(TextoAccionEstado));
     }
-    private void CerrarFormulario() { FormularioVisible = false; Error = null; }
+    private void CerrarFormulario()
+    {
+        // Cancelar descarta el borrador sin guardar; al volver a consulta se
+        // restauran los valores persistidos para que no reaparezcan editados.
+        if (_modoEdicion && Seleccionado is not null) CargarDatos(Seleccionado);
+        else if (!_modoEdicion) Nombre = Telefono = Observacion = string.Empty;
+        FormularioVisible = false;
+        ConfirmacionCambiosVisible = false;
+        _pendienteSeleccion = null;
+        _haySeleccionPendiente = false;
+        _altaPendiente = false;
+        Error = null;
+    }
 
     private async Task GuardarAsync()
     {
+        // Además del comando async, el formulario abierto es el token de una
+        // alta/edición pendiente: evita un segundo envío si la primera llamada
+        // terminó sincrónicamente antes del siguiente evento del botón.
+        if (Ocupado || !FormularioVisible) return;
         Error = null; Mensaje = null;
         try
         {
             Ocupado = true;
             if (_modoEdicion && Seleccionado is not null)
+            {
                 await _servicios.CasoEditarCliente.EjecutarAsync(Seleccionado.Id, new EdicionCliente(Nombre, Telefono, Observacion), _idSesion());
+                _servicios.NotificadorCambios.Publicar(this, AreaDatos.Clientes, AreaDatos.Clientes);
+                Mensaje = "Los datos del cliente se actualizaron.";
+                FormularioVisible = false;
+                await CargarAsync(true);
+                return;
+            }
             else
-                await _servicios.CasoCrearCliente.EjecutarAsync(new NuevoCliente(Nombre, Telefono, Observacion), _idSesion());
+            {
+                var idCreado = await _servicios.CasoCrearCliente.EjecutarAsync(new NuevoCliente(Nombre, Telefono, Observacion), _idSesion());
+                // El alta puede ocurrir desde una búsqueda previa. La ficha recién
+                // creada debe quedar visible en la primera página y seleccionada.
+                EstablecerBusquedaSinProgramar(string.Empty);
+                FormularioVisible = false;
+                await CargarAsync(true);
+                var creado = await _servicios.ConsultasClientes.ObtenerAsync(idCreado, _idSesion());
+                if (creado is not null)
+                {
+                    var fila = Clientes.FirstOrDefault(c => c.Id == idCreado);
+                    if (fila is null)
+                    {
+                        if (Clientes.Count >= TamanoPagina) Clientes.RemoveAt(Clientes.Count - 1);
+                        Clientes.Insert(0, creado);
+                        fila = creado;
+                    }
+                    _aplicandoRefresh = true;
+                    try { Seleccionado = fila; }
+                    finally { _aplicandoRefresh = false; }
+                }
+            }
             _servicios.NotificadorCambios.Publicar(this, AreaDatos.Clientes, AreaDatos.Clientes);
-            Mensaje = _modoEdicion ? "Los datos del cliente se actualizaron." : "El cliente se creó correctamente.";
-            FormularioVisible = false; await CargarAsync(true);
+            Mensaje = "El cliente se creó correctamente.";
         }
         catch (Exception ex) { Error = ex.Message; }
         finally { Ocupado = false; }
+    }
+
+    private void EstablecerBusquedaSinProgramar(string texto)
+    {
+        _debounceBusqueda?.Stop();
+        _suprimirBusquedaReactiva = true;
+        try { Busqueda = texto; }
+        finally { _suprimirBusquedaReactiva = false; }
     }
 
     private async Task CambiarActivoAsync()

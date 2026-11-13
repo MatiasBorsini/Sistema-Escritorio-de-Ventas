@@ -47,7 +47,15 @@ public interface IRepositorioVentas
     /// hasta limite+1 filas para detectar HaySiguiente sin COUNT (*).
     /// <paramref name="estado"/>: "todas", "confirmadas" o "anuladas".
     /// </summary>
-    Task<IReadOnlyList<ResumenVenta>> BuscarResumenAsync(ISesionPersistencia sesion, string texto, string estado, int limite, int desplazamiento, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ResumenVenta>> BuscarResumenAsync(
+        ISesionPersistencia sesion,
+        string texto,
+        string estado,
+        int limite,
+        int desplazamiento,
+        CancellationToken cancellationToken = default,
+        DateTimeOffset? desdeInclusiveUtc = null,
+        DateTimeOffset? hastaExclusiveUtc = null);
 
     /// <summary>Correlativo visible T-000001 (patrón secuencias V9).</summary>
     Task<int> ObtenerSiguienteNumeroAsync(ISesionPersistencia sesion, CancellationToken cancellationToken = default);

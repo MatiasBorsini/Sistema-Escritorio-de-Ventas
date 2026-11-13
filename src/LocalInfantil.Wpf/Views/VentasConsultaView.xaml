@@ -1,19 +1,44 @@
-<UserControl x:Class="LocalInfantil.Wpf.Views.VentasConsultaView"
+﻿<UserControl x:Class="LocalInfantil.Wpf.Views.VentasConsultaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Background="{StaticResource Color.CanvasBrush}">
-        <StackPanel DockPanel.Dock="Top" Margin="20,12,20,0">
+        <StackPanel DockPanel.Dock="Top" Margin="20,10,20,0">
             <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Ventas" Margin="0"/>
-            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Historial de ventas y comprobantes internos." Margin="0,0,0,6"/>
-            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,0,0,4">
-                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="270"
-                         Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Buscar por número de ticket" AutomationProperties.Name="Buscar ventas por número de ticket"/>
-                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Buscar" Command="{Binding CargarCommand}"/>
-                <ComboBox Style="{StaticResource EstiloCombo}" Width="150" Margin="0"
-                          ItemsSource="{Binding FiltrosEstado}" DisplayMemberPath="Texto" SelectedValuePath="Valor"
-                          SelectedValue="{Binding FiltroEstado}" ToolTip="Filtrar por estado"/>
-            </StackPanel>
+            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Historial de ventas y comprobantes internos." Margin="0,0,0,8"/>
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2.35*" MinWidth="190"/>
+                    <ColumnDefinition Width="1*" MinWidth="132"/>
+                    <ColumnDefinition Width="1*" MinWidth="132"/>
+                    <ColumnDefinition Width="1.05*" MinWidth="132"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Buscar venta" Margin="0,0,0,3"/>
+                    <TextBox x:Name="BuscarVentaTextBox" Style="{StaticResource EstiloCampoTexto}"
+                             Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Buscar por número de ticket, nombre de producto o código/SKU"
+                             AutomationProperties.Name="Buscar venta por número de ticket, nombre de producto o código"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Desde" Margin="0,0,0,3"/>
+                    <DatePicker SelectedDate="{Binding Desde, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Fecha inicial, inclusive" AutomationProperties.Name="Fecha desde"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Hasta" Margin="0,0,0,3"/>
+                    <DatePicker SelectedDate="{Binding Hasta, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Fecha final, inclusive" AutomationProperties.Name="Fecha hasta"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Margin="0,0,12,0">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Estado" Margin="0,0,0,3"/>
+                    <ComboBox Style="{StaticResource EstiloCombo}" Margin="0"
+                              ItemsSource="{Binding FiltrosEstado}" DisplayMemberPath="Texto" SelectedValuePath="Valor"
+                              SelectedValue="{Binding FiltroEstado}" ToolTip="Filtrar por estado" AutomationProperties.Name="Estado de venta"/>
+                </StackPanel>
+                <Button Grid.Column="4" Style="{StaticResource EstiloBotonQuiet}" Content="Limpiar filtros"
+                        Command="{Binding LimpiarFiltrosCommand}" Margin="0,17,0,0" Padding="12,6"/>
+            </Grid>
             <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
             <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"
                        Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}"/>
@@ -21,21 +46,28 @@
                        Visibility="{Binding Mensaje, Converter={StaticResource NullToVisibility}}"/>
         </StackPanel>
 
-        <Grid Margin="20,4,20,14">
+        <Grid Margin="20,2,20,14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.05*" MinWidth="390"/>
-                <ColumnDefinition Width="1*" MinWidth="390"/>
+                <ColumnDefinition Width="58*" MinWidth="390"/>
+                <ColumnDefinition Width="42*" MinWidth="350"/>
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,8,0" Padding="12">
                 <DockPanel LastChildFill="True">
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Historial"/>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Historial de ventas"/>
                         <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiquetaMetrica}" Text="{Binding PaginaTexto}"/>
                     </Grid>
                     <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
                         <Button Grid.Column="1" Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior"
                                 Command="{Binding AnteriorCommand}" IsEnabled="{Binding HayAnterior}"/>
                         <Button Grid.Column="2" Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶"
@@ -45,6 +77,11 @@
                         <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True"
                                   SelectionMode="Single" SelectionUnit="FullRow" CanUserSortColumns="False"
                                   CanUserResizeRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  RowHeight="40" ColumnHeaderHeight="36"
+                                  BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1"
+                                  HorizontalGridLinesBrush="{StaticResource Color.BorderSoftBrush}"
+                                  RowBackground="{StaticResource Color.SurfaceBrush}"
+                                  AlternatingRowBackground="{StaticResource Color.Surface2Brush}" AlternationCount="2"
                                   HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"
                                   ItemsSource="{Binding Historial}" SelectedItem="{Binding FilaSeleccionada}">
                             <DataGrid.Columns>
@@ -80,7 +117,7 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock Text="No hay ventas para mostrar." Style="{StaticResource EstiloEstadoVacio}"
+                        <TextBlock Text="{Binding TextoEstadoVacio}" Style="{StaticResource EstiloEstadoVacio}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16"
                                    Visibility="{Binding MostrarEstadoVacio, Converter={StaticResource BoolToVisibility}}"/>
                     </Grid>
@@ -89,14 +126,17 @@
 
             <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="8,0,0,0" Padding="14">
                 <Grid>
-                    <TextBlock Text="Seleccioná una venta para ver el detalle." Style="{StaticResource EstiloEstadoVacio}"
+                    <TextBlock Text="{Binding TextoEstadoSinSeleccion}" Style="{StaticResource EstiloEstadoVacio}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                                Visibility="{Binding MostrarEstadoSinSeleccion, Converter={StaticResource BoolToVisibility}}"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                   Visibility="{Binding HayFicha, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel>
                             <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <StackPanel>
                                     <TextBlock FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="VENTA"/>
                                     <TextBlock Margin="0,2,0,0" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}"
@@ -127,10 +167,12 @@
                                     </TextBlock>
                                 </Border>
                             </Grid>
-                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                       Text="{Binding Ficha.Venta.CreadaEn, Converter={StaticResource FechaCorta}, StringFormat=Fecha: {0}}"/>
-                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
-                                       Text="{Binding Ficha.Venta.CreadoPorNombre, TargetNullValue=—, StringFormat=Vendido por: {0}}"/>
+                            <StackPanel Margin="0,3,0,0">
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                           Text="{Binding Ficha.Venta.CreadaEn, Converter={StaticResource FechaCorta}, StringFormat=Fecha: {0}}"/>
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                           Text="{Binding Ficha.Venta.CreadoPorNombre, TargetNullValue=—, StringFormat=Vendido por: {0}}"/>
+                            </StackPanel>
                             <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}"
                                        Text="{Binding Ficha.Venta.ClienteNombreSnapshot, StringFormat=Cliente: {0}}"
                                        Visibility="{Binding Ficha.Venta.ClienteNombreSnapshot, Converter={StaticResource NullToVisibility}, FallbackValue=Collapsed}"/>
@@ -138,15 +180,23 @@
                             <Border Style="{StaticResource EstiloSeparador}" Margin="0,8"/>
                             <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Productos"/>
                             <Grid Margin="0,0,0,2">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="52"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="52"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Cant." TextAlignment="Right"/>
                                 <TextBlock Grid.Column="2" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Importe" TextAlignment="Right" Margin="12,0,0,0"/>
                             </Grid>
                             <ItemsControl ItemsSource="{Binding Ficha.Lineas}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Margin="0,2">
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="52"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <Grid Margin="0,4,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="52"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0">
                                                 <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto}" TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource Color.TextSecondaryBrush}"
@@ -162,20 +212,33 @@
                             </ItemsControl>
 
                             <Border Style="{StaticResource EstiloSeparador}" Margin="0,8"/>
-                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Pagos"/>
+                            <Grid Margin="0,0,0,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Pagos"/>
+                                <TextBlock Grid.Column="1" Style="{StaticResource EstiloEtiquetaMetrica}" Text="Importe cobrado"/>
+                            </Grid>
                             <ItemsControl ItemsSource="{Binding Ficha.Pagos}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,1">
                                             <Grid>
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
                                                 <TextBlock FontSize="12" Foreground="{StaticResource Color.TextBrush}"
                                                            Text="{Binding Medio, Converter={StaticResource MedioAEtiqueta}}"/>
                                                 <TextBlock Grid.Column="1" FontSize="12" Foreground="{StaticResource Color.TextBrush}"
                                                            Text="{Binding ImporteMinor, Converter={StaticResource MinorToArs}}" TextAlignment="Right"/>
                                             </Grid>
                                             <Grid Margin="0,1,0,0" Visibility="{Binding VueltoMinor, Converter={StaticResource NullToVisibility}}">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
                                                 <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Vuelto" Margin="12,0,0,0"/>
                                                 <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
                                                            Text="{Binding VueltoMinor, Converter={StaticResource MinorToArs}}" TextAlignment="Right"/>
@@ -190,7 +253,10 @@
 
                             <Border Style="{StaticResource EstiloSeparador}" Margin="0,8"/>
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Total de la venta" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Color.TextBrush}"
                                            Text="{Binding Ficha.Venta.TotalMinor, Converter={StaticResource MinorToArs}}" TextAlignment="Right"/>

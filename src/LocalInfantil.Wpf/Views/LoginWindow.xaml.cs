@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using LocalInfantil.Wpf.ViewModels;
 
 namespace LocalInfantil.Wpf.Views;
@@ -21,5 +21,10 @@ public partial class LoginWindow : Window
         }
 
         Loaded += (_, _) => MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+    }
+
+    private void LoginView_Loaded(object sender, RoutedEventArgs e)
+    {
+
     }
 }

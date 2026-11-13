@@ -30,6 +30,18 @@ public sealed record MovimientoCuentaCorriente(string Id, string Tipo, long Impo
 public sealed record ResumenCuentaCorriente(string ClienteId, long SaldoMinor, long? LimiteMinor,
     long DisponibleMinor, IReadOnlyList<CargoCuentaCorriente> Cargos);
 
+public enum FiltroClientesCuentaCorriente
+{
+    Relevantes,
+    ConDeuda,
+    FiadoHabilitado,
+    Todos,
+}
+
+public sealed record ClienteCuentaCorrienteListado(
+    string Id, string NombreCompleto, string? Telefono, long SaldoMinor,
+    long? LimiteMinor, long DisponibleMinor, bool Activo);
+
 public sealed record VistaPreviaAbono(long SaldoAnteriorMinor, long ImporteMinor,
     long SaldoPosteriorMinor, IReadOnlyList<CargoCuentaCorriente> Cargos,
     IReadOnlyList<AplicacionCuentaCorriente> Aplicaciones);

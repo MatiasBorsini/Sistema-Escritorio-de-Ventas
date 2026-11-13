@@ -1,3 +1,4 @@
+using System.Globalization;
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
 using LocalInfantil.Infrastructure.Persistence.Sqlite;
@@ -255,7 +256,15 @@ public sealed class RepositorioVentas : IRepositorioVentas
         }
     }
 
-    public async Task<IReadOnlyList<ResumenVenta>> BuscarResumenAsync(ISesionPersistencia sesion, string texto, string estado, int limite, int desplazamiento, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ResumenVenta>> BuscarResumenAsync(
+        ISesionPersistencia sesion,
+        string texto,
+        string estado,
+        int limite,
+        int desplazamiento,
+        CancellationToken cancellationToken = default,
+        DateTimeOffset? desdeInclusiveUtc = null,
+        DateTimeOffset? hastaExclusiveUtc = null)
     {
         var s = Sesion(sesion);
         if (limite < 1 || limite > 100)
@@ -279,13 +288,28 @@ public sealed class RepositorioVentas : IRepositorioVentas
                        (SELECT COUNT(*) FROM venta_linea l WHERE l.venta_id = v.id)
                 FROM venta v LEFT JOIN usuario u ON u.id = v.creado_por_usuario_id
                              LEFT JOIN reversion_venta r ON r.venta_id = v.id
-                WHERE ($t = '' OR v.numero LIKE $contiene)
+                WHERE ($t = '' OR v.numero LIKE $contiene OR EXISTS (
+                          SELECT 1 FROM venta_linea l
+                          WHERE l.venta_id = v.id
+                            AND (l.nombre_producto LIKE $contiene OR l.codigo_interno LIKE $contiene
+                                 OR COALESCE(l.talle, '') LIKE $contiene OR COALESCE(l.color, '') LIKE $contiene)
+                      ))
                   AND ($estado = 'todas' OR ($estado = 'anuladas' AND r.venta_id IS NOT NULL) OR ($estado = 'confirmadas' AND r.venta_id IS NULL))
-                ORDER BY v.creada_en DESC, v.numero DESC LIMIT $limite OFFSET $desplazamiento;
+                  AND ($desde IS NULL OR julianday(v.creada_en) >= julianday($desde))
+                  AND ($hasta IS NULL OR julianday(v.creada_en) < julianday($hasta))
+                ORDER BY julianday(v.creada_en) DESC, v.numero DESC, v.id DESC LIMIT $limite OFFSET $desplazamiento;
                 """;
             comando.Parameters.AddWithValue("$t", t);
             comando.Parameters.AddWithValue("$contiene", $"%{t}%");
             comando.Parameters.AddWithValue("$estado", estado);
+            object parametroDesde = desdeInclusiveUtc is { } desde
+                ? desde.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)
+                : DBNull.Value;
+            object parametroHasta = hastaExclusiveUtc is { } hasta
+                ? hasta.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)
+                : DBNull.Value;
+            comando.Parameters.AddWithValue("$desde", parametroDesde);
+            comando.Parameters.AddWithValue("$hasta", parametroHasta);
             comando.Parameters.AddWithValue("$limite", limite + 1);
             comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
             await using var lector = await comando.ExecuteReaderAsync(cancellationToken);

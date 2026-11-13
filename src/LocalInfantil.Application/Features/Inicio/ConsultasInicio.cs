@@ -1,5 +1,6 @@
 using LocalInfantil.Application.Abstractions;
 using LocalInfantil.Application.Contracts;
+using LocalInfantil.Application.Features.Reportes;
 
 namespace LocalInfantil.Application.Features.Inicio;
 
@@ -13,12 +14,21 @@ public sealed class ConsultasInicio
     public ConsultasInicio(IAutorizador autorizador, IRepositorioInicio inicio, IFabricaSesionesPersistencia fabrica) { _autorizador = autorizador; _inicio = inicio; _fabrica = fabrica; }
     public async Task<ResumenInicio> ObtenerAsync(string idSesion, CancellationToken ct = default)
     {
-        var permitidas = await _autorizador.ObtenerPermisosEfectivosAsync(idSesion, Acciones, ct);
+        var solicitados = Acciones.Append(PermisosReportes.Ventas).ToArray();
+        var permitidas = await _autorizador.ObtenerPermisosEfectivosAsync(idSesion, solicitados, ct);
         await using var s = await _fabrica.IniciarLecturaAsync(ct);
         var inventario = await _inicio.ObtenerInventarioAsync(s, ct);
         var pendientes = await _inicio.ContarConteosBorradorAsync(s, ct);
         var eventos = await _inicio.ListarActividadAsync(s, 6, ct);
-        return new ResumenInicio(permitidas, pendientes, inventario, eventos.Select(Mapear).Where(x => x is not null).Cast<ActividadInicio>().ToArray());
+        var recepcion = await _inicio.ObtenerUltimaRecepcionAsync(s, ct);
+        VentasDelDiaInicio? ventas = null;
+        if (permitidas.Contains(PermisosReportes.Ventas))
+        {
+            var dia = RangoFechas.Dia(DateOnly.FromDateTime(DateTime.Today));
+            ventas = await _inicio.ObtenerVentasDelDiaAsync(s, dia.DesdeUtc, dia.HastaUtc, ct);
+        }
+        return new ResumenInicio(permitidas, pendientes, inventario,
+            eventos.Select(Mapear).Where(x => x is not null).Cast<ActividadInicio>().ToArray(), ventas, recepcion);
     }
     private static ActividadInicio? Mapear(EventoInicioOrigen e) => e.Tipo switch
     {

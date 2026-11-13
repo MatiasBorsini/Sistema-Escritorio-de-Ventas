@@ -18,7 +18,9 @@ public sealed record SugerenciaVariante(
     string? Categoria,
     string? Talle,
     string? Color,
-    bool Activa)
+    bool Activa,
+    long? PrecioMinor = null,
+    long? Disponible = null)
 {
     /// <summary>Línea secundaria humana (ej: "Nube · Niños"; null si no hay).</summary>
     public string? ContextoProducto => (Marca, Categoria) switch
@@ -28,6 +30,20 @@ public sealed record SugerenciaVariante(
         (var m, null) => m!,
         (var m, var c) => $"{m} · {c}"
     };
+
+    /// <summary>Precio vigente conocido (solo en búsquedas que lo resuelven).</summary>
+    public bool TienePrecio => PrecioMinor is not null;
+
+    /// <summary>Sin precio vigente configurado: no es elegible para sumar importe.</summary>
+    public bool SinPrecio => PrecioMinor is null;
+
+    /// <summary>Disponible conocido y agotado (solo en búsquedas que resuelven stock).</summary>
+    public bool SinStock => Disponible is <= 0;
+
+    /// <summary>Texto humano de existencias; vacío si la búsqueda no resolvió stock.</summary>
+    public string StockTexto => Disponible is null
+        ? string.Empty
+        : Disponible.Value <= 0 ? "Sin stock" : $"{Disponible.Value} en stock";
 
     /// <summary>Detalle de variante ("M · Rojo").</summary>
     public string DetalleTalleColor => (Talle, Color) switch

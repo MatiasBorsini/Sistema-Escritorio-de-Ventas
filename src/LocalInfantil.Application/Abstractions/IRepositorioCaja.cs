@@ -21,6 +21,7 @@ public interface IRepositorioCaja
     Task<PagoCajaActual?> ObtenerPagoActualAsync(ISesionPersistencia sesion, string pagoId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PagoCajaActual>> ListarPagosActualesPorVentaAsync(ISesionPersistencia sesion, string ventaId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PagoCajaActual>> BuscarPagosCorregiblesAsync(ISesionPersistencia sesion, string filtroNumeroVenta, int limite, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<VentaCorreccionSugerida>> BuscarVentasParaCorreccionAsync(ISesionPersistencia sesion, string filtro, int limite, CancellationToken cancellationToken = default);
     Task<long> SumarReintegrosPorPagoAsync(ISesionPersistencia sesion, string pagoId, CancellationToken cancellationToken = default);
     Task InsertarCorreccionPagoAsync(ISesionPersistencia sesion, string pagoId, string medioAnterior, string medioNuevo, long importeMinor, string motivo, string usuarioId, string operacionId, string cajaOperacionId, string creadoEn, CancellationToken cancellationToken = default);
 }

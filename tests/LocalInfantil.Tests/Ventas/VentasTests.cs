@@ -378,6 +378,7 @@ public sealed class VentasTests
     {
         public ServiciosComerciales Servicios { get; }
         public string Sesion { get; }
+        public string RutaBaseDatos => Path.Combine(_dir, "ventas-f04.db");
         private readonly string _dir;
 
         private EntornoVentas(string dir, ServiciosComerciales servicios, string sesion)

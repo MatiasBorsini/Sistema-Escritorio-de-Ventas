@@ -71,18 +71,45 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     private bool _consultaRealizada;
     private string _textoBusqueda = string.Empty;
     private string _filtroEstado = FiltroVentas.Todas;
-    private bool _seleccionAutomaticaEnCurso;
+    private DateTime? _desde;
+    private DateTime? _hasta;
+    private CancellationTokenSource? _busquedaActual;
+    private long _versionBusqueda;
+    private long _versionFicha;
+    private Task _busquedaProgramada = Task.CompletedTask;
+    private bool _suspenderFiltros;
+    private readonly Func<string, string, int, int, string?, DateOnly?, DateOnly?, CancellationToken, Task<IReadOnlyList<ResumenVenta>>> _buscarResumen;
+    private readonly Func<TimeSpan, CancellationToken, Task> _esperaDebounce;
     private Task _cargaFichaSeleccionada = Task.CompletedTask;
 
     public VentasConsultaViewModel(ServiciosComerciales servicios, Func<string?> idSesion, IDialogosVentas? dialogos = null)
+        : this(servicios, idSesion, dialogos, null, null)
+    {
+    }
+
+    internal VentasConsultaViewModel(
+        ServiciosComerciales servicios,
+        Func<string?> idSesion,
+        IDialogosVentas? dialogos,
+        Func<string, string, int, int, string?, DateOnly?, DateOnly?, CancellationToken, Task<IReadOnlyList<ResumenVenta>>>? buscarResumen,
+        Func<TimeSpan, CancellationToken, Task>? esperaDebounce = null)
     {
         _servicios = servicios;
         _idSesion = idSesion;
         _dialogos = dialogos;
+        _buscarResumen = buscarResumen ?? ((texto, estado, limite, desplazamiento, sesion, desde, hasta, ct) =>
+            servicios.ConsultasVentas.BuscarResumenAsync(texto, estado, limite, desplazamiento, sesion, ct, desde, hasta));
+        _esperaDebounce = esperaDebounce ?? ((demora, ct) => Task.Delay(demora, ct));
         Historial = new ObservableCollection<FilaHistorialVenta>();
-        Historial.CollectionChanged += (_, _) => OnPropertyChanged(nameof(MostrarEstadoVacio));
+        Historial.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(MostrarEstadoVacio));
+            OnPropertyChanged(nameof(TextoEstadoVacio));
+            OnPropertyChanged(nameof(TextoEstadoSinSeleccion));
+        };
         _operacionIdAnulacion = servicios.GeneradorIds.NuevoId();
         CargarCommand = new AsyncRelayCommand(CargarAsync);
+        LimpiarFiltrosCommand = new AsyncRelayCommand(LimpiarFiltrosAsync);
         SiguienteCommand = new AsyncRelayCommand(SiguienteAsync);
         AnteriorCommand = new AsyncRelayCommand(AnteriorAsync);
         VerTicketCommand = new AsyncRelayCommand(VerTicketAsync);
@@ -99,9 +126,53 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         new(FiltroVentas.Anuladas, "Anuladas"),
     ];
     public int[] TamanosPagina { get; } = [20, 50, 100];
-    public string TextoBusqueda { get => _textoBusqueda; set => SetProperty(ref _textoBusqueda, value); }
-    public string FiltroEstado { get => _filtroEstado; set => SetProperty(ref _filtroEstado, value); }
-    public string? Error { get => _error; set => SetProperty(ref _error, value); }
+    public string TextoBusqueda
+    {
+        get => _textoBusqueda;
+        set
+        {
+            if (SetProperty(ref _textoBusqueda, value ?? string.Empty))
+                FiltrosCambiaron(conDebounce: true);
+        }
+    }
+    public string FiltroEstado
+    {
+        get => _filtroEstado;
+        set
+        {
+            if (value != FiltroVentas.Todas && value != FiltroVentas.Confirmadas && value != FiltroVentas.Anuladas) return;
+            if (SetProperty(ref _filtroEstado, value))
+                FiltrosCambiaron(conDebounce: false);
+        }
+    }
+    public DateTime? Desde
+    {
+        get => _desde;
+        set
+        {
+            if (SetProperty(ref _desde, value?.Date))
+                FiltrosCambiaron(conDebounce: false);
+        }
+    }
+    public DateTime? Hasta
+    {
+        get => _hasta;
+        set
+        {
+            if (SetProperty(ref _hasta, value?.Date))
+                FiltrosCambiaron(conDebounce: false);
+        }
+    }
+    public string? Error
+    {
+        get => _error;
+        set
+        {
+            if (!SetProperty(ref _error, value)) return;
+            OnPropertyChanged(nameof(MostrarEstadoVacio));
+            OnPropertyChanged(nameof(MostrarEstadoSinSeleccion));
+        }
+    }
     public string? Mensaje { get => _mensaje; set => SetProperty(ref _mensaje, value); }
     public bool Ocupado
     {
@@ -117,8 +188,16 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     public bool HaySiguiente { get => _haySiguiente; private set => SetProperty(ref _haySiguiente, value); }
     public bool HayAnterior => _desplazamiento > 0;
     public string PaginaTexto => $"Página {_desplazamiento / _tamanoPagina + 1}";
-    public bool MostrarEstadoVacio => !Ocupado && _consultaRealizada && Historial.Count == 0;
-    public bool MostrarEstadoSinSeleccion => Ficha is null;
+    public bool MostrarEstadoVacio => !Ocupado && Error is null && _consultaRealizada && Historial.Count == 0;
+    public string TextoEstadoVacio => HayFiltrosAplicados
+        ? "No hay ventas que coincidan con estos filtros."
+        : "Todavía no hay ventas registradas.";
+    public bool MostrarEstadoSinSeleccion => Ficha is null && Error is null;
+    public string TextoEstadoSinSeleccion => Historial.Count == 0
+        ? "No hay una venta seleccionada."
+        : "Elegí una venta del historial para consultar el detalle.";
+    private bool HayFiltrosAplicados => !string.IsNullOrWhiteSpace(TextoBusqueda)
+        || Desde.HasValue || Hasta.HasValue || FiltroEstado != FiltroVentas.Todas;
 
     public FichaVenta? Ficha
     {
@@ -146,7 +225,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         get => _filaSeleccionada;
         set
         {
-            if (SetProperty(ref _filaSeleccionada, value) && value is not null && !_seleccionAutomaticaEnCurso)
+            if (SetProperty(ref _filaSeleccionada, value) && value is not null)
                 _cargaFichaSeleccionada = CargarFichaAsync(value.Resumen.Id);
         }
     }
@@ -158,14 +237,13 @@ public sealed class VentasConsultaViewModel : ViewModelBase
         {
             if (value < 1 || value > 100 || value == _tamanoPagina) return;
             _tamanoPagina = value;
-            _desplazamiento = 0;
             OnPropertyChanged(nameof(TamanoPagina));
-            OnPropertyChanged(nameof(PaginaTexto));
-            _ = CargarAsync();
+            FiltrosCambiaron(conDebounce: false);
         }
     }
 
     public AsyncRelayCommand CargarCommand { get; }
+    public AsyncRelayCommand LimpiarFiltrosCommand { get; }
     public AsyncRelayCommand SiguienteCommand { get; }
     public AsyncRelayCommand AnteriorCommand { get; }
     public AsyncRelayCommand VerTicketCommand { get; }
@@ -174,6 +252,9 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     public AsyncRelayCommand CancelarAnulacionCommand { get; }
 
     public Task CargarAsyncPublic() => CargarAsync();
+    public Task RefrescarAsyncPublic() => CargarAsync();
+    public Task EsperarBusquedaAsyncPublic() => _busquedaProgramada;
+    public Task LimpiarFiltrosAsyncPublic() => LimpiarFiltrosAsync();
     public Task SiguienteAsyncPublic() => SiguienteAsync();
     public Task AnteriorAsyncPublic() => AnteriorAsync();
     public Task ConfirmarAnulacionAsyncPublic() => ConfirmarAnulacionAsync();
@@ -181,39 +262,14 @@ public sealed class VentasConsultaViewModel : ViewModelBase
     public Task CargarFichaAsyncPublic(string ventaId) => CargarFichaAsync(ventaId);
     public Task CargarFichaSeleccionadaAsyncPublic() => _cargaFichaSeleccionada;
 
-    private async Task CargarAsync()
+    private Task CargarAsync()
     {
-        if (Ocupado) return;
-        Error = null; Mensaje = null; Ocupado = true;
-        try
-        {
-            var lista = await _servicios.ConsultasVentas.BuscarResumenAsync(TextoBusqueda ?? string.Empty, FiltroEstado, _tamanoPagina, _desplazamiento, _idSesion());
-            _consultaRealizada = true;
-            OnPropertyChanged(nameof(MostrarEstadoVacio));
-            HaySiguiente = lista.Count > _tamanoPagina;
-            Historial.Clear();
-            SetProperty(ref _filaSeleccionada, null, nameof(FilaSeleccionada));
-            Ficha = null;
-            foreach (var r in lista.Take(_tamanoPagina))
-                Historial.Add(new FilaHistorialVenta(r));
-            OnPropertyChanged(nameof(PaginaTexto));
-            if (Historial.Count > 0)
-            {
-                _seleccionAutomaticaEnCurso = true;
-                try { FilaSeleccionada = Historial[0]; }
-                finally { _seleccionAutomaticaEnCurso = false; }
-                _cargaFichaSeleccionada = CargarFichaAsync(Historial[0].Resumen.Id);
-                await _cargaFichaSeleccionada;
-            }
-            OnPropertyChanged(nameof(HayAnterior));
-        }
-        catch (Exception ex) { Error = MensajeError(ex); }
-        finally { Ocupado = false; }
+        return IniciarBusqueda(conDebounce: false, reiniciarPagina: false, conservarSeleccion: true);
     }
 
     private async Task SiguienteAsync()
     {
-        if (Ocupado || !HaySiguiente) return;
+        if (!HaySiguiente) return;
         _desplazamiento += _tamanoPagina;
         OnPropertyChanged(nameof(PaginaTexto));
         await CargarAsync();
@@ -221,7 +277,7 @@ public sealed class VentasConsultaViewModel : ViewModelBase
 
     private async Task AnteriorAsync()
     {
-        if (Ocupado || _desplazamiento <= 0) return;
+        if (_desplazamiento <= 0) return;
         _desplazamiento = Math.Max(0, _desplazamiento - _tamanoPagina);
         OnPropertyChanged(nameof(PaginaTexto));
         await CargarAsync();
@@ -229,12 +285,142 @@ public sealed class VentasConsultaViewModel : ViewModelBase
 
     private async Task CargarFichaAsync(string ventaId)
     {
+        var version = ++_versionFicha;
         Error = null;
         try
         {
-            Ficha = await _servicios.ConsultasVentas.ObtenerFichaAsync(ventaId, _idSesion());
+            var ficha = await _servicios.ConsultasVentas.ObtenerFichaAsync(ventaId, _idSesion());
+            if (version == _versionFicha && FilaSeleccionada?.Resumen.Id == ventaId)
+                Ficha = ficha;
         }
-        catch (Exception ex) { Error = MensajeError(ex); }
+        catch (Exception ex) { if (version == _versionFicha) Error = MensajeError(ex); }
+    }
+
+    private void FiltrosCambiaron(bool conDebounce)
+    {
+        if (_suspenderFiltros) return;
+        OnPropertyChanged(nameof(TextoEstadoVacio));
+        ReiniciarPagina();
+        _busquedaProgramada = IniciarBusqueda(conDebounce, reiniciarPagina: false, conservarSeleccion: false);
+    }
+
+    private Task IniciarBusqueda(bool conDebounce, bool reiniciarPagina, bool conservarSeleccion)
+    {
+        if (reiniciarPagina) ReiniciarPagina();
+        try { _busquedaActual?.Cancel(); } catch (ObjectDisposedException) { }
+        _busquedaActual?.Dispose();
+        var cts = new CancellationTokenSource();
+        _busquedaActual = cts;
+        var version = ++_versionBusqueda;
+        _busquedaProgramada = EjecutarBusquedaAsync(version, cts, conDebounce, conservarSeleccion);
+        return _busquedaProgramada;
+    }
+
+    private async Task EjecutarBusquedaAsync(long version, CancellationTokenSource cts, bool conDebounce, bool conservarSeleccion)
+    {
+        var token = cts.Token;
+        var texto = TextoBusqueda.Trim();
+        var estado = FiltroEstado;
+        var desplazamiento = _desplazamiento;
+        var tamano = _tamanoPagina;
+        var desde = Desde is { } fechaDesde ? DateOnly.FromDateTime(fechaDesde) : (DateOnly?)null;
+        var hasta = Hasta is { } fechaHasta ? DateOnly.FromDateTime(fechaHasta) : (DateOnly?)null;
+        Error = null;
+        Mensaje = null;
+        Ocupado = true;
+        try
+        {
+            if (conDebounce) await _esperaDebounce(TimeSpan.FromMilliseconds(275), token);
+            if (version != _versionBusqueda || token.IsCancellationRequested) return;
+
+            if (desde.HasValue && hasta.HasValue && desde.Value > hasta.Value)
+            {
+                Error = "La fecha Desde no puede ser posterior a la fecha Hasta.";
+                AplicarResultados(Array.Empty<ResumenVenta>(), null, tamano);
+                return;
+            }
+            if (hasta == DateOnly.MaxValue)
+            {
+                Error = "La fecha Hasta debe permitir calcular el día siguiente.";
+                AplicarResultados(Array.Empty<ResumenVenta>(), null, tamano);
+                return;
+            }
+
+            var lista = await _buscarResumen(texto, estado, tamano, desplazamiento, _idSesion(), desde, hasta, token);
+            if (version != _versionBusqueda || token.IsCancellationRequested) return;
+            AplicarResultados(lista, conservarSeleccion ? FilaSeleccionada?.Resumen.Id : null, tamano);
+            var fila = FilaSeleccionada;
+            if (fila is not null)
+            {
+                _cargaFichaSeleccionada = CargarFichaAsync(fila.Resumen.Id);
+                await _cargaFichaSeleccionada;
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (version == _versionBusqueda)
+            {
+                Error = MensajeError(ex);
+                AplicarResultados(Array.Empty<ResumenVenta>(), null, tamano);
+            }
+        }
+        finally
+        {
+            if (version == _versionBusqueda)
+                Ocupado = false;
+            if (ReferenceEquals(_busquedaActual, cts))
+            {
+                _busquedaActual = null;
+                cts.Dispose();
+            }
+        }
+    }
+
+    private void AplicarResultados(IReadOnlyList<ResumenVenta> lista, string? ventaSeleccionadaId, int tamano)
+    {
+        var anterior = ventaSeleccionadaId is null ? null : lista.FirstOrDefault(r => r.Id == ventaSeleccionadaId);
+        var seleccionada = anterior ?? lista.FirstOrDefault();
+        _consultaRealizada = true;
+        HaySiguiente = lista.Count > tamano;
+        Historial.Clear();
+        foreach (var resumen in lista.Take(tamano))
+            Historial.Add(new FilaHistorialVenta(resumen));
+        SetProperty(ref _filaSeleccionada,
+            seleccionada is null ? null : Historial.FirstOrDefault(f => f.Resumen.Id == seleccionada.Id),
+            nameof(FilaSeleccionada));
+        Ficha = null;
+        _versionFicha++;
+        OnPropertyChanged(nameof(MostrarEstadoVacio));
+        OnPropertyChanged(nameof(TextoEstadoVacio));
+        OnPropertyChanged(nameof(TextoEstadoSinSeleccion));
+        OnPropertyChanged(nameof(PaginaTexto));
+        OnPropertyChanged(nameof(HayAnterior));
+        OnPropertyChanged(nameof(MostrarEstadoSinSeleccion));
+    }
+
+    private Task LimpiarFiltrosAsync()
+    {
+        _suspenderFiltros = true;
+        try
+        {
+            TextoBusqueda = string.Empty;
+            Desde = null;
+            Hasta = null;
+            FiltroEstado = FiltroVentas.Todas;
+        }
+        finally { _suspenderFiltros = false; }
+        ReiniciarPagina();
+        _busquedaProgramada = IniciarBusqueda(conDebounce: false, reiniciarPagina: false, conservarSeleccion: false);
+        return _busquedaProgramada;
+    }
+
+    private void ReiniciarPagina()
+    {
+        if (_desplazamiento == 0) return;
+        _desplazamiento = 0;
+        OnPropertyChanged(nameof(PaginaTexto));
+        OnPropertyChanged(nameof(HayAnterior));
     }
 
     private async Task VerTicketAsync()

@@ -99,6 +99,7 @@ public sealed class ReportesInventarioTests
         Assert.Equal(2, ranking.Count);
         var r1 = ranking.First(r => r.VarianteId == v1);
         Assert.Equal(3, r1.BrutasUnidades);
+        Assert.Equal(0, r1.AnuladasUnidades);
         Assert.Equal(0, r1.DevueltasUnidades);
         Assert.Equal(3, r1.NetasUnidades);
         Assert.Equal(v1, ranking[0].VarianteId);
@@ -114,8 +115,15 @@ public sealed class ReportesInventarioTests
         var rankingOct = await e.Reportes.RankingVentasAsync(oct, octH, 100, 0, e.Sesion);
         var r1oct = Assert.Single(rankingOct);
         Assert.Equal(0, r1oct.BrutasUnidades);
+        Assert.Equal(0, r1oct.AnuladasUnidades);
         Assert.Equal(2, r1oct.DevueltasUnidades);
         Assert.Equal(-2, r1oct.NetasUnidades);
+
+        // Una venta con cambios/devoluciones ya no puede anularse. Por eso
+        // los dos eventos no pueden descontar dos veces las mismas unidades.
+        var noSePuedeAnular = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            e.AnularVenta.EjecutarAsync(ok.VentaId, "Intento posterior a la devolución", "op-rank-anul-despues-dev", e.Sesion));
+        Assert.Contains("cambios o devoluciones", noSePuedeAnular.Message, StringComparison.OrdinalIgnoreCase);
 
         // Septiembre no se reescribe.
         var rankingSep = await e.Reportes.RankingVentasAsync(d, h, 100, 0, e.Sesion);
@@ -126,6 +134,115 @@ public sealed class ReportesInventarioTests
         var prod = Assert.Single(porProd);
         Assert.Equal(4, prod.BrutasUnidades);
         Assert.Equal(4, prod.NetasUnidades);
+    }
+
+    [Fact]
+    public async Task Ranking_del_03_10_descuenta_una_vez_dos_ventas_anuladas_y_agrupa_producto()
+    {
+        using var e = await EntornoReportes.CrearAsync(new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero));
+        await e.AbrirCajaAsync();
+        var (producto, v1, v2) = await e.CatalogoConStockAsync();
+
+        var ventaAnuladaV1 = Assert.IsType<ResultadoConfirmacionVenta.Confirmada>(await e.ConfirmarVenta.EjecutarAsync(
+            [new(v1, 2, 10000)], [new(MediosPago.Efectivo, 20000, 20000)], "op-rank-0310-anul-v1", e.Sesion));
+        var ventaAnuladaV2 = Assert.IsType<ResultadoConfirmacionVenta.Confirmada>(await e.ConfirmarVenta.EjecutarAsync(
+            [new(v2, 4, 12000)], [new(MediosPago.Efectivo, 48000, 48000)], "op-rank-0310-anul-v2", e.Sesion));
+        await e.AnularVenta.EjecutarAsync(ventaAnuladaV1.VentaId, "Error de carga", "op-rank-0310-rev-v1", e.Sesion);
+        await e.AnularVenta.EjecutarAsync(ventaAnuladaV2.VentaId, "Error de carga", "op-rank-0310-rev-v2", e.Sesion);
+        await e.ConfirmarVenta.EjecutarAsync(
+            [new(v1, 1, 10000)], [new(MediosPago.Efectivo, 10000, 10000)], "op-rank-0310-normal", e.Sesion);
+
+        var (desde, hasta) = Rango(new DateOnly(2026, 10, 3), new DateOnly(2026, 10, 3));
+        var variantes = await e.Reportes.RankingVentasAsync(desde, hasta, 100, 0, e.Sesion);
+        var v1Fila = Assert.Single(variantes.Where(f => f.VarianteId == v1));
+        Assert.Equal(3, v1Fila.BrutasUnidades);
+        Assert.Equal(2, v1Fila.AnuladasUnidades);
+        Assert.Equal(0, v1Fila.DevueltasUnidades);
+        Assert.Equal(0, v1Fila.SalidasCambioUnidades);
+        Assert.Equal(1, v1Fila.NetasUnidades);
+
+        var v2Fila = Assert.Single(variantes.Where(f => f.VarianteId == v2));
+        Assert.Equal(4, v2Fila.BrutasUnidades);
+        Assert.Equal(4, v2Fila.AnuladasUnidades);
+        Assert.Equal(0, v2Fila.NetasUnidades);
+
+        // Las dos anuladas suman seis unidades: no siguen apareciendo como
+        // seis netas. El producto coincide con la suma de sus variantes.
+        Assert.Equal(7, variantes.Sum(f => f.BrutasUnidades));
+        Assert.Equal(6, variantes.Sum(f => f.AnuladasUnidades));
+        Assert.Equal(1, variantes.Sum(f => f.NetasUnidades));
+        var productoFila = Assert.Single(await e.Reportes.RankingPorProductoAsync(desde, hasta, 100, 0, e.Sesion));
+        Assert.Equal(producto, productoFila.ProductoId);
+        Assert.Equal(variantes.Sum(f => f.BrutasUnidades), productoFila.BrutasUnidades);
+        Assert.Equal(variantes.Sum(f => f.AnuladasUnidades), productoFila.AnuladasUnidades);
+        Assert.Equal(variantes.Sum(f => f.DevueltasUnidades), productoFila.DevueltasUnidades);
+        Assert.Equal(variantes.Sum(f => f.SalidasCambioUnidades), productoFila.SalidasCambioUnidades);
+        Assert.Equal(variantes.Sum(f => f.NetasUnidades), productoFila.NetasUnidades);
+    }
+
+    [Fact]
+    public async Task Ranking_usa_fecha_del_evento_de_anulacion_y_no_fecha_de_venta()
+    {
+        using var e = await EntornoReportes.CrearAsync(new DateTimeOffset(2026, 10, 2, 12, 0, 0, TimeSpan.Zero));
+        await e.AbrirCajaAsync();
+        var (_, v1, _) = await e.CatalogoConStockAsync();
+        var venta = Assert.IsType<ResultadoConfirmacionVenta.Confirmada>(await e.ConfirmarVenta.EjecutarAsync(
+            [new(v1, 2, 10000)], [new(MediosPago.Efectivo, 20000, 20000)], "op-rank-fecha-venta", e.Sesion));
+
+        e.FijarHora(new DateTimeOffset(2026, 10, 3, 8, 30, 0, TimeSpan.Zero));
+        await e.AnularVenta.EjecutarAsync(venta.VentaId, "Anulación al día siguiente", "op-rank-fecha-reversion", e.Sesion);
+
+        var (diaVentaDesde, diaVentaHasta) = Rango(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 2));
+        var diaVenta = Assert.Single(await e.Reportes.RankingVentasAsync(diaVentaDesde, diaVentaHasta, 100, 0, e.Sesion));
+        Assert.Equal(2, diaVenta.BrutasUnidades);
+        Assert.Equal(0, diaVenta.AnuladasUnidades);
+        Assert.Equal(2, diaVenta.NetasUnidades);
+
+        var (diaAnulacionDesde, diaAnulacionHasta) = Rango(new DateOnly(2026, 10, 3), new DateOnly(2026, 10, 3));
+        var diaAnulacion = Assert.Single(await e.Reportes.RankingVentasAsync(diaAnulacionDesde, diaAnulacionHasta, 100, 0, e.Sesion));
+        Assert.Equal(0, diaAnulacion.BrutasUnidades);
+        Assert.Equal(2, diaAnulacion.AnuladasUnidades);
+        Assert.Equal(-2, diaAnulacion.NetasUnidades);
+
+        var (rangoDesde, rangoHasta) = Rango(new DateOnly(2026, 10, 2), new DateOnly(2026, 10, 3));
+        var rango = Assert.Single(await e.Reportes.RankingVentasAsync(rangoDesde, rangoHasta, 100, 0, e.Sesion));
+        Assert.Equal(rango.BrutasUnidades - rango.AnuladasUnidades - rango.DevueltasUnidades + rango.SalidasCambioUnidades,
+            rango.NetasUnidades);
+        Assert.Equal(0, rango.NetasUnidades);
+    }
+
+    [Fact]
+    public async Task Ranking_de_cambio_cuenta_devolucion_y_salida_en_su_fecha()
+    {
+        using var e = await EntornoReportes.CrearAsync(new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero));
+        await e.AbrirCajaAsync();
+        var (_, v1, v2) = await e.CatalogoConStockAsync();
+        var venta = Assert.IsType<ResultadoConfirmacionVenta.Confirmada>(await e.ConfirmarVenta.EjecutarAsync(
+            [new(v1, 1, 10000)], [new(MediosPago.Efectivo, 10000, 10000)], "op-rank-cambio-venta", e.Sesion));
+        var ficha = (await e.Ventas.ObtenerFichaAsync(venta.VentaId, e.Sesion))!;
+
+        await e.RegistrarCambio.EjecutarAsync(new DatosCambio(
+            venta.VentaId,
+            [new(ficha.Lineas.Single().Id, 1, true, null)],
+            [new(v2, 1, 12000)],
+            [new(MediosPago.Efectivo, 2000, 2000)],
+            null,
+            "Cambio de talle",
+            "op-rank-cambio-evento",
+            e.Sesion), default);
+
+        var (desde, hasta) = Rango(new DateOnly(2026, 10, 3), new DateOnly(2026, 10, 3));
+        var variantes = await e.Reportes.RankingVentasAsync(desde, hasta, 100, 0, e.Sesion);
+        var entrada = Assert.Single(variantes.Where(f => f.VarianteId == v1));
+        var salida = Assert.Single(variantes.Where(f => f.VarianteId == v2));
+        Assert.Equal(1, entrada.BrutasUnidades);
+        Assert.Equal(1, entrada.DevueltasUnidades);
+        Assert.Equal(0, entrada.SalidasCambioUnidades);
+        Assert.Equal(0, entrada.NetasUnidades);
+        Assert.Equal(0, salida.BrutasUnidades);
+        Assert.Equal(0, salida.DevueltasUnidades);
+        Assert.Equal(1, salida.SalidasCambioUnidades);
+        Assert.Equal(1, salida.NetasUnidades);
     }
 
     [Fact]

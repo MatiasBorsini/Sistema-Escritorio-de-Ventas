@@ -43,6 +43,26 @@ public sealed class ConsultasCaja
         return await _caja.BuscarPagosCorregiblesAsync(lectura, filtroNumeroVenta ?? string.Empty, 30, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<VentaCorreccionSugerida>> BuscarVentasParaCorreccionAsync(string filtro, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await _autorizador.AutorizarAsync(ExigirSesion(idSesion), PermisosCaja.Consultar, cancellationToken);
+        await using var lectura = await _fabrica.IniciarLecturaAsync(cancellationToken);
+        return await _caja.BuscarVentasParaCorreccionAsync(lectura, filtro ?? string.Empty, 15, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PagoCajaActual>> ListarPagosCorregiblesPorVentaAsync(string ventaId, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ventaId)) throw new ArgumentException("La venta es obligatoria.", nameof(ventaId));
+        await _autorizador.AutorizarAsync(ExigirSesion(idSesion), PermisosCaja.Consultar, cancellationToken);
+        await using var lectura = await _fabrica.IniciarLecturaAsync(cancellationToken);
+        var pagos = await _caja.ListarPagosActualesPorVentaAsync(lectura, ventaId, cancellationToken);
+        return pagos.Where(p => p.EstadoVenta == "confirmada"
+            && p.MedioOriginal != MediosPago.MercadoPago
+            && p.MedioActual != MediosPago.MercadoPago
+            && !p.Corregido
+            && p.MovimientoOriginalId is not null).ToArray();
+    }
+
     private async Task<DetalleSesionCaja> CrearDetalleAsync(ISesionPersistencia lectura, SesionCajaRegistrada sesion, bool calcularEnVivo, CancellationToken cancellationToken)
     {
         var esperado = calcularEnVivo

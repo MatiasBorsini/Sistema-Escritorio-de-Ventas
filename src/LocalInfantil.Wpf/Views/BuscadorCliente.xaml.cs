@@ -19,7 +19,6 @@ public partial class BuscadorCliente : UserControl
     private void CambiarMotor(MotorSugerencias<SugerenciaCliente>? oldMotor, MotorSugerencias<SugerenciaCliente>? newMotor)
     {
         if (oldMotor is not null) oldMotor.PropertyChanged -= Motor_PropertyChanged;
-        DataContext = newMotor;
         if (newMotor is not null) newMotor.PropertyChanged += Motor_PropertyChanged;
     }
     private void Motor_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -56,6 +55,11 @@ public partial class BuscadorCliente : UserControl
         }
     }
     private void Caja_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
-        => Dispatcher.BeginInvoke(() => { if (Motor?.Abierto == true && !PopupSugerencias.IsKeyboardFocusWithin && !Caja.IsKeyboardFocused) Motor.Cerrar(); }, System.Windows.Threading.DispatcherPriority.Input);
+        => Dispatcher.BeginInvoke(() =>
+        {
+            if (Motor?.Abierto == true && !PopupSugerencias.IsKeyboardFocusWithin
+                && !PopupSugerencias.IsMouseOver && !Caja.IsKeyboardFocused)
+                Motor.Cerrar();
+        }, System.Windows.Threading.DispatcherPriority.Input);
     private void Popup_Closed(object? sender, EventArgs e) { if (Motor?.Abierto == true) Motor.Cerrar(); }
 }

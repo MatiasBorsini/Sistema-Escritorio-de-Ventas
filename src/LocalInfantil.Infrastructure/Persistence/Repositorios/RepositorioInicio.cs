@@ -6,6 +6,10 @@ namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 
 public sealed class RepositorioInicio : IRepositorioInicio
 {
+    private readonly IRepositorioReportes _reportes;
+
+    public RepositorioInicio(IRepositorioReportes reportes) => _reportes = reportes;
+
     public async Task<ResumenInventarioInicio> ObtenerInventarioAsync(ISesionPersistencia sesion, CancellationToken ct = default)
     {
         var s = Sesion(sesion); using var c = s.Conexion.CreateCommand(); c.CommandTimeout = s.TimeoutSegundos;
@@ -38,5 +42,23 @@ public sealed class RepositorioInicio : IRepositorioInicio
         while (await r.ReadAsync(ct)) resultado.Add(new(r.GetString(0), r.IsDBNull(1)?null:r.GetString(1), r.IsDBNull(2)?null:r.GetInt64(2), r.IsDBNull(3)?null:r.GetString(3), r.IsDBNull(4)?null:r.GetString(4), r.GetString(5)));
         return resultado;
     }
+    public async Task<VentasDelDiaInicio> ObtenerVentasDelDiaAsync(ISesionPersistencia sesion, string desdeUtc, string hastaUtc, CancellationToken ct = default)
+    {
+        var resumen = await _reportes.ResumenVentasAsync(sesion, desdeUtc, hastaUtc, ct);
+        return new(resumen.NetasMinor, resumen.CantidadVentas);
+    }
+
+    public async Task<RecepcionRecienteInicio?> ObtenerUltimaRecepcionAsync(ISesionPersistencia sesion, CancellationToken ct = default)
+    {
+        var s = Sesion(sesion); using var c = s.Conexion.CreateCommand(); c.CommandTimeout = s.TimeoutSegundos;
+        c.CommandText = """
+            SELECT p.nombre, COALESCE((SELECT SUM(l.cantidad) FROM recepcion_linea l WHERE l.recepcion_id=r.id),0), r.creado_en
+            FROM recepcion r JOIN proveedor p ON p.id=r.proveedor_id
+            ORDER BY r.creado_en DESC, r.id DESC LIMIT 1;
+            """;
+        await using var r = await c.ExecuteReaderAsync(ct);
+        return await r.ReadAsync(ct) ? new(r.GetString(0), r.GetInt64(1), r.GetString(2)) : null;
+    }
+
     private static ISesionSqlite Sesion(ISesionPersistencia s) => s as ISesionSqlite ?? throw new ArgumentException("La sesión no pertenece a SQLite.");
 }

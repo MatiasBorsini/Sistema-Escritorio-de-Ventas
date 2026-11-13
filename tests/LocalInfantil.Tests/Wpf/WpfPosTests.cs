@@ -175,6 +175,221 @@ public sealed class WpfPosTests
     }
 
     [Fact]
+    public async Task POS_muestra_y_registra_cobro_parcial_mas_deuda_solo_por_el_restante()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var cliente = await e.Servicios.CasoCrearCliente.EjecutarAsync(new("Cliente con cuenta", null, null), e.Sesion);
+        await e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, 20_000, e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos, puedeVenderFiado: true, puedeConsultarCuenta: true);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.SeleccionarClienteCommand.Execute(new SugerenciaCliente(cliente, "Cliente con cuenta", null));
+        await EsperarLimiteAsync(vm, 20_000);
+        vm.AbrirCobroCommand.Execute(null);
+        vm.EsFiado = true;
+        var pago = Assert.Single(vm.Pagos);
+        pago.Medio = MediosPago.Transferencia;
+        pago.ImporteTexto = "40,00";
+
+        Assert.Equal(10_000, vm.Total);
+        Assert.Equal(4_000, vm.CobradoAhoraMinor);
+        Assert.Equal(6_000, vm.DeudaNuevaMinor);
+        Assert.Equal(vm.Total, vm.CobradoAhoraMinor + vm.DeudaNuevaMinor);
+        Assert.Equal(0, vm.SaldoClienteMinor);
+        Assert.Equal(6_000, vm.SaldoPosteriorMinor);
+        Assert.Equal(20_000, vm.LimiteClienteMinor);
+        Assert.Equal(14_000, vm.DisponibleCreditoPosteriorMinor);
+        Assert.Contains("Pago parcial", vm.TextoEstadoPago);
+        Assert.True(vm.MostrarResumenCuentaCobro);
+        Assert.True(vm.MostrarDistribucionPago);
+        Assert.True(vm.PuedeConfirmar);
+
+        await vm.ConfirmarAsyncPublic();
+
+        Assert.Null(vm.Error);
+        Assert.Equal(6_000, (await e.Servicios.ConsultasCuentaCorriente.ObtenerAsync(cliente, e.Sesion))!.SaldoMinor);
+        var caja = (await e.Servicios.ConsultasCaja.ObtenerActualAsync(e.Sesion))!;
+        var movimientoVenta = Assert.Single(caja.Movimientos.Where(m => m.Tipo == TiposMovimientoCaja.Venta));
+        Assert.Equal(4_000, movimientoVenta.ImporteMinor);
+    }
+
+    [Fact]
+    public async Task POS_permite_venta_totalmente_a_cuenta_sin_pago_ficticio()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var cliente = await e.Servicios.CasoCrearCliente.EjecutarAsync(new("Cliente venta a cuenta", null, null), e.Sesion);
+        await e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, 20_000, e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos, puedeVenderFiado: true, puedeConsultarCuenta: true);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.SeleccionarClienteCommand.Execute(new SugerenciaCliente(cliente, "Cliente venta a cuenta", null));
+        await EsperarLimiteAsync(vm, 20_000);
+        vm.AbrirCobroCommand.Execute(null);
+        var pago = Assert.Single(vm.Pagos);
+
+        // La apertura precarga efectivo. La elección explícita de fiado total
+        // informa y limpia la distribución para que no quede detrás de los campos ocultos.
+        Assert.Equal(vm.Total, pago.ImporteMinor);
+        pago.RecibidoTexto = "100,00";
+        vm.ElegirFiadoTotalCommand.Execute(null);
+        pago = Assert.Single(vm.Pagos);
+
+        Assert.Equal(10_000, vm.Total);
+        Assert.True(vm.EsFiado);
+        Assert.Equal(string.Empty, pago.ImporteTexto);
+        Assert.Equal(string.Empty, pago.RecibidoTexto);
+        Assert.Equal(0, vm.CobradoAhoraMinor);
+        Assert.Equal(10_000, vm.DeudaNuevaMinor);
+        Assert.Equal(vm.Total, vm.CobradoAhoraMinor + vm.DeudaNuevaMinor);
+        Assert.Contains("Toda la venta queda a cuenta", vm.TextoEstadoPago);
+        Assert.Contains("Toda la venta queda a cuenta", vm.EstadoCuentaCorriente);
+        Assert.True(vm.MostrarResumenCuentaCobro);
+        Assert.False(vm.MostrarDistribucionPago);
+        Assert.True(vm.MostrarOpcionCobroParcial);
+        vm.MostrarCobroParcialCommand.Execute(null);
+        Assert.True(vm.MostrarDistribucionPago);
+        Assert.Equal(string.Empty, pago.ImporteTexto);
+        Assert.Equal(0, vm.CobradoAhoraMinor);
+
+        // Volver a parcial parte de cero y calcula la deuda como diferencia.
+        pago.Medio = MediosPago.Transferencia;
+        pago.ImporteTexto = "40,00";
+        Assert.Equal(4_000, vm.CobradoAhoraMinor);
+        Assert.Equal(6_000, vm.DeudaNuevaMinor);
+        Assert.Equal(vm.Total, vm.CobradoAhoraMinor + vm.DeudaNuevaMinor);
+
+        // Volver a fiado total limpia la distribución parcial; nada oculto se confirma.
+        vm.ElegirFiadoTotalCommand.Execute(null);
+        pago = Assert.Single(vm.Pagos);
+        Assert.Equal(0, vm.CobradoAhoraMinor);
+        Assert.Equal(vm.Total, vm.DeudaNuevaMinor);
+        Assert.False(vm.MostrarDistribucionPago);
+        Assert.True(vm.PuedeConfirmar);
+
+        await vm.ConfirmarAsyncPublic();
+
+        Assert.Null(vm.Error);
+        Assert.Equal(10_000, (await e.Servicios.ConsultasCuentaCorriente.ObtenerAsync(cliente, e.Sesion))!.SaldoMinor);
+        var caja = (await e.Servicios.ConsultasCaja.ObtenerActualAsync(e.Sesion))!;
+        Assert.DoesNotContain(caja.Movimientos, m => m.Tipo == TiposMovimientoCaja.Venta);
+    }
+
+    [Fact]
+    public async Task Cliente_sin_limite_no_puede_elegir_fiado_y_conserva_pago_normal()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var cliente = await e.Servicios.CasoCrearCliente.EjecutarAsync(new("Cliente sin fiado", null, null), e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos, puedeVenderFiado: true, puedeConsultarCuenta: true);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.SeleccionarClienteCommand.Execute(new SugerenciaCliente(cliente, "Cliente sin fiado", null));
+        for (var i = 0; i < 200 && vm.CargandoResumenCuenta; i++) await Task.Delay(10);
+        vm.AbrirCobroCommand.Execute(null);
+
+        Assert.False(vm.MostrarOpcionesFiado);
+        Assert.True(vm.MostrarAvisoFiadoNoDisponible);
+        Assert.Contains("Fiado no habilitado", vm.MotivoFiadoNoDisponible);
+        vm.ElegirFiadoTotalCommand.Execute(null);
+        vm.MostrarCobroParcialCommand.Execute(null);
+        Assert.False(vm.EsFiado);
+        Assert.False(vm.MostrarResumenCuentaCobro);
+        Assert.True(vm.MostrarDistribucionPago);
+        var pago = Assert.Single(vm.Pagos);
+        pago.RecibidoTexto = pago.ImporteTexto;
+        Assert.True(vm.PuedeConfirmar);
+    }
+
+    [Fact]
+    public async Task Efectivo_insuficiente_no_se_convierte_silenciosamente_en_deuda_y_no_muestra_pago_completo()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var cliente = await e.Servicios.CasoCrearCliente.EjecutarAsync(new("Cliente con cuenta", null, null), e.Sesion);
+        await e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, 20_000, e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos, puedeVenderFiado: true, puedeConsultarCuenta: true);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.SeleccionarClienteCommand.Execute(new SugerenciaCliente(cliente, "Cliente con cuenta", null));
+        await EsperarLimiteAsync(vm, 20_000);
+        vm.AbrirCobroCommand.Execute(null);
+        vm.EsFiado = true;
+        var pago = Assert.Single(vm.Pagos);
+        pago.ImporteTexto = "100,00";
+        pago.RecibidoTexto = "20,00";
+
+        Assert.Equal(8_000, pago.ImporteMinor!.Value - pago.RecibidoMinor!.Value);
+        Assert.Contains("Faltan ARS 80,00", vm.TextoEstadoPago);
+        Assert.Contains("no pasa automáticamente a cuenta", vm.TextoEstadoPago);
+        Assert.Equal(string.Empty, vm.TextoVuelto);
+        Assert.DoesNotContain("Pago completo", vm.TextoEstadoPago);
+        Assert.Equal(0, vm.DeudaNuevaMinor);
+        Assert.False(vm.PuedeConfirmar);
+    }
+
+    [Fact]
+    public async Task Credito_insuficiente_muestra_una_advertencia_clara_y_no_un_disponible_negativo()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        await e.Servicios.CasoFijarPrecio.EjecutarAsync(e.V1, 1_000_000, e.Sesion);
+        var cliente = await e.Servicios.CasoCrearCliente.EjecutarAsync(new("Cliente con límite menor", null, null), e.Sesion);
+        await e.Servicios.CasoConfigurarLimiteCredito.EjecutarAsync(cliente, 500_000, e.Sesion);
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos, puedeVenderFiado: true, puedeConsultarCuenta: true);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.SeleccionarClienteCommand.Execute(new SugerenciaCliente(cliente, "Cliente con límite menor", null));
+        await EsperarLimiteAsync(vm, 500_000);
+        vm.AbrirCobroCommand.Execute(null);
+        vm.EsFiado = true;
+        var pago = Assert.Single(vm.Pagos);
+        pago.Medio = MediosPago.Transferencia;
+        pago.ImporteTexto = string.Empty;
+
+        Assert.Contains("Crédito insuficiente", vm.TextoEstadoPago);
+        Assert.Contains("disponibles", vm.TextoEstadoPago);
+        Assert.Contains("Cobrá al menos", vm.TextoEstadoPago);
+        Assert.Equal(0, vm.DisponibleCreditoPosteriorMostradoMinor);
+        Assert.False(vm.PuedeConfirmar);
+
+        pago.ImporteTexto = "5.000,00";
+        Assert.Equal(500_000, vm.DeudaNuevaMinor);
+        Assert.True(vm.PuedeConfirmar);
+    }
+
+    [Fact]
+    public void Vista_POS_presenta_cobro_a_cuenta_con_resumen_compacto_y_sin_alertas_duplicadas()
+    {
+        var raiz = Path.Combine(RaizRepo(), "src", "LocalInfantil.Wpf", "Views");
+        var carrito = File.ReadAllText(Path.Combine(raiz, "PosView.xaml"));
+        var cobro = File.ReadAllText(Path.Combine(raiz, "CobrarVentaWindow.xaml"));
+        var inicioCobro = carrito.IndexOf("<!-- El cobro se conserva", StringComparison.Ordinal);
+        var pantallaCarrito = inicioCobro < 0 ? carrito : carrito[..inicioCobro];
+
+        Assert.Contains("Resumen de la venta", pantallaCarrito);
+        Assert.Contains("Continuar al cobro", pantallaCarrito);
+        Assert.DoesNotContain("Medios para cobrar ahora", pantallaCarrito);
+        Assert.DoesNotContain("Vencimiento (opcional)", pantallaCarrito);
+
+        Assert.Contains("Paga todo ahora", cobro);
+        Assert.Contains("Toda la venta a cuenta", cobro);
+        Assert.Contains("Pago parcial y resto a cuenta", cobro);
+        Assert.Equal(3, cobro.Split("Style=\"{StaticResource EstiloTarjetaModalidad}\"").Length - 1);
+        Assert.Contains("Property=\"IsChecked\" Value=\"True\"", cobro);
+        Assert.Contains("MostrarOpcionesFiado", cobro);
+        Assert.Contains("MotivoFiadoNoDisponible", cobro);
+        Assert.Contains("A cobrar ahora:", cobro);
+        Assert.Contains("Deuda nueva:", cobro);
+        Assert.Contains("Saldo anterior", cobro);
+        Assert.Contains("Saldo posterior", cobro);
+        Assert.Contains("Límite autorizado", cobro);
+        Assert.Contains("Crédito disponible después:", cobro);
+        Assert.Contains("Vencimiento (opcional)", cobro);
+        Assert.DoesNotContain("Cobrado ahora:", cobro);
+        Assert.DoesNotContain("El efectivo recibido debe cubrir el importe aplicado.", cobro);
+        Assert.Contains("DisponibleCreditoPosteriorMostradoMinor", cobro);
+        Assert.DoesNotContain("E8BB", cobro);
+
+        var comoPaga = cobro.IndexOf("¿Cómo paga el cliente?", StringComparison.Ordinal);
+        var medios = cobro.IndexOf("Medios para cobrar ahora", StringComparison.Ordinal);
+        var resumen = cobro.IndexOf("Resumen del cobro", StringComparison.Ordinal);
+        var confirmar = cobro.IndexOf("Content=\"Confirmar venta\"", StringComparison.Ordinal);
+        Assert.True(comoPaga >= 0 && comoPaga < medios && medios < resumen && resumen < confirmar);
+    }
+
+    [Fact]
     public async Task Point_precarga_total_o_saldo_restante_sin_alterar_el_pago_existente()
     {
         using var e = await EntornoPos.CrearAsync();
@@ -345,6 +560,103 @@ public sealed class WpfPosTests
         await vm.ConfirmarAsyncPublic();
         await vm.VerTicketAsyncPublic();
         Assert.NotNull(e.Dialogos.UltimoTicket);
+    }
+
+    [Fact]
+    public async Task Boton_mas_y_menos_actualizan_cantidad_visible_subtotal_y_total()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        var fila = Assert.Single(vm.Filas);
+        var notificoCantidadTexto = false;
+        fila.PropertyChanged += (_, a) =>
+        {
+            if (a.PropertyName == nameof(FilaVentaViewModel.CantidadTexto)) notificoCantidadTexto = true;
+        };
+
+        Assert.Equal("1", fila.CantidadTexto);
+        vm.IncrementarCommand.Execute(fila);
+
+        Assert.Equal(2, fila.Cantidad);
+        Assert.True(notificoCantidadTexto, "El botón + cambió Cantidad sin notificar CantidadTexto: la celda queda desincronizada.");
+        Assert.Equal("2", fila.CantidadTexto);
+        Assert.Equal(20000, fila.SubtotalMinor);
+        Assert.Equal(2, vm.CantidadUnidades);
+        Assert.Equal("1 variante · 2 unidades", vm.ResumenCarrito);
+        Assert.Equal(20000, vm.Total);
+
+        vm.DecrementarCommand.Execute(fila);
+        Assert.Equal(1, fila.Cantidad);
+        Assert.Equal("1", fila.CantidadTexto);
+        Assert.Equal(10000, fila.SubtotalMinor);
+        Assert.Equal(1, vm.CantidadUnidades);
+        Assert.Equal(10000, vm.Total);
+    }
+
+    [Fact]
+    public async Task Sin_efectivo_recibido_no_muestra_sin_vuelto()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.AbrirCobroCommand.Execute(null);
+        var pago = Assert.Single(vm.Pagos);
+        Assert.Equal("100,00", pago.ImporteTexto);
+
+        Assert.True(pago.SolicitaRecibido);
+        Assert.Contains("Ingresá el efectivo recibido", vm.TextoEstadoPago);
+        Assert.Equal(string.Empty, vm.TextoVuelto);
+
+        pago.RecibidoTexto = "100,00";
+        Assert.False(pago.SolicitaRecibido);
+        Assert.Equal("Sin vuelto", vm.TextoVuelto);
+    }
+
+    [Fact]
+    public async Task Modificar_carrito_con_cobro_abierto_mantiene_y_valida_los_pagos()
+    {
+        using var e = await EntornoPos.CrearAsync();
+        var vm = new PosViewModel(e.Servicios, () => e.Sesion, e.Dialogos);
+        await vm.AgregarDirectaAsyncPublic(e.Codigo1);
+        vm.AbrirCobroCommand.Execute(null);
+
+        // Nueva fila con cobro abierto: el importe automático sigue al total.
+        await vm.AgregarDirectaAsyncPublic(e.Codigo2);
+        var pago = Assert.Single(vm.Pagos);
+        Assert.Equal("220,00", pago.ImporteTexto);
+
+        // Más unidades: la precarga automática recalcula; sin sobrescribir lo manual.
+        var fila = vm.Filas.First(f => f.CodigoInterno == e.Codigo1);
+        vm.IncrementarCommand.Execute(fila);
+        Assert.Equal("320,00", pago.ImporteTexto);
+        Assert.Equal("2 variantes · 3 unidades", vm.ResumenCarrito);
+        Assert.Equal(20000, fila.SubtotalMinor);
+
+        pago.RecibidoTexto = "320,00";
+        Assert.True(vm.PuedeConfirmar);
+
+        // Importe editado a mano por el operador no se sobrescribe.
+        pago.ImporteTexto = "3,00";
+        vm.IncrementarCommand.Execute(fila);
+        Assert.Equal("3,00", pago.ImporteTexto);
+        Assert.False(vm.PuedeConfirmar);
+        Assert.Contains("Falta cobrar", vm.TextoEstadoPago);
+    }
+
+    private static async Task EsperarLimiteAsync(PosViewModel vm, long esperado)
+    {
+        for (var i = 0; i < 200 && vm.LimiteClienteMinor != esperado; i++)
+            await Task.Delay(10);
+        Assert.Equal(esperado, vm.LimiteClienteMinor);
+    }
+
+    private static string RaizRepo()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var i = 0; i < 10 && dir is not null; i++, dir = dir.Parent)
+            if (File.Exists(Path.Combine(dir.FullName, "LocalInfantil.sln"))) return dir.FullName;
+        throw new InvalidOperationException("No se encontró la raíz del repositorio.");
     }
 
     private sealed class DialogosVentasFake : IDialogosVentas

@@ -166,7 +166,10 @@ public sealed class RepositorioReportes : IRepositorioReportes
                  FROM reversion_venta r JOIN venta v ON v.id = r.venta_id
                  WHERE r.creado_en >= $d AND r.creado_en < $h
                  UNION ALL
-                 SELECT c.creado_en, 'cambio', c.numero, (SELECT v2.cliente_nombre_snapshot FROM venta v2 WHERE v2.id = c.venta_id),
+                 SELECT c.creado_en,
+                        CASE WHEN EXISTS (SELECT 1 FROM cambio_salida s WHERE s.cambio_id = c.id)
+                             THEN 'cambio' ELSE 'devolucion' END,
+                        c.numero, (SELECT v2.cliente_nombre_snapshot FROM venta v2 WHERE v2.id = c.venta_id),
                         0, (-c.importe_entradas_minor + c.importe_salidas_minor), (-c.importe_entradas_minor + c.importe_salidas_minor), NULL, 'registrado'
                  FROM cambio c
                  WHERE c.creado_en >= $d AND c.creado_en < $h
@@ -345,27 +348,35 @@ public sealed class RepositorioReportes : IRepositorioReportes
             comando.CommandTimeout = s.TimeoutSegundos;
             comando.CommandText = """
                 SELECT producto_id, nombre, codigo_interno, variante_id, talle, color,
-                       SUM(brutas), SUM(devueltas), SUM(salidas), SUM(brutas) - SUM(devueltas) + SUM(salidas) FROM (
+                       SUM(brutas), SUM(anuladas), SUM(devueltas), SUM(salidas),
+                       SUM(brutas) - SUM(anuladas) - SUM(devueltas) + SUM(salidas) FROM (
                  SELECT var.producto_id AS producto_id, p.nombre AS nombre, var.codigo_interno AS codigo_interno, var.id AS variante_id,
-                        var.talle AS talle, var.color AS color, SUM(l.cantidad) AS brutas, 0 AS devueltas, 0 AS salidas
+                        var.talle AS talle, var.color AS color, SUM(l.cantidad) AS brutas, 0 AS anuladas, 0 AS devueltas, 0 AS salidas
                  FROM venta_linea l JOIN venta v ON v.id = l.venta_id
                       JOIN variante var ON var.id = l.variante_id JOIN producto p ON p.id = var.producto_id
                  WHERE v.creada_en >= $d AND v.creada_en < $h AND v.estado IN ('confirmada', 'anulada')
                  GROUP BY var.id
                  UNION ALL
-                 SELECT var.producto_id, p.nombre, var.codigo_interno, var.id, var.talle, var.color, 0, SUM(e.cantidad), 0
+                 SELECT var.producto_id, p.nombre, var.codigo_interno, var.id, var.talle, var.color, 0, SUM(l.cantidad), 0, 0
+                 FROM reversion_venta r JOIN venta v ON v.id = r.venta_id
+                      JOIN venta_linea l ON l.venta_id = v.id
+                      JOIN variante var ON var.id = l.variante_id JOIN producto p ON p.id = var.producto_id
+                 WHERE r.creado_en >= $d AND r.creado_en < $h
+                 GROUP BY var.id
+                 UNION ALL
+                 SELECT var.producto_id, p.nombre, var.codigo_interno, var.id, var.talle, var.color, 0, 0, SUM(e.cantidad), 0
                  FROM cambio_entrada e JOIN cambio c ON c.id = e.cambio_id
                       JOIN variante var ON var.id = e.variante_id JOIN producto p ON p.id = var.producto_id
                  WHERE c.creado_en >= $d AND c.creado_en < $h
                  GROUP BY var.id
                  UNION ALL
-                 SELECT var.producto_id, p.nombre, var.codigo_interno, var.id, var.talle, var.color, 0, 0, SUM(s.cantidad)
+                 SELECT var.producto_id, p.nombre, var.codigo_interno, var.id, var.talle, var.color, 0, 0, 0, SUM(s.cantidad)
                  FROM cambio_salida s JOIN cambio c ON c.id = s.cambio_id
                       JOIN variante var ON var.id = s.variante_id JOIN producto p ON p.id = var.producto_id
                  WHERE c.creado_en >= $d AND c.creado_en < $h
                  GROUP BY var.id
-                ) GROUP BY 4 HAVING SUM(brutas) + SUM(devueltas) + SUM(salidas) > 0
-                ORDER BY SUM(brutas) - SUM(devueltas) + SUM(salidas) DESC, 3 LIMIT $limite OFFSET $desplazamiento;
+                ) GROUP BY 4 HAVING SUM(brutas) + SUM(anuladas) + SUM(devueltas) + SUM(salidas) > 0
+                ORDER BY SUM(brutas) - SUM(anuladas) - SUM(devueltas) + SUM(salidas) DESC, 3 LIMIT $limite OFFSET $desplazamiento;
                 """;
             comando.Parameters.AddWithValue("$d", desdeUtc);
             comando.Parameters.AddWithValue("$h", hastaUtc);
@@ -385,7 +396,8 @@ public sealed class RepositorioReportes : IRepositorioReportes
                     lector.GetInt64(6),
                     lector.GetInt64(7),
                     lector.GetInt64(8),
-                    lector.GetInt64(9)));
+                    lector.GetInt64(9),
+                    lector.GetInt64(10)));
             }
 
             return resultado;
@@ -415,26 +427,34 @@ public sealed class RepositorioReportes : IRepositorioReportes
             comando.CommandTimeout = s.TimeoutSegundos;
             comando.CommandText = """
                 SELECT producto_id, nombre, MIN(codigo_interno), NULL, NULL, NULL,
-                       SUM(brutas), SUM(devueltas), SUM(salidas), SUM(brutas) - SUM(devueltas) + SUM(salidas) FROM (
-                 SELECT var.producto_id AS producto_id, p.nombre AS nombre, var.codigo_interno AS codigo_interno, SUM(l.cantidad) AS brutas, 0 AS devueltas, 0 AS salidas
+                       SUM(brutas), SUM(anuladas), SUM(devueltas), SUM(salidas),
+                       SUM(brutas) - SUM(anuladas) - SUM(devueltas) + SUM(salidas) FROM (
+                 SELECT var.producto_id AS producto_id, p.nombre AS nombre, var.codigo_interno AS codigo_interno, SUM(l.cantidad) AS brutas, 0 AS anuladas, 0 AS devueltas, 0 AS salidas
                  FROM venta_linea l JOIN venta v ON v.id = l.venta_id
                       JOIN variante var ON var.id = l.variante_id JOIN producto p ON p.id = var.producto_id
                  WHERE v.creada_en >= $d AND v.creada_en < $h AND v.estado IN ('confirmada', 'anulada')
                  GROUP BY var.id
                  UNION ALL
-                 SELECT var.producto_id, p.nombre, var.codigo_interno, 0, SUM(e.cantidad), 0
+                 SELECT var.producto_id, p.nombre, var.codigo_interno, 0, SUM(l.cantidad), 0, 0
+                 FROM reversion_venta r JOIN venta v ON v.id = r.venta_id
+                      JOIN venta_linea l ON l.venta_id = v.id
+                      JOIN variante var ON var.id = l.variante_id JOIN producto p ON p.id = var.producto_id
+                 WHERE r.creado_en >= $d AND r.creado_en < $h
+                 GROUP BY var.id
+                 UNION ALL
+                 SELECT var.producto_id, p.nombre, var.codigo_interno, 0, 0, SUM(e.cantidad), 0
                  FROM cambio_entrada e JOIN cambio c ON c.id = e.cambio_id
                       JOIN variante var ON var.id = e.variante_id JOIN producto p ON p.id = var.producto_id
                  WHERE c.creado_en >= $d AND c.creado_en < $h
                  GROUP BY var.id
                  UNION ALL
-                 SELECT var.producto_id, p.nombre, var.codigo_interno, 0, 0, SUM(s.cantidad)
+                 SELECT var.producto_id, p.nombre, var.codigo_interno, 0, 0, 0, SUM(s.cantidad)
                  FROM cambio_salida s JOIN cambio c ON c.id = s.cambio_id
                       JOIN variante var ON var.id = s.variante_id JOIN producto p ON p.id = var.producto_id
                  WHERE c.creado_en >= $d AND c.creado_en < $h
                  GROUP BY var.id
-                ) GROUP BY 1 HAVING SUM(brutas) + SUM(devueltas) + SUM(salidas) > 0
-                ORDER BY SUM(brutas) - SUM(devueltas) + SUM(salidas) DESC, 2 LIMIT $limite OFFSET $desplazamiento;
+                ) GROUP BY 1 HAVING SUM(brutas) + SUM(anuladas) + SUM(devueltas) + SUM(salidas) > 0
+                ORDER BY SUM(brutas) - SUM(anuladas) - SUM(devueltas) + SUM(salidas) DESC, 2 LIMIT $limite OFFSET $desplazamiento;
                 """;
             comando.Parameters.AddWithValue("$d", desdeUtc);
             comando.Parameters.AddWithValue("$h", hastaUtc);
@@ -454,7 +474,8 @@ public sealed class RepositorioReportes : IRepositorioReportes
                     lector.GetInt64(6),
                     lector.GetInt64(7),
                     lector.GetInt64(8),
-                    lector.GetInt64(9)));
+                    lector.GetInt64(9),
+                    lector.GetInt64(10)));
             }
 
             return resultado;

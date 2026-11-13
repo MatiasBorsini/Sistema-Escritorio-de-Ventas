@@ -26,6 +26,8 @@ public sealed class FlujoCambiosTests
         var ticket=await e.Servicios.CasoGenerarTicketCambio.EjecutarAsync(cambio.CambioId,e.Sesion);
         Assert.NotNull(ticket);Assert.Equal("T-000001",ticket!.VentaNumero);Assert.Equal("COMPROBANTE INTERNO — NO FISCAL",ticket.Leyenda);
         Assert.Equal(2,ticket.Lineas.Count);Assert.Contains(ticket.Lineas,x=>x.Direccion=="entrada");Assert.Contains(ticket.Lineas,x=>x.Direccion=="salida");Assert.Single(ticket.Pagos);
+        var historial=Assert.Single(await e.Servicios.ConsultasCambios.ListarAsync(venta.VentaId,e.Sesion));
+        Assert.Equal("Cambio",historial.TipoTexto);Assert.Equal("Cobrado",historial.ResultadoTexto);
         var repetida=await Assert.ThrowsAsync<InvalidOperationException>(()=>e.Servicios.CasoRegistrarCambio.EjecutarAsync(new DatosCambio(venta.VentaId,
             [new LineaCambioEntrada(lineas.Lineas.Single(x=>x.VarianteId==v1).Id,1,true,null)],[],[],null,null,"op-cambio-cobro",e.Sesion)));
         Assert.Equal("Esta operación ya fue registrada.",repetida.Message);
@@ -46,6 +48,8 @@ public sealed class FlujoCambiosTests
         var cambio=Assert.IsType<ResultadoCambio.Registrado>(resultado);
         Assert.Equal(0,cambio.DiferenciaMinor);Assert.Equal(before,await ContarMovimientosAsync(e.Servicios.RutaBaseDatos));
         Assert.True((await e.Servicios.CasoGenerarTicketCambio.EjecutarAsync(cambio.CambioId,e.Sesion))!.Lineas.Count==4);
+        var historial=Assert.Single(await e.Servicios.ConsultasCambios.ListarAsync(venta.VentaId,e.Sesion));
+        Assert.Equal("Sin diferencia",historial.TipoTexto);Assert.Equal(0,historial.ImporteResultadoMinor);
     }
 
     [Fact]
@@ -61,7 +65,43 @@ public sealed class FlujoCambiosTests
         Assert.Equal(9,stock!.Disponible);Assert.Equal(1,stock.Apartado);Assert.Equal(10,stock.Fisico);
         var ticket=await e.Servicios.CasoGenerarTicketCambio.EjecutarAsync(cambio.CambioId,e.Sesion);
         Assert.Equal("Costura descosida",Assert.Single(ticket!.Lineas).MotivoNoApta);
+        Assert.False(Assert.Single(ticket.Lineas).Apta);
+        Assert.Equal("No apta · queda apartada",Assert.Single(ticket.Lineas).AptitudTexto);
         Assert.Equal("reintegro",Assert.Single(ticket.Pagos).Direccion);
+        var historial=Assert.Single(await e.Servicios.ConsultasCambios.ListarAsync(venta.VentaId,e.Sesion));
+        Assert.Equal("Devolución",historial.TipoTexto);Assert.Equal("Reintegrado",historial.ResultadoTexto);
+        var reintegro=Assert.Single(await ObtenerMovimientosCambioAsync(e.Servicios.RutaBaseDatos,TiposMovimientoCaja.CambioReintegro));
+        Assert.Equal(-precio,reintegro.ImporteMinor);
+        Assert.Empty(await ObtenerMovimientosCambioAsync(e.Servicios.RutaBaseDatos,TiposMovimientoCaja.CambioCobro));
+        Assert.Equal("Importe reintegrado",Assert.Single(ticket.Pagos).DireccionTexto);
+        Assert.Null(Assert.Single(ticket.Pagos).VueltoMinor);
+
+        var repetida=await Assert.ThrowsAsync<InvalidOperationException>(()=>e.Servicios.CasoRegistrarCambio.EjecutarAsync(
+            new DatosCambio(venta.VentaId,[new LineaCambioEntrada(ficha.Lineas.Single().Id,1,false,"Costura descosida")],[],[],null,"Prenda con defecto","op-cambio-no-apta",e.Sesion)));
+        Assert.Equal("Esta operación ya fue registrada.",repetida.Message);
+        Assert.Single(await ObtenerMovimientosCambioAsync(e.Servicios.RutaBaseDatos,TiposMovimientoCaja.CambioReintegro));
+    }
+
+    [Fact]
+    public async Task Prenda_apta_persiste_la_aptitud_y_el_comprobante_la_presenta_correctamente()
+    {
+        using var e=await VentasTests.EntornoVentas.CrearAsync();
+        var (_,variante,_)=await e.CatalogoConStockAsync();
+        var precio=await e.PrecioDeAsync(variante);
+        var venta=await VenderAsync(e,[(variante,1,precio)]);
+        var ficha=await e.Servicios.ConsultasVentas.ObtenerFichaAsync(venta.VentaId,e.Sesion);
+        var linea=Assert.Single(ficha!.Lineas);
+
+        var registrado=Assert.IsType<ResultadoCambio.Registrado>(await e.Servicios.CasoRegistrarCambio.EjecutarAsync(
+            new DatosCambio(venta.VentaId,[new LineaCambioEntrada(linea.Id,1,true,null)],[],[],null,"Devolución en buen estado","op-cambio-apta",e.Sesion)));
+
+        var ticket=await e.Servicios.CasoGenerarTicketCambio.EjecutarAsync(registrado.CambioId,e.Sesion);
+        var entrada=Assert.Single(ticket!.Lineas);
+        Assert.True(entrada.Apta);
+        Assert.Equal("Apta para volver al inventario disponible",entrada.AptitudTexto);
+        var stock=await e.Servicios.ConsultasInventario.ObtenerClasificadaAsync(await e.CodigoDeAsync(variante),e.Sesion);
+        Assert.Equal(10,stock!.Disponible);
+        Assert.Equal(0,stock.Apartado);
     }
 
     [Fact]
@@ -192,5 +232,18 @@ public sealed class FlujoCambiosTests
     private static async Task<long> ContarMovimientosAsync(string ruta)
     {
         await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{DataSource=ruta,Pooling=false,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly}.ToString());await db.OpenAsync();using var cmd=db.CreateCommand();cmd.CommandText="SELECT COUNT(*) FROM caja_movimiento;";return Convert.ToInt64(await cmd.ExecuteScalarAsync());
+    }
+
+    private static async Task<IReadOnlyList<(string Tipo,long ImporteMinor)>> ObtenerMovimientosCambioAsync(string ruta,string tipo)
+    {
+        await using var db=new Microsoft.Data.Sqlite.SqliteConnection(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder{DataSource=ruta,Pooling=false,Mode=Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly}.ToString());
+        await db.OpenAsync();
+        using var cmd=db.CreateCommand();
+        cmd.CommandText="SELECT tipo, importe_minor FROM caja_movimiento WHERE tipo=$tipo ORDER BY creado_en;";
+        cmd.Parameters.AddWithValue("$tipo",tipo);
+        var filas=new List<(string Tipo,long ImporteMinor)>();
+        await using var reader=await cmd.ExecuteReaderAsync();
+        while(await reader.ReadAsync()) filas.Add((reader.GetString(0),reader.GetInt64(1)));
+        return filas;
     }
 }

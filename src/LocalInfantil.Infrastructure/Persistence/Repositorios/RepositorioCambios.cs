@@ -55,7 +55,7 @@ public sealed class RepositorioCambios(IGeneradorIds ids) : IRepositorioCambios
 
     public async Task<IReadOnlyList<ResumenCambio>> ListarPorVentaAsync(ISesionPersistencia sesion,string ventaId,CancellationToken ct=default)
     {
-        var s=Sesion(sesion); using var cmd=Comando(s,"SELECT c.id,c.numero,v.numero,c.diferencia_minor,c.creado_en,u.nombre FROM cambio c JOIN venta v ON v.id=c.venta_id JOIN usuario u ON u.id=c.usuario_id WHERE c.venta_id=$id ORDER BY c.creado_en DESC,c.id DESC;"); cmd.Parameters.AddWithValue("$id",ventaId); var result=new List<ResumenCambio>(); await using var r=await cmd.ExecuteReaderAsync(ct); while(await r.ReadAsync(ct)) result.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetInt64(3),r.GetString(4),r.IsDBNull(5)?null:r.GetString(5))); return result;
+        var s=Sesion(sesion); using var cmd=Comando(s,"SELECT c.id,c.numero,v.numero,c.diferencia_minor,c.creado_en,u.nombre,EXISTS(SELECT 1 FROM cambio_salida cs WHERE cs.cambio_id=c.id),c.importe_aplicado_deuda_minor FROM cambio c JOIN venta v ON v.id=c.venta_id JOIN usuario u ON u.id=c.usuario_id WHERE c.venta_id=$id ORDER BY c.creado_en DESC,c.id DESC;"); cmd.Parameters.AddWithValue("$id",ventaId); var result=new List<ResumenCambio>(); await using var r=await cmd.ExecuteReaderAsync(ct); while(await r.ReadAsync(ct)) result.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetInt64(3),r.GetString(4),r.IsDBNull(5)?null:r.GetString(5),r.GetInt64(6)!=0,r.GetInt64(7))); return result;
     }
 
     public async Task<DocumentoTicketCambio?> ObtenerTicketAsync(ISesionPersistencia sesion,string cambioId,CancellationToken ct=default)

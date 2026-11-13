@@ -258,6 +258,49 @@ public sealed class RepositorioCaja : IRepositorioCaja
         return result;
     }
 
+    public async Task<IReadOnlyList<VentaCorreccionSugerida>> BuscarVentasParaCorreccionAsync(ISesionPersistencia sesion, string filtro, int limite, CancellationToken cancellationToken = default)
+    {
+        if (limite is < 1 or > 15) throw new ArgumentOutOfRangeException(nameof(limite));
+        var s = Sesion(sesion);
+        using var cmd = CrearComando(s, """
+            WITH ventas AS (
+                SELECT v.id, v.numero, v.creada_en, v.total_minor
+                FROM venta v
+                WHERE v.estado = 'confirmada'
+                  AND EXISTS (SELECT 1 FROM pago p WHERE p.venta_id = v.id)
+                  AND ($filtro = '' OR instr(lower(v.numero), lower($filtro)) > 0
+                       OR EXISTS (SELECT 1 FROM venta_linea l WHERE l.venta_id = v.id
+                           AND (instr(lower(l.nombre_producto), lower($filtro)) > 0
+                                OR instr(lower(l.codigo_interno), lower($filtro)) > 0)))
+                ORDER BY v.creada_en DESC, v.numero DESC, v.id DESC
+                LIMIT $limite
+            ), pagos AS (
+                SELECT p.venta_id,
+                       group_concat(DISTINCT COALESCE(pc.medio_nuevo, p.medio)) AS medios,
+                       MAX(CASE WHEN p.medio <> 'mercado_pago'
+                                    AND COALESCE(pc.medio_nuevo, p.medio) <> 'mercado_pago'
+                                    AND pc.pago_id IS NULL
+                                    AND EXISTS (SELECT 1 FROM caja_movimiento mo WHERE mo.pago_id = p.id AND mo.tipo = 'venta')
+                                THEN 1 ELSE 0 END) AS tiene_corregible,
+                       MAX(CASE WHEN COALESCE(pc.medio_nuevo, p.medio) <> 'mercado_pago' THEN 1 ELSE 0 END) AS tiene_otro_medio
+                FROM pago p JOIN ventas v ON v.id = p.venta_id
+                LEFT JOIN pago_correccion pc ON pc.pago_id = p.id
+                GROUP BY p.venta_id
+            )
+            SELECT ventas.id, ventas.numero, ventas.creada_en, ventas.total_minor, pagos.medios,
+                   pagos.tiene_corregible, (pagos.tiene_otro_medio = 0)
+            FROM ventas JOIN pagos ON pagos.venta_id = ventas.id
+            ORDER BY ventas.creada_en DESC, ventas.numero DESC, ventas.id DESC;
+            """);
+        cmd.Parameters.AddWithValue("$filtro", filtro.Trim());
+        cmd.Parameters.AddWithValue("$limite", limite);
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        var result = new List<VentaCorreccionSugerida>();
+        while (await r.ReadAsync(cancellationToken))
+            result.Add(new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt64(3), r.GetString(4), r.GetInt64(5) == 1, r.GetInt64(6) == 1));
+        return result;
+    }
+
     public async Task<long> SumarReintegrosPorPagoAsync(ISesionPersistencia sesion, string pagoId, CancellationToken cancellationToken = default)
     {
         var s = Sesion(sesion);

@@ -45,4 +45,17 @@ public sealed class ConsultasCambios(IAutorizador autorizador, IFabricaSesionesP
         var disponible=await movimientos.SumarPorVarianteAsync(lectura,variante.Id,ct)-await apartados.SumarApartadoPorVarianteAsync(lectura,variante.Id,ct);
         return new(variante.Id,variante.CodigoInterno,producto?.Nombre??variante.CodigoInterno,variante.Talle,variante.Color,precio.ImporteMinor,Math.Max(0,disponible));
     }
+
+    /// <summary>
+    /// Sugerencias de artículos nuevos para un cambio: solo variantes activas,
+    /// con precio vigente y stock disponible resueltos en la misma lectura.
+    /// Solo lectura, sin reglas comerciales nuevas.
+    /// </summary>
+    public async Task<IReadOnlyList<SugerenciaVariante>> BuscarArticulosNuevosAsync(string texto,int limite,string? idSesion,CancellationToken ct=default)
+    {
+        if(idSesion is null) throw new SesionInvalidaException();
+        await autorizador.AutorizarAsync(idSesion,PermisosCambios.Consultar,ct);
+        await using var lectura=await fabrica.IniciarLecturaAsync(ct);
+        return await variantes.BuscarSugerenciasConPrecioStockAsync(lectura,texto,limite,reloj.UtcNow().ToString("o"),ct);
+    }
 }

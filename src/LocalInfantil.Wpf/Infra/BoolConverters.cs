@@ -104,23 +104,7 @@ public sealed class CajaTextoHumanoConverter : IValueConverter
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is not string texto) return value ?? string.Empty;
-        return texto switch
-        {
-            MediosCaja.Efectivo => "Efectivo",
-            MediosCaja.Transferencia => "Transferencia",
-            MediosCaja.Debito => "Débito",
-            MediosCaja.Credito => "Crédito",
-            MediosCaja.Billetera => "Billetera virtual",
-            MediosPago.MercadoPago => "Mercado Pago",
-            "abierta" => "Abierta",
-            "cerrada" => "Cerrada",
-            "venta" => "Venta",
-            "ingreso" => "Ingreso",
-            "egreso" => "Egreso",
-            "reintegro" => "Reintegro",
-            "correccion" => "Corrección de medio",
-            _ => texto,
-        };
+        return EtiquetasCaja.Humano(texto);
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
