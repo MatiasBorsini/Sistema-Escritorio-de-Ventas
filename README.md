@@ -2,6 +2,21 @@
 
 Estructura inicial para una aplicación de escritorio de un único local de ropa infantil. El alcance actual incluye la publicación de prueba de **F00-T06**: navegación de demostración, comprobación mínima de SQLite, prototipo de impresión y una carpeta self-contained para el equipo de desarrollo. No contiene flujos comerciales ni datos reales del comercio.
 
+## 📸 Capturas de la versión avanzada
+
+> **Importante:** las imágenes corresponden a la versión más avanzada en desarrollo de LocalInfantil (rama `feat/f12-mercado-pago`). La rama `main` documenta un prototipo anterior. No representan las funciones de `main` ni una instalación validada en el comercio.
+
+### Inicio y resumen
+![Inicio de LocalInfantil](assets/capturas/01_inicio_dashboard.png)
+
+### Catálogo de productos
+![Catálogo de LocalInfantil](assets/capturas/02_catalogo_productos.png)
+
+### Punto de venta
+![Punto de venta de LocalInfantil](assets/capturas/04_punto_de_venta.png)
+
+Capturas con datos de demostración. Mercado Pago Point no fue verificado con hardware real.
+
 ## Requisitos provisionales
 
 - Windows para compilar y ejecutar el proyecto WPF.
