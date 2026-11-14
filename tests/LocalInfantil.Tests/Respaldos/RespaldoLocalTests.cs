@@ -31,8 +31,8 @@ public sealed class RespaldoLocalTests
             await SembrarAsync(ruta);
             var servicio = new ServicioRespaldos(new RelojSistema());
 
-            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
-            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, EnsayoEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
+            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales);
+            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, EnsayoEn(raiz), VersionesActuales);
 
             Assert.NotEqual(ruta, restaurada);
             foreach (var tabla in TablasNegocio)
@@ -41,6 +41,8 @@ public sealed class RespaldoLocalTests
             }
 
             Assert.Equal("REM-REC-001", await LeerTextoAsync(restaurada, "SELECT sku FROM variante LIMIT 1;"));
+            Assert.Equal("REM-REC-001", await LeerTextoAsync(restaurada, "SELECT codigo_interno FROM variante LIMIT 1;"));
+            Assert.Equal("REM-REC", await LeerTextoAsync(restaurada, "SELECT codigo_interno FROM producto LIMIT 1;"));
             Assert.Equal("op-ficticia", await LeerTextoAsync(restaurada, "SELECT operacion_id FROM auditoria LIMIT 1;"));
             Assert.Equal("Ficticia", await LeerTextoAsync(restaurada, "SELECT nombre FROM usuario LIMIT 1;"));
         }
@@ -71,8 +73,8 @@ public sealed class RespaldoLocalTests
             Assert.Equal("wal", await ClaveValorAsync(ruta, "PRAGMA journal_mode;"));
 
             var servicio = new ServicioRespaldos(new RelojSistema());
-            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
-            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, EnsayoEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
+            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales);
+            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, EnsayoEn(raiz), VersionesActuales);
 
             Assert.Equal(2L, await ContarAsync(restaurada, "producto"));
 
@@ -101,10 +103,10 @@ public sealed class RespaldoLocalTests
             await SembrarAsync(ruta);
             var servicio = new ServicioRespaldos(new RelojSistema());
 
-            var rutaRespaldo = (await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8])).Ruta;
-            var verificacion = await servicio.VerificarAsync(rutaRespaldo, [1, 2, 3, 4, 5, 6, 7, 8]);
+            var rutaRespaldo = (await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales)).Ruta;
+            var verificacion = await servicio.VerificarAsync(rutaRespaldo, VersionesActuales);
 
-            Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], verificacion.Versiones);
+            Assert.Equal(VersionesActuales, verificacion.Versiones);
             Assert.True(verificacion.TamanoBytes > 0);
             Assert.Equal("ok", await ClaveValorAsync(rutaRespaldo, "PRAGMA integrity_check;"));
             Assert.Equal(0L, await ContarFilasAsync(rutaRespaldo, "PRAGMA foreign_key_check;"));
@@ -126,9 +128,9 @@ public sealed class RespaldoLocalTests
             var antes = new FileInfo(ruta).Length;
             var servicio = new ServicioRespaldos(new RelojSistema());
 
-            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
+            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales);
             var otroDir = EnsayoEn(raiz);
-            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, otroDir, [1, 2, 3, 4, 5, 6, 7, 8]);
+            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, otroDir, VersionesActuales);
 
             Assert.StartsWith(otroDir, restaurada, StringComparison.OrdinalIgnoreCase);
             Assert.NotEqual(ruta, restaurada);
@@ -151,8 +153,8 @@ public sealed class RespaldoLocalTests
         {
             await SembrarAsync(ruta);
             var servicio = new ServicioRespaldos(new RelojSistema());
-            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
-            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, EnsayoEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
+            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales);
+            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, EnsayoEn(raiz), VersionesActuales);
 
             var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(restaurada));
             var productos = new RepositorioProductos(new GeneradorIds());
@@ -211,7 +213,7 @@ public sealed class RespaldoLocalTests
 
             var ruta = BaseEn(raiz);
             await SembrarAsync(ruta);
-            var respaldoV3 = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
+            var respaldoV3 = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales);
             await Assert.ThrowsAsync<RespaldoInvalidoException>(
                 () => servicio.VerificarAsync(respaldoV3.Ruta, [1, 2]));
         }
@@ -234,7 +236,7 @@ public sealed class RespaldoLocalTests
             var archivoComun = Path.Combine(raiz, "bloqueado");
             await File.WriteAllTextAsync(archivoComun, "no es un directorio");
             await Assert.ThrowsAsync<RespaldoFallidoException>(
-                () => servicio.CrearRespaldoAsync(ruta, archivoComun, [1, 2, 3, 4, 5, 6, 7, 8]));
+                () => servicio.CrearRespaldoAsync(ruta, archivoComun, VersionesActuales));
             Assert.Empty(Directory.GetFiles(raiz, "*.db", SearchOption.AllDirectories)
                 .Where(f => !string.Equals(f, ruta, StringComparison.OrdinalIgnoreCase)));
         }
@@ -255,8 +257,8 @@ public sealed class RespaldoLocalTests
             var servicio = new ServicioRespaldos(new RelojSistema());
             var destino = RespaldosEn(raiz);
 
-            var primero = await servicio.CrearRespaldoAsync(ruta, destino, [1, 2, 3, 4, 5, 6, 7, 8]);
-            var segundo = await servicio.CrearRespaldoAsync(ruta, destino, [1, 2, 3, 4, 5, 6, 7, 8]);
+            var primero = await servicio.CrearRespaldoAsync(ruta, destino, VersionesActuales);
+            var segundo = await servicio.CrearRespaldoAsync(ruta, destino, VersionesActuales);
 
             Assert.NotEqual(primero.Ruta, segundo.Ruta);
             Assert.True(File.Exists(primero.Ruta));
@@ -280,16 +282,16 @@ public sealed class RespaldoLocalTests
             await SembrarAsync(ruta);
             var servicio = new ServicioRespaldos(new RelojSistema());
             var destino = RespaldosEn(raiz);
-            var previo = await servicio.CrearRespaldoAsync(ruta, destino, [1, 2, 3, 4, 5, 6, 7, 8]);
+            var previo = await servicio.CrearRespaldoAsync(ruta, destino, VersionesActuales);
 
             var archivoComun = Path.Combine(raiz, "bloqueado");
             await File.WriteAllTextAsync(archivoComun, "no es un directorio");
             await Assert.ThrowsAsync<RespaldoFallidoException>(
-                () => servicio.CrearRespaldoAsync(ruta, archivoComun, [1, 2, 3, 4, 5, 6, 7, 8]));
+                () => servicio.CrearRespaldoAsync(ruta, archivoComun, VersionesActuales));
 
             Assert.True(File.Exists(previo.Ruta));
             Assert.Equal("ok", await ClaveValorAsync(previo.Ruta, "PRAGMA integrity_check;"));
-            Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], (await servicio.VerificarAsync(previo.Ruta, [1, 2, 3, 4, 5, 6, 7, 8])).Versiones);
+            Assert.Equal(VersionesActuales, (await servicio.VerificarAsync(previo.Ruta, VersionesActuales)).Versiones);
         }
         finally
         {
@@ -333,7 +335,7 @@ public sealed class RespaldoLocalTests
             Assert.Equal(new[] { 1 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV1, null));
             await InsertarFilaLegadaAsync(ruta);
 
-            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(archivo, "PRAGMA integrity_check;"));
@@ -363,7 +365,7 @@ public sealed class RespaldoLocalTests
             Assert.Equal(new[] { 1, 2 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV2, null));
             await InsertarFilaLegadaAsync(ruta);
 
-            Assert.Equal(new[] { 3, 4, 5, 6, 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(archivo, "PRAGMA integrity_check;"));
@@ -415,9 +417,9 @@ public sealed class RespaldoLocalTests
         {
             await SembrarAsync(ruta);
             var servicio = new ServicioRespaldos(new RelojSistema());
-            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), [1, 2, 3, 4, 5, 6, 7, 8]);
+            var respaldo = await servicio.CrearRespaldoAsync(ruta, RespaldosEn(raiz), VersionesActuales);
             var ensayo = EnsayoEn(raiz);
-            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, ensayo, [1, 2, 3, 4, 5, 6, 7, 8]);
+            var restaurada = await servicio.RestaurarEnsayoAsync(respaldo.Ruta, ensayo, VersionesActuales);
 
             Assert.Equal(new[] { Path.GetFileName(restaurada) }, NombresEn(ensayo, "*.db"));
             Assert.Empty(Directory.GetFiles(ensayo, "*.db-wal"));
@@ -429,7 +431,7 @@ public sealed class RespaldoLocalTests
             var ocupante = Path.Combine(colision, Path.GetFileName(respaldo.Ruta));
             await File.WriteAllTextAsync(ocupante, "intacto");
             await Assert.ThrowsAsync<RespaldoFallidoException>(
-                () => servicio.RestaurarEnsayoAsync(respaldo.Ruta, colision, [1, 2, 3, 4, 5, 6, 7, 8]));
+                () => servicio.RestaurarEnsayoAsync(respaldo.Ruta, colision, VersionesActuales));
             Assert.Equal("intacto", await File.ReadAllTextAsync(ocupante));
         }
         finally
@@ -465,6 +467,7 @@ public sealed class RespaldoLocalTests
     }
 
     private const string Fecha = "2026-09-21T12:00:00Z";
+    private static readonly int[] VersionesActuales = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
     private static readonly string[] TablasNegocio =
     {
@@ -545,8 +548,8 @@ public sealed class RespaldoLocalTests
 
         await using var sesion = await fabrica.IniciarAsync();
         var usuarioId = await usuarios.CrearAsync(sesion, new NuevoUsuario("Ficticia", RolesLocal.Empleada), hash.CrearHuella("clave-ficticia-00"), Fecha);
-        var productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", "Marca", null), Fecha);
-        var varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "REM-REC-001", "6", null), Fecha);
+        var productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", "Marca", "cat-rem"), "REM-REC", Fecha);
+        var varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "6", null), "REM-REC-001", Fecha);
         await precios.FijarAsync(sesion, new NuevoPrecio(varianteId, 15000, "ARS", Fecha, null), Fecha);
         await movimientos.RegistrarAsync(sesion, new NuevoMovimiento(varianteId, "ingreso", 5, null, "op-ficticia", usuarioId), Fecha);
         await auditoria.RegistrarAsync(

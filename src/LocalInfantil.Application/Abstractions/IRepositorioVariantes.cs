@@ -4,9 +4,9 @@ namespace LocalInfantil.Application.Abstractions;
 
 public interface IRepositorioVariantes
 {
-    Task<string> InsertarAsync(ISesionPersistencia sesion, NuevaVariante datos, string creadoEn, CancellationToken cancellationToken = default);
+    Task<string> InsertarAsync(ISesionPersistencia sesion, NuevaVariante datos, string codigoInterno, string creadoEn, CancellationToken cancellationToken = default);
 
-    Task<VarianteRegistrada?> ObtenerPorSkuAsync(ISesionPersistencia sesion, string sku, CancellationToken cancellationToken = default);
+    Task<VarianteRegistrada?> ObtenerPorCodigoInternoAsync(ISesionPersistencia sesion, string codigoInterno, CancellationToken cancellationToken = default);
 
     Task<VarianteRegistrada?> ObtenerPorIdAsync(ISesionPersistencia sesion, string id, CancellationToken cancellationToken = default);
 
@@ -19,4 +19,22 @@ public interface IRepositorioVariantes
     Task<long> ContarActivasPorProductoAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<FichaVariante>> ObtenerFichaPorProductoAsync(ISesionPersistencia sesion, string productoId, string fecha, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sugerencias para typeahead en una sola lectura (JOIN variante/producto).
+    /// Busca por código interno o nombre de producto; orden de relevancia predecible:
+    /// código exacto, código prefijo, producto prefijo, resto. Límite 1–100.
+    /// </summary>
+    Task<IReadOnlyList<SugerenciaVariante>> BuscarSugerenciasAsync(ISesionPersistencia sesion, string texto, int limite, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Como <see cref="BuscarSugerenciasAsync"/> pero solo variantes activas y
+    /// resolviendo precio vigente y stock disponible en la misma lectura, para
+    /// elegir artículos nuevos sin una consulta adicional por candidato.
+    /// </summary>
+    Task<IReadOnlyList<SugerenciaVariante>> BuscarSugerenciasConPrecioStockAsync(ISesionPersistencia sesion, string texto, int limite, string fecha, CancellationToken cancellationToken = default);
+
+    Task<int> ObtenerSiguienteNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
+
+    Task<int> ObtenerUltimoNumeroVarianteAsync(ISesionPersistencia sesion, string productoId, CancellationToken cancellationToken = default);
 }

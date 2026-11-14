@@ -1,0 +1,89 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.BuscadorAsistido"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <DataTemplate x:Key="PlantillaVariante">
+            <StackPanel Margin="2">
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CodigoInterno}"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding NombreProducto}"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DetalleTalleColor, StringFormat= · \{0\}}"/>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="PlantillaVarianteAgregar">
+            <Grid Margin="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CodigoInterno}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding NombreProducto}"/>
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DetalleTalleColor, StringFormat= · \{0\}}"/>
+                    </StackPanel>
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource EstiloBotonQuiet}" Content="Agregar" Padding="7,2" MinHeight="26" Margin="8,0,0,0" Focusable="False" Click="AgregarButton_Click"/>
+            </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="PlantillaProducto">
+            <StackPanel Margin="2">
+                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto}"/>
+                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SubProducto}"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="PlantillaVarianteStock">
+            <Grid Margin="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding NombreProducto}"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CodigoInterno}"/>
+                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding DetalleTalleColor, StringFormat= · \{0\}}"/>
+                    </StackPanel>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding StockTexto}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0">
+                    <TextBlock FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" Foreground="{StaticResource Color.TextBrush}"
+                               Text="{Binding PrecioMinor, Converter={StaticResource MinorToArs}}"
+                               Visibility="{Binding TienePrecio, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock FontSize="11" HorizontalAlignment="Right" Foreground="{StaticResource Color.WarningTextBrush}" Text="Sin precio vigente"
+                               Visibility="{Binding SinPrecio, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock FontSize="11" HorizontalAlignment="Right" Foreground="{StaticResource Color.ErrorTextBrush}" Text="Sin stock"
+                               Visibility="{Binding SinStock, Converter={StaticResource BoolToVisibility}}"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Grid x:Name="Raiz">
+        <TextBox x:Name="Caja" Style="{StaticResource EstiloCampoTexto}" Margin="0,0,0,0"
+                 PreviewKeyDown="Caja_PreviewKeyDown" TextChanged="Caja_TextChanged"
+                 LostKeyboardFocus="Caja_LostKeyboardFocus"/>
+        <TextBlock x:Name="TextoPlaceholder" Margin="9,0,4,0" VerticalAlignment="Center" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                   IsHitTestVisible="False" Text="{Binding Placeholder, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Text, ElementName=Caja}" Value="">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+        <Popup x:Name="PopupSugerencias" PlacementTarget="{Binding ElementName=Caja}" Placement="Bottom"
+               IsOpen="{Binding Abierto, Mode=OneWay}" StaysOpen="False" AllowsTransparency="True" Closed="Popup_Closed">
+            <Border Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}"
+                    BorderThickness="1" CornerRadius="6" MinWidth="280" MaxWidth="420" Padding="4">
+                <StackPanel x:Name="PanelContenido">
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Buscando…" Margin="6,4" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock FontSize="12" Foreground="{StaticResource Color.ErrorTextBrush}" Text="{Binding Error}" TextWrapping="Wrap" Margin="6,4" Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}"/>
+                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="No encontramos coincidencias." Margin="6,4" Visibility="{Binding SinCoincidencias, Converter={StaticResource BoolToVisibility}}"/>
+                    <ListBox x:Name="Lista" ItemsSource="{Binding Sugerencias}" SelectedIndex="{Binding IndiceActivo, Mode=OneWay}"
+                             BorderThickness="0" Background="Transparent" MaxHeight="260"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             PreviewMouseDown="Lista_MouseDown"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

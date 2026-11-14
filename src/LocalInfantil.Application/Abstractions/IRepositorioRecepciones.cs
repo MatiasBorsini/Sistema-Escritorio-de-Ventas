@@ -24,6 +24,8 @@ public interface IRepositorioRecepciones
 
     Task<bool> ExistePorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default);
 
+    Task<RecepcionRegistrada?> ObtenerPorOperacionAsync(ISesionPersistencia sesion, string operacionId, CancellationToken cancellationToken = default);
+
     Task<bool> ExisteReversionAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
 
     Task InsertarReversionAsync(
@@ -36,6 +38,24 @@ public interface IRepositorioRecepciones
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<LineaRecepcion>> ListarLineasAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Historial con agregados en una sola lectura. <paramref name="limite"/>
+    /// es tamaño de página (1–100); devuelve hasta limite+1 para el peek de
+    /// HaySiguiente. <paramref name="filtro"/>: todas/confirmadas/revertidas.
+    /// </summary>
+    Task<IReadOnlyList<ResumenRecepcion>> BuscarResumenAsync(
+        ISesionPersistencia sesion,
+        string texto,
+        string filtro,
+        int limite,
+        int desplazamiento,
+        CancellationToken cancellationToken = default,
+        DateTimeOffset? desdeInclusiveUtc = null,
+        DateTimeOffset? hastaExclusiveUtc = null);
+
+    /// <summary>Líneas con variante resuelta (SKU/talle/color) en una lectura.</summary>
+    Task<IReadOnlyList<LineaRecepcionDetalle>> ListarLineasDetalleAsync(ISesionPersistencia sesion, string recepcionId, CancellationToken cancellationToken = default);
 
     Task<RecepcionRegistrada?> ObtenerAsync(ISesionPersistencia sesion, string id, CancellationToken cancellationToken = default);
 

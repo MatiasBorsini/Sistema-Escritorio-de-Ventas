@@ -1,0 +1,36 @@
+<Window x:Class="LocalInfantil.Wpf.Views.TicketCambioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Comprobante interno" Width="940" Height="780" MinWidth="620" MinHeight="420"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Color.CanvasBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Comprobante interno"/>
+                <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Elegí el formato. La impresión utiliza el documento de la vista previa." TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="16,0,12,0">
+                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Formato de salida"/>
+                <ComboBox x:Name="FormatoSelector" Width="150" Margin="0,4,0,0" Style="{StaticResource EstiloCombo}"
+                          SelectedIndex="0" SelectionChanged="Formato_SelectionChanged" AutomationProperties.Name="Formato de comprobante">
+                    <ComboBoxItem Content="A4"/>
+                    <ComboBoxItem Content="Ticket 80 mm"/>
+                </ComboBox>
+            </StackPanel>
+            <Button Grid.Column="2" VerticalAlignment="Bottom" Style="{StaticResource EstiloBotonPrimario}" Content="Imprimir…" Click="Imprimir_Click"/>
+        </Grid>
+        <TextBlock x:Name="MensajeImpresion" Grid.Row="1" Margin="0,0,0,8" TextWrapping="Wrap" Foreground="{StaticResource Color.ErrorTextBrush}" Visibility="Collapsed"/>
+        <Border Grid.Row="2" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6">
+            <DocumentViewer x:Name="VistaPrevia" MaxPagesAcross="1" SizeChanged="VistaPrevia_SizeChanged">
+                <DocumentViewer.Template>
+                    <ControlTemplate TargetType="DocumentViewer">
+                        <ScrollViewer x:Name="PART_ContentHost" CanContentScroll="True"
+                                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+                    </ControlTemplate>
+                </DocumentViewer.Template>
+            </DocumentViewer>
+        </Border>
+    </Grid>
+</Window>

@@ -183,7 +183,7 @@ public sealed class WpfSuppliersReceivingTests
         // reintento con mismo operacionId
         var rec2 = (await e.ConsultasRecepciones.ListarAsync(10, 0, e.SesionDuena)).First();
         // crear segunda recepción para probar duplicado operacionId
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante((await e.ConsultasCatalogo.ObtenerFichaAsync((await e.ConsultasCatalogo.BuscarProductosAsync("", 10, 0, e.SesionDuena)).First().Id, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Producto.Id, "SKU-NEW-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, null), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante((await e.ConsultasCatalogo.ObtenerFichaAsync((await e.ConsultasCatalogo.BuscarProductosAsync("", 10, 0, e.SesionDuena)).First().Id, DateTime.UtcNow.ToString("o"), e.SesionDuena))!.Producto.Id, "L", null), e.SesionDuena);
         // no necesitamos probar más, el primer caso ya cubre
     }
 
@@ -308,7 +308,7 @@ public sealed class WpfSuppliersReceivingTests
         var (prod, v1, _) = await CrearCatalogoAsync(e);
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("ProvRec"), e.SesionDuena);
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        var sku = ficha!.Variantes.First(x => x.Id == v1).Sku;
+        var sku = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno;
         var op = Guid.NewGuid().ToString("N");
         await e.ConfirmarRecepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 2, null, null) }, op, null, e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
@@ -331,7 +331,7 @@ public sealed class WpfSuppliersReceivingTests
         var existe = await svc.ConsultasRecepciones.ExisteOperacionAsync(op, sesVm.IdSesion);
         Assert.True(existe);
         await vm.ConfirmarAsyncPublic();
-        Assert.Contains("ya quedó registrada", vm.Mensaje ?? vm.Error ?? "");
+        Assert.Contains("Recepción registrada correctamente", vm.Mensaje ?? vm.Error ?? "");
         var recepciones = await svc.ConsultasRecepciones.ListarAsync(10, 0, sesVm.IdSesion);
         Assert.Single(recepciones);
         Assert.NotEqual(op, vm.OperacionId);
@@ -346,8 +346,8 @@ public sealed class WpfSuppliersReceivingTests
         var (prod, v1, v2) = await CrearCatalogoAsync(e);
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("ProvRec2"), e.SesionDuena);
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        var sku1 = ficha!.Variantes.First(x => x.Id == v1).Sku;
-        var sku2 = ficha.Variantes.First(x => x.Id == v2).Sku;
+        var sku1 = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno;
+        var sku2 = ficha.Variantes.First(x => x.Id == v2).CodigoInterno;
         var op = Guid.NewGuid().ToString("N");
         await e.ConfirmarRecepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 2, null, null) }, op, null, e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
@@ -406,7 +406,7 @@ public sealed class WpfSuppliersReceivingTests
         vmInvalida.ProveedorSeleccionado = new ProveedorRegistrado(prov, "ProvRec3", true);
         vmInvalida.Filas.Clear();
         var ficha = await e.ConsultasCatalogo.ObtenerFichaAsync(prod, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        vmInvalida.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).Sku, CantidadTexto = "2" });
+        vmInvalida.Filas.Add(new LocalInfantil.Wpf.ViewModels.FilaRecepcionViewModel { Sku = ficha!.Variantes.First(x => x.Id == v1).CodigoInterno, CantidadTexto = "2" });
         await vmInvalida.ConfirmarAsyncPublic();
         Assert.NotNull(vmInvalida.Error);
         Assert.Equal(op, vmInvalida.OperacionId); // conserva id para reintento idempotente
@@ -422,8 +422,9 @@ public sealed class WpfSuppliersReceivingTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.RecepcionConfirmar, true, e.SesionDuena);
         var provId = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("ProvVM"), e.SesionDuena);
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdVM", null, null), e.SesionDuena);
-        var vari = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-VM-PROV", null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdVM", null, "cat-otr"), e.SesionDuena);
+        var vari = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
+        var cod = (await e.ConsultasCatalogo.ObtenerVarianteAsync(vari, e.SesionDuena))!.CodigoInterno;
 
         var svc = new ServiciosComerciales(e.Ruta);
         var sesVm = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
@@ -435,24 +436,88 @@ public sealed class WpfSuppliersReceivingTests
         await vmRec.CargarProveedoresAsync();
         Assert.Contains(vmRec.Proveedores, p => p.Id == provId);
         vmRec.ProveedorSeleccionado = vmRec.Proveedores.First(p => p.Id == provId);
-        vmRec.Filas.First().Sku = "SKU-VM-PROV";
+        vmRec.Filas.First().Sku = cod;
         vmRec.Filas.First().CantidadTexto = "3";
         vmRec.Filas.First().CostoTexto = "150,50";
         var opAntes = vmRec.OperacionId;
         await vmRec.ConfirmarAsyncPublic();
         Assert.Null(vmRec.Error);
         Assert.NotEqual(opAntes, vmRec.OperacionId); // rotó tras éxito
+        Assert.Empty(vmRec.Filas);
+        Assert.Null(vmRec.ProveedorSeleccionado);
+        Assert.Equal(string.Empty, vmRec.ComprobanteRef);
+        Assert.False(vmRec.PuedeConfirmar);
+        Assert.Contains("Se sumaron 3 unidades", vmRec.Mensaje ?? "");
         // Reintento con mismo contenido y mismo id debe indicar duplicado, no crear segunda
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CasoConfirmarRecepcion.EjecutarAsync(provId, new[] { new LineaRecepcion(vari, 3, 15050, "ARS") }, opAntes, null, sesVm.IdSesion));
+    }
+
+    [Fact]
+    public async Task Alta_de_proveedor_actualiza_recepcion_activa_sin_perder_el_borrador()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.ProveedoresGestionar, true, e.SesionDuena);
+        var proveedorExistente = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Proveedor anterior"), e.SesionDuena);
+        var servicios = new ServiciosComerciales(e.Ruta);
+        var sesion = await servicios.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var recepcion = new LocalInfantil.Wpf.ViewModels.RecepcionViewModel(servicios, () => sesion.IdSesion);
+        await recepcion.CargarProveedoresAsync();
+        recepcion.ProveedorSeleccionado = recepcion.Proveedores.Single(p => p.Id == proveedorExistente);
+        recepcion.ComprobanteRef = "BORRADOR-23";
+        recepcion.Filas[0].Sku = "VARIANTE-EN-EDICION";
+        recepcion.Filas[0].CantidadTexto = "4";
+        recepcion.Filas[0].CostoTexto = "123,45";
+
+        using var coordinador = new CoordinadorActualizacionVistas(servicios.NotificadorCambios);
+        coordinador.Registrar(recepcion, [AreaDatos.Proveedores], recepcion.RefrescarProveedoresSinTocarRecepcionAsync,
+            () => !recepcion.Ocupado, () => recepcion.Error is not null);
+        coordinador.Activar(recepcion);
+
+        var proveedores = new LocalInfantil.Wpf.ViewModels.ProveedoresViewModel(servicios, () => sesion.IdSesion)
+        {
+            NuevoNombre = "Proveedor nuevo"
+        };
+        await proveedores.CrearAsyncPublic();
+        await coordinador.ActivarAsync(recepcion);
+
+        Assert.Null(proveedores.Error);
+        Assert.Contains(proveedores.Proveedores, p => p.Nombre == "Proveedor nuevo");
+        Assert.Contains(recepcion.Proveedores, p => p.Nombre == "Proveedor nuevo");
+        Assert.Equal(proveedorExistente, recepcion.ProveedorSeleccionado?.Id);
+        Assert.Equal("BORRADOR-23", recepcion.ComprobanteRef);
+        Assert.Equal(2, recepcion.Filas.Count);
+        Assert.Equal("VARIANTE-EN-EDICION", recepcion.Filas[0].Sku);
+        Assert.Equal("4", recepcion.Filas[0].CantidadTexto);
+        Assert.Equal("123,45", recepcion.Filas[0].CostoTexto);
+    }
+
+    [Fact]
+    public async Task Alta_de_proveedor_fallida_no_publica_cambio_confirmado()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.ProveedoresGestionar, false, e.SesionDuena);
+        var servicios = new ServiciosComerciales(e.Ruta);
+        var sesion = await servicios.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var proveedores = new LocalInfantil.Wpf.ViewModels.ProveedoresViewModel(servicios, () => sesion.IdSesion)
+        {
+            NuevoNombre = "No guardar"
+        };
+        var notificaciones = 0;
+        servicios.NotificadorCambios.CambioConfirmado += (_, _) => notificaciones++;
+
+        await proveedores.CrearAsyncPublic();
+
+        Assert.NotNull(proveedores.Error);
+        Assert.Equal(0, notificaciones);
     }
 
     private async Task<(string prod, string v1, string v2)> CrearCatalogoAsync(Entorno e)
     {
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), "M", "Rojo"), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "SKU-" + Guid.NewGuid().ToString("N").Substring(0, 6), null, null), e.SesionDuena);
+        var prod = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + Guid.NewGuid().ToString("N").Substring(0, 4), null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", "Rojo"), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), e.SesionDuena);
         return (prod, v1, v2);
     }
 
@@ -509,7 +574,7 @@ public sealed class WpfSuppliersReceivingTests
             var editarProv = new EditarProveedor(provRepo, autorizador, fabrica, auditoria, ids);
             var desactivarProv = new DesactivarProveedor(provRepo, autorizador, fabrica, auditoria, ids);
             var cprov = new ConsultasProveedores(provRepo, sesiones, fabrica);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var consultasCat = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var confirmarRec = new ConfirmarRecepcion(recepRepo, provRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);

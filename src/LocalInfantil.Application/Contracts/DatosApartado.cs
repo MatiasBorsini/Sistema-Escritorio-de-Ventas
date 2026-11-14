@@ -10,7 +10,10 @@ public sealed record ExistenciaClasificada(
     string Sku,
     long Fisico,
     long Disponible,
-    long Apartado);
+    long Apartado,
+    string NombreProducto,
+    string? Talle,
+    string? Color);
 
 /// <summary>
 /// Una fila del historial de clasificación, con responsable legible.

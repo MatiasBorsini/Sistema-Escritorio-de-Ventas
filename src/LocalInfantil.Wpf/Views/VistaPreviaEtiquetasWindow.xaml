@@ -1,0 +1,13 @@
+<Window x:Class="LocalInfantil.Wpf.Views.VistaPreviaEtiquetasWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Vista previa de etiquetas" Width="950" Height="720" MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{StaticResource Color.SurfaceBrush}" PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="10">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <TextBlock x:Name="Estado" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+            <Button Content="Imprimir…" Style="{StaticResource EstiloBotonPrimario}" Click="Imprimir_Click" Margin="8,0,0,0"/>
+        </StackPanel>
+        <DocumentViewer x:Name="Visor"/>
+    </DockPanel>
+</Window>

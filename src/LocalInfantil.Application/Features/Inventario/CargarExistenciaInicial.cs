@@ -88,7 +88,7 @@ public sealed class CargarExistenciaInicial
 
             if (await _movimientos.ContarPorVarianteAsync(sesion, fila.VarianteId, cancellationToken) > 0)
             {
-                throw new InvalidOperationException($"La variante '{variante.Sku}' ya tiene movimientos; corresponde un ajuste de F03, no una carga inicial.");
+                throw new InvalidOperationException($"La variante '{variante.CodigoInterno}' ya tiene movimientos; corresponde un ajuste de F03, no una carga inicial.");
             }
 
             await _movimientos.RegistrarAsync(

@@ -1,0 +1,63 @@
+<Window x:Class="LocalInfantil.Wpf.Views.DetalleRecepcionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding TituloVentana, Mode=OneWay}"
+        Width="980" Height="640" MinWidth="760" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Color.SurfaceBrush}">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,0,0,1" Padding="12,8">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TituloVentana, Mode=OneWay}"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SubtituloVentana, Mode=OneWay}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Padding="12,6">
+            <DockPanel>
+                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Ventana de consulta: no bloquea Recepciones. Podés seguir consultando otras recepciones. Presioná Esc o usá la X de Windows para salir."/>
+            </DockPanel>
+        </Border>
+        <StackPanel DockPanel.Dock="Top" Margin="12,8,12,0">
+            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding ComprobanteTexto, StringFormat=Comprobante del proveedor: {0}}" Margin="0,0,0,4"/>
+            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
+            <DockPanel Margin="0,2,0,6">
+                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="300" Text="{Binding Filtro, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar código dentro de la recepción"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Resumen.Unidades, StringFormat={}{0} unidades}" Margin="0,0,12,0"/>
+                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Resumen.CantidadLineas, StringFormat={}{0} líneas}" Margin="0,0,12,0"/>
+                    <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TotalExacto, Converter={StaticResource MinorToArs}, FallbackValue=—, TargetNullValue=—}"/>
+                </StackPanel>
+            </DockPanel>
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Proveedor"/>
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Resumen.ProveedorNombre}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Fecha"/>
+                    <TextBlock FontSize="13" Foreground="{StaticResource Color.TextBrush}" Text="{Binding FechaTexto}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Responsable"/>
+                    <TextBlock FontSize="13" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Resumen.CreadoPorNombre, FallbackValue=—, TargetNullValue=—}"/>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+        <DataGrid Style="{StaticResource EstiloGrillaOperativa}" Margin="12,0,12,12" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                  ItemsSource="{Binding LineasFiltradas}" BorderBrush="{StaticResource Color.BorderBrush}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Código interno" Binding="{Binding Sku}" Width="2*"/>
+                <DataGridTextColumn Header="Talle" Binding="{Binding Talle, TargetNullValue=—}" Width="80"/>
+                <DataGridTextColumn Header="Color" Binding="{Binding Color, TargetNullValue=—}" Width="100"/>
+                <DataGridTextColumn Header="Cantidad" Binding="{Binding Cantidad}" Width="80"/>
+                <DataGridTextColumn Header="Costo unitario" Binding="{Binding CostoUnitarioMinor, Converter={StaticResource MinorToArs}}" Width="130"/>
+                <DataGridTextColumn Header="Subtotal" Binding="{Binding SubtotalMinor, Converter={StaticResource MinorToArs}}" Width="130"/>
+                <DataGridTextColumn Header="Moneda" Binding="{Binding Moneda, TargetNullValue=—}" Width="70"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

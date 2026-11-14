@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LocalInfantil — Propuesta Inicio</title>
+<style>
+:root{
+  --nav:#263D43;
+  --canvas:#F2F1EC;
+  --surface:#FFFDF9;
+  --surface2:#F8F7F3;
+  --primary:#286B66;
+  --primary-dark:#1F5753;
+  --accent:#D9A68C;
+  --text:#26343B;
+  --muted:#52636A;
+  --border:#CBD4CF;
+  --border-soft:#E4E9E6;
+  --success:#2D7458;
+  --success-soft:#EAF5EE;
+  --warning:#8B651B;
+  --warning-soft:#FFF4D8;
+  --danger:#A33E47;
+  --danger-soft:#FFF1F2;
+  --info:#35677E;
+  --info-soft:#EDF5FA;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--canvas);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:14px}
+body{min-width:1100px}
+button{font:inherit}
+.dev{height:35px;display:flex;align-items:center;padding:0 10px;background:#FFF0BE;color:#8B570A;border-bottom:1px solid #E8D38A;font-size:12px}
+.topbar{height:43px;background:var(--nav);color:white;display:flex;align-items:center;padding:0 12px;gap:24px}
+.brand{font-size:18px;font-weight:700;margin-right:4px}
+nav{display:flex;gap:3px;align-items:center;flex:1}
+nav a,.profile{color:white;text-decoration:none;padding:8px 10px;border-radius:5px;font-size:13px}
+nav a.active{background:rgba(255,255,255,.09);font-weight:600}
+nav a:hover,.profile:hover{background:rgba(255,255,255,.08)}
+.user{display:flex;gap:8px;align-items:center}
+.main{padding:26px 28px 30px;max-width:1600px;margin:auto}
+.header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:18px}
+h1{font-size:28px;line-height:1;margin:0 0 7px;font-weight:650;letter-spacing:-.02em}
+.subtitle{margin:0;color:var(--muted)}
+.meta{color:var(--muted);font-size:12px;text-align:right;padding-top:3px}
+.section-title{font-weight:650;font-size:14px;margin:0 0 8px}
+.commandbar{display:flex;align-items:center;gap:8px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.command-label{font-size:12px;font-weight:650;color:var(--muted);padding:0 5px 0 2px;white-space:nowrap}
+.btn{height:36px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text);padding:0 13px;font-weight:600;cursor:pointer}
+.btn:hover{border-color:#96B4AF;background:#FCFFFE}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:white}
+.btn.primary:hover{background:var(--primary-dark)}
+.btn .ico{margin-right:6px;font-weight:700}
+.command-spacer{flex:1}
+.hint{color:var(--muted);font-size:12px;white-space:nowrap}
+.layout{display:grid;grid-template-columns:minmax(650px,1.7fr) minmax(310px,.82fr);gap:14px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel-head{height:46px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft)}
+.panel-head h2{font-size:15px;margin:0;font-weight:650}
+.panel-head small{color:var(--muted)}
+.link{border:0;background:none;color:var(--primary);font-weight:600;cursor:pointer;padding:6px 4px}
+.attention-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto 18px;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border-soft);cursor:pointer;background:#fff}
+.attention-row:last-child{border-bottom:0}
+.attention-row:hover{background:#FBFDFC}
+.attention-icon{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:800}
+.attention-icon.warn{background:var(--warning-soft);color:var(--warning)}
+.attention-icon.info{background:var(--info-soft);color:var(--info)}
+.attention-icon.neutral{background:#EFF2F0;color:#59696F}
+.attention-title{font-weight:650;margin-bottom:2px}
+.attention-sub{font-size:12px;color:var(--muted)}
+.badge{font-size:11px;font-weight:650;padding:4px 7px;border-radius:999px;white-space:nowrap}
+.badge.warn{background:var(--warning-soft);color:var(--warning)}
+.badge.info{background:var(--info-soft);color:var(--info)}
+.badge.neutral{background:#EFF2F0;color:#59696F}
+.chev{color:#88969A;font-size:18px}
+.stock-body{padding:13px 14px 12px}
+.stock-primary{display:flex;justify-content:space-between;align-items:end;padding:2px 0 12px;border-bottom:1px solid var(--border-soft)}
+.stock-primary .label{font-size:12px;color:var(--muted);margin-bottom:2px}
+.stock-primary strong{font-size:31px;line-height:1;color:var(--primary);font-weight:650}
+.stock-primary small{color:var(--muted)}
+.stock-mini{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.metric{background:var(--surface2);border:1px solid var(--border-soft);border-radius:7px;padding:10px}
+.metric span{display:block;color:var(--muted);font-size:11px;margin-bottom:3px}
+.metric strong{font-size:18px;font-weight:650}
+.metric.alert strong{color:var(--warning)}
+.stock-rule{margin:10px 0 0;color:var(--muted);font-size:11px}
+.activity{margin-top:14px}
+.activity table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{height:31px;text-align:left;background:#F2F4F3;color:var(--muted);font-size:11px;font-weight:650;padding:0 12px;border-bottom:1px solid var(--border)}
+td{height:38px;padding:0 12px;border-bottom:1px solid var(--border-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#FBFDFC}
+.col-when{width:120px}.col-type{width:140px}.col-user{width:105px}.col-state{width:105px}
+.activity-type{font-weight:600}
+.state{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:10.5px;font-weight:650}
+.state.ok{background:var(--success-soft);color:var(--success)}
+.state.rev{background:var(--danger-soft);color:var(--danger)}
+.footer-note{padding:9px 12px;color:var(--muted);font-size:11px;border-top:1px solid var(--border-soft);background:#FCFCFA}
+.prototype-note{margin-top:12px;color:#755B20;background:#FFF7DE;border:1px solid #E7D7A3;border-radius:7px;padding:8px 10px;font-size:11px}
+@media(max-width:1200px){
+ .main{padding-left:20px;padding-right:20px}
+ .layout{grid-template-columns:minmax(600px,1.55fr) 310px}
+ .hint{display:none}
+}
+</style>
+</head>
+<body>
+<div class="dev">Modo desarrollo — Propuesta de Inicio · los valores mostrados son datos de ejemplo del prototipo</div>
+<header class="topbar">
+  <div class="brand">LocalInfantil</div>
+  <nav aria-label="Navegación principal">
+    <a href="#" class="active">Inicio</a>
+    <a href="#">Catálogo</a>
+    <a href="#">Compras</a>
+    <a href="#">Inventario</a>
+    <a href="#">Administración</a>
+  </nav>
+  <div class="user"><span>duena</span><a href="#" class="profile">Perfil</a></div>
+</header>
+
+<main class="main">
+  <div class="header">
+    <div>
+      <h1>Inicio</h1>
+      <p class="subtitle">Buen día, duena. Esto es lo que merece atención antes de seguir trabajando.</p>
+    </div>
+    <div class="meta">Resumen operativo<br>Datos actualizados al abrir Inicio</div>
+  </div>
+
+  <section class="commandbar" aria-label="Acciones frecuentes">
+    <span class="command-label">Acciones frecuentes</span>
+    <button class="btn primary"><span class="ico">＋</span>Recibir mercadería</button>
+    <button class="btn"><span class="ico">＋</span>Nuevo producto</button>
+    <button class="btn">Conteo físico</button>
+    <button class="btn">Consultar inventario</button>
+    <span class="command-spacer"></span>
+    <span class="hint">Solo accesos a funciones existentes y permitidas</span>
+  </section>
+
+  <div class="layout">
+    <section class="panel" aria-labelledby="attention-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="attention-title">Para revisar</h2>
+        </div>
+        <small>3 asuntos</small>
+      </div>
+
+      <div class="attention-row" tabindex="0">
+        <div class="attention-icon warn">!</div>
+        <div>
+          <div class="attention-title">2 conteos esperan revisión o aprobación</div>
+          <div class="attention-sub">El más antiguo fue actualizado ayer · abrir Conteo físico</div>
+        </div>
+        <span class="badge warn">Pendiente</span>
+        <span class="chev">›</span>
+      </div>
+
+      <div class="attention-row" tabindex="0">
+        <div class="attention-icon info">N</div>
+        <div>
+          <div class="attention-title">14 unidades están apartadas / no vendibles</div>
+          <div class="attention-sub">Revisá si corresponde reincorporarlas o darlas de baja</div>
+        </div>
+        <span class="badge info">Inventario</span>
+        <span class="chev">›</span>
+      </div>
+
+      <div class="attention-row" tabindex="0">
+        <div class="attention-icon neutral">R</div>
+        <div>
+          <div class="attention-title">Última recepción confirmada hoy</div>
+          <div class="attention-sub">COMP-102 · Prov Humo · 3 unidades</div>
+        </div>
+        <span class="badge neutral">Compras</span>
+        <span class="chev">›</span>
+      </div>
+    </section>
+
+    <aside class="panel" aria-labelledby="stock-title">
+      <div class="panel-head">
+        <h2 id="stock-title">Estado de inventario</h2>
+        <button class="link">Abrir inventario</button>
+      </div>
+      <div class="stock-body">
+        <div class="stock-primary">
+          <div>
+            <div class="label">Disponible para vender</div>
+            <strong>326</strong>
+          </div>
+          <small>unidades</small>
+        </div>
+        <div class="stock-mini">
+          <div class="metric">
+            <span>Físico</span>
+            <strong>340</strong>
+          </div>
+          <div class="metric alert">
+            <span>Apartado / no vendible</span>
+            <strong>14</strong>
+          </div>
+        </div>
+        <p class="stock-rule">Físico = Disponible + Apartado. Esta tarjeta es de lectura; las acciones se hacen en Inventario.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="panel activity" aria-labelledby="activity-title">
+    <div class="panel-head">
+      <h2 id="activity-title">Actividad reciente</h2>
+      <button class="link">Ver recepciones</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-when">Cuándo</th>
+          <th class="col-type">Tipo</th>
+          <th>Detalle</th>
+          <th class="col-user">Responsable</th>
+          <th class="col-state">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Hoy · 10:42</td>
+          <td class="activity-type">Recepción</td>
+          <td>COMP-102 · Prov Humo · 3 unidades</td>
+          <td>duena</td>
+          <td><span class="state ok">Confirmada</span></td>
+        </tr>
+        <tr>
+          <td>Hoy · 09:18</td>
+          <td class="activity-type">Inventario</td>
+          <td>FASE1-002 · 2 unidades apartadas</td>
+          <td>ana</td>
+          <td><span class="state ok">Registrado</span></td>
+        </tr>
+        <tr>
+          <td>Ayer · 18:06</td>
+          <td class="activity-type">Conteo físico</td>
+          <td>Conteo de 12 variantes · pendiente de aprobación</td>
+          <td>ana</td>
+          <td><span class="state rev">Pendiente</span></td>
+        </tr>
+        <tr>
+          <td>Ayer · 16:31</td>
+          <td class="activity-type">Recepción</td>
+          <td>Sin referencia · Prov Humo · 5 unidades</td>
+          <td>duena</td>
+          <td><span class="state ok">Confirmada</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="footer-note">Mostrar pocos eventos recientes. Inicio resume; el detalle completo sigue viviendo en cada módulo.</div>
+  </section>
+
+  <div class="prototype-note">Prototipo UX: los números y eventos son simulados solo para evaluar composición. En la aplicación real no deberían aparecer métricas, alertas ni actividades si no provienen de consultas reales y respetan los permisos del usuario.</div>
+</main>
+</body>
+</html>

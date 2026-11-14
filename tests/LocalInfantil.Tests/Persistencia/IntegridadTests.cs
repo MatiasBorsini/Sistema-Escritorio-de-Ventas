@@ -36,7 +36,7 @@ public sealed class IntegridadTests
             await using (var sesion = await fabrica.IniciarAsync())
             {
                 productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", null, null), Fecha);
-                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "REM-RT-001", null, null), Fecha);
+                varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, null, null), Fecha);
                 await movimientos.RegistrarAsync(sesion, new NuevoMovimiento(varianteId, "ingreso", 4, null, "op-rt", null), Fecha);
                 await sesion.ConfirmarAsync();
             }
@@ -47,7 +47,7 @@ public sealed class IntegridadTests
 
             await using var verificacion = await fabrica.IniciarLecturaAsync();
             Assert.NotNull(await productos.ObtenerPorIdAsync(verificacion, productoId));
-            Assert.NotNull(await variantes.ObtenerPorSkuAsync(verificacion, "REM-RT-001"));
+            Assert.NotNull(await variantes.ObtenerPorIdAsync(verificacion, varianteId));
             Assert.Equal(4, await movimientos.SumarPorVarianteAsync(verificacion, varianteId));
         }
         finally
@@ -127,16 +127,174 @@ public sealed class IntegridadTests
             string productoId;
             await using (var sesion = await fabrica.IniciarAsync())
             {
-                productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Campera", null, null), Fecha);
-                await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "CAM-U-001", null, null), Fecha);
-                await Assert.ThrowsAsync<SqliteException>(() =>
-                    variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "CAM-U-001", "8", null), Fecha));
+                productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Campera", null, "cat-otr"), "CAM-001", Fecha);
+                await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, null, null), "CAM-001-01", Fecha);
+                // Con códigos automáticos el duplicado ya no surge del caso de
+                // uso: se provoca con el código explícito a nivel repositorio.
+                var error = await Assert.ThrowsAsync<SqliteException>(() =>
+                    variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "8", null), "CAM-001-01", Fecha));
+                Assert.Contains("variante.codigo_interno", error.Message);
             }
 
             await using var verificacion = await fabrica.IniciarLecturaAsync();
             Assert.Null(await productos.ObtenerPorIdAsync(verificacion, productoId));
-            Assert.Null(await variantes.ObtenerPorSkuAsync(verificacion, "CAM-U-001"));
             Assert.Equal(0L, await ContarAsync(ruta, "producto"));
+            Assert.Equal(0L, await ContarAsync(ruta, "variante"));
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
+    [Fact]
+    public async Task Norma_talle_color_impide_coexistencia_insensible_a_caso_y_espacios()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        try
+        {
+            await new MigradorBaseDatos(ruta).MigrarAsync();
+            var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
+            var ids = new GeneradorIds();
+            var productos = new RepositorioProductos(ids);
+            var variantes = new RepositorioVariantes(ids);
+
+            // Persistencia directa (sin caso de uso): la norma la calcula el
+            // repositorio con la misma función centralizada de Application.
+            string productoId;
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", null, "cat-rem"), "REM-001", Fecha);
+                await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "M", "Rojo"), "REM-001-01", Fecha);
+                await sesion.ConfirmarAsync();
+            }
+
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                var errorCaso = await Assert.ThrowsAsync<SqliteException>(() =>
+                    variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "m", "rojo"), "REM-001-02", Fecha));
+                Assert.Contains("talle_norm", errorCaso.Message);
+            }
+
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                var errorEspacios = await Assert.ThrowsAsync<SqliteException>(() =>
+                    variantes.InsertarAsync(sesion, new NuevaVariante(productoId, " M ", " rojo "), "REM-001-03", Fecha));
+                Assert.Contains("talle_norm", errorEspacios.Message);
+            }
+
+            // Caso Unicode: 'ñ'/'ámbar' normaliza igual que 'Ñ'/'Ámbar'
+            // (FormC + UpperInvariant, más allá del UPPER ASCII de SQLite).
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "Ñ", "Ámbar"), "REM-001-04", Fecha);
+                await sesion.ConfirmarAsync();
+            }
+
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                var errorUnicode = await Assert.ThrowsAsync<SqliteException>(() =>
+                    variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "ñ", "ámbar"), "REM-001-05", Fecha));
+                Assert.Contains("talle_norm", errorUnicode.Message);
+            }
+
+            await using var verificacion = await fabrica.IniciarLecturaAsync();
+            Assert.Equal(2L, await ContarAsync(ruta, "variante"));
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
+    [Fact]
+    public async Task Norma_unicode_caso_insensible_en_update()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        try
+        {
+            await new MigradorBaseDatos(ruta).MigrarAsync();
+            var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
+            var ids = new GeneradorIds();
+            var productos = new RepositorioProductos(ids);
+            var variantes = new RepositorioVariantes(ids);
+
+            string v1;
+            string v2;
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                var productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Remera", null, "cat-rem"), "REM-001", Fecha);
+                v1 = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "Ñ", "Ámbar"), "REM-001-01", Fecha);
+                v2 = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "L", null), "REM-001-02", Fecha);
+                await sesion.ConfirmarAsync();
+            }
+
+            // 'ñ'/'ámbar' normaliza igual que 'Ñ'/'Ámbar' (FormC+UpperInvariant,
+            // más allá del UPPER ASCII de SQLite): el UPDATE colisiona.
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                var error = await Assert.ThrowsAsync<SqliteException>(() =>
+                    variantes.ActualizarAsync(sesion, v2, new EdicionVariante("ñ", "ámbar")));
+                Assert.Contains("talle_norm", error.Message);
+            }
+
+            _ = v1;
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
+    [Fact]
+    public async Task Producto_sin_categoria_no_puede_persistirse()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        try
+        {
+            await new MigradorBaseDatos(ruta).MigrarAsync();
+            var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
+            var productos = new RepositorioProductos(new GeneradorIds());
+
+            // Inserción cruda sin categoria_id: viola NOT NULL aunque el caso
+            // de uso ya lo exige con mensaje humano.
+            await using var cruda = await AbrirEscrituraAsync(ruta);
+            using var comando = cruda.CreateCommand();
+            comando.CommandText = "INSERT INTO producto (id, codigo_interno, nombre, creado_en) VALUES ('p-sin-cat', 'REM-999', 'Remera', $ahora);";
+            comando.Parameters.AddWithValue("$ahora", Fecha);
+            var error = await Assert.ThrowsAsync<SqliteException>(() => comando.ExecuteNonQueryAsync());
+            Assert.Contains("categoria_id", error.Message);
+
+            Assert.Equal(0L, await ContarAsync(ruta, "producto"));
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
+    [Fact]
+    public async Task Prefijo_y_nombre_de_categoria_no_se_duplican()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        try
+        {
+            await new MigradorBaseDatos(ruta).MigrarAsync();
+            var fabrica = new FabricaConexionesSqlite(new OpcionesConexionSqlite(ruta));
+            var categorias = new RepositorioCategorias(new GeneradorIds());
+
+            await using (var sesion = await fabrica.IniciarAsync())
+            {
+                var errorPrefijo = await Assert.ThrowsAsync<SqliteException>(() =>
+                    categorias.InsertarAsync(sesion, new NuevaCategoria("Otra cosa", "REM", 200), Fecha));
+                Assert.Contains("categoria.prefijo", errorPrefijo.Message);
+
+                var errorNombre = await Assert.ThrowsAsync<SqliteException>(() =>
+                    categorias.InsertarAsync(sesion, new NuevaCategoria("Remeras y tops", "RMT", 200), Fecha));
+                Assert.Contains("categoria.nombre", errorNombre.Message);
+            }
+
+            Assert.Equal(12L, await ContarAsync(ruta, "categoria"));
         }
         finally
         {

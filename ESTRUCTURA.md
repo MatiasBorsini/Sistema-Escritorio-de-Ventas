@@ -77,6 +77,7 @@ LocalInfantil.Tests               -> depende únicamente de proyectos que prueba
 - El ViewModel no calcula saldos definitivos ni modifica registros directamente: solicita casos de uso.
 - Application ejecuta operaciones completas; Domain protege reglas e invariantes.
 - Infrastructure gestiona SQLite, impresión, respaldos, Drive y actualizaciones.
+- F08 agrega permisos de respaldo a Application; `Infrastructure/Persistence/Respaldos` implementa snapshot/cifrado/sidecars/Drive; WPF coordina el worker y muestra Configuración > Respaldos. La lógica de ventas/caja no depende de Google Drive y no se agrega esquema SQLite.
 - Se permite code-behind de WPF para detalles visuales que no sean reglas de negocio.
 - No crear API HTTP local, servidor web, microservicios ni capas extras sin necesidad comprobada.
 

@@ -40,16 +40,16 @@ El negocio necesita trabajar con prendas y variantes (talle/color), ventas y pag
 | ID | Tema | Qué falta resolver | Tratamiento mientras tanto |
 |---|---|---|---|
 | D-01 | Facturación fiscal | Procedimiento real y definición con contador; integración vs. emisión externa; cómo vincular comprobantes | Registrar referencia fiscal opcional; **no presentar un ticket interno como factura**. Bloquea salida a producción sin procedimiento confirmado. |
-| D-02 | Cuentas corrientes | Confirmar uso efectivo, límites, plazos, quién autoriza nuevas ventas fiadas y pagos parciales | Diseñar extensión; no activar venta fiada sin política validada. |
-| D-03 | Permisos | Matriz completa dueña/empleada: descuentos, ajustes, ventas fiadas, anulación, reportes, costos. Confirmado 2026-09-21: rol técnico Administrador con `usuarios.administrar` (ver D-21); resto pendiente | Infraestructura configurable; denegar por defecto lo no confirmado. |
+| D-02 | Cuentas corrientes | Política específica aprobada para F07 (uso, permisos de fiado, límites, vencimiento informativo, abonos, ajustes y devoluciones) | Resuelta para el alcance F07 por D-41. No habilita producción ni resuelve obligaciones fiscales/operativas ajenas al alcance. |
+| D-03 | Permisos | Matriz completa Dueña/Empleada: descuentos, ajustes, ventas fiadas, anulación, reportes y costos; sigue pendiente salvo permisos explícitamente confirmados por decisiones posteriores. `Administrador`/D-21 fue reemplazado por Dueña/D-27. | Infraestructura configurable; denegar por defecto lo no confirmado. |
 | D-04 | Excepciones de reintegro | Cómo registra la dueña autorización de otro medio si no está presente | Mantener efectivo como flujo normal; no inventar autorización remota. |
 | D-05 | Política de promociones | Otras promociones y condiciones para mantener/recalcular descuentos | Soportar vínculo entre líneas de venta y promoción; implementar únicamente reglas confirmadas. |
 | D-06 | Cambios | Comprobantes/identificación alternativa, estado de producto, tratamiento de descuentos de varios artículos | Diseñar estructura flexible; no introducir bloqueos arbitrarios. |
 | D-07 | Costos | Criterio de valoración de reposiciones y margen bruto | Guardar costos históricos cuando se acuerde el método; no mostrar ganancia neta ficticia. |
 | D-08 | Hardware | Modelo de impresora, versión/edición/arquitectura real de Windows, rendimiento | Usar impresión estándar en prototipo; validar PC real antes del despliegue. |
-| D-09 | Respaldo | Retención, cifrado/recuperación de clave, ubicación de copia local, ejecución con POS cerrado | Diseñar opciones y registrar decisión antes de poner datos reales. |
+| D-09 | Respaldo | Política técnica aprobada por D-42; quedan por validar Google OAuth/Drive real y PC/hardware de destino antes de producción | Implementación F08 no autoriza cargar datos reales ni producción. Mantener backups locales y estado pendiente ante cualquier falla remota. |
 | D-10 | Actualizaciones | Proveedor/canal de publicación, firma, política de instalación y recuperación | Desarrollar una actualización de prueba antes de producción. |
-| D-11 | Identificación | Convención de códigos internos, etiquetas futuras, talles reales, artículos sin variantes | Soportar SKU interno y entrada manual, sin depender de lector. |
+| D-11 | Identificación | Convención de códigos internos, etiquetas futuras, talles reales, artículos sin variantes | Resuelto 2026-09-29 por la persona usuaria (ver D-35): categorías controladas obligatorias (12 del seed, "Otros" solo explícito), código interno automático e inmutable Producto {PREFIJO}-{NNN} / Variante {CODIGO_PRODUCTO}-{NN} (texto visible "Código interno"), unicidad Talle+Color normalizada, typeahead por código o nombre con resolución exacta sin sugerencia obligatoria, sin lector requerido. Etiquetas físicas y creación múltiple batch pendientes (esta última diferida a un caso transaccional aparte). |
 | D-12 | Obligaciones comerciales | Verificación de políticas de cambios, promociones, medios de pago y reintegros aplicables en Argentina | Validar con dueña/contador y asesoramiento adecuado; no implementar reglas incompatibles con obligaciones legales. |
 | D-13 | Usuarios de Windows y ruta de datos | Confirmado 2026-09-21 por el desarrollador: una sola PC y una única cuenta de Windows compartida; no hay escenario multi-cuenta. Falta concretar la carpeta definitiva de producción | La ruta provisional `%LOCALAPPDATA%` ya no presenta el riesgo de bases separadas; no fijar la ruta definitiva sin comprobarlo. Ver `ESTRUCTURA.md`. |
 
@@ -138,13 +138,13 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 **Objetivo:** confirmar que el stack es viable y que el ciclo compilar → instalar → abrir → guardar → imprimir funciona en una PC Windows de prueba sin construir todavía la aplicación completa.
 
 - [x] **F00-T01.** Crear repositorio, `.gitignore`, `README.md`, `PLAN.md`, `ESTRUCTURA.md` y estructura mínima de solución conforme a `ESTRUCTURA.md`; fijar convenciones de código y comandos de build/test. Usar framework provisional solo si es necesario para compilar, anotarlo y validarlo en F00-T02.
-- [!] **F00-T02.** Elegir versión de .NET/WPF tras verificar compatibilidad y soporte con el Windows concreto; anotar la decisión en `docs/DECISIONES.md`. La solución fue migrada y verificada técnicamente en el equipo de desarrollo con .NET 10, pero esa prueba no confirma compatibilidad de producción. **Bloqueada para cierre:** falta validar edición, versión y arquitectura de la PC del local.
+- [!] **F00-T02.** Elegir versión de .NET/WPF tras verificar compatibilidad y soporte con el Windows concreto; anotar la decisión en `docs/DECISIONES.md`. La solución fue migrada y verificada técnicamente en el equipo de desarrollo con .NET 10, pero esa prueba no confirma compatibilidad de producción. **Pendiente — validación en hardware definitivo antes de producción:** falta validar edición, versión y arquitectura de la PC del local. No bloquea el desarrollo de módulos comerciales (decisión 2026-09-29, ver D-36); bloquea instalación definitiva, puesta en producción y entrega al local.
 - [x] **F00-T03.** Crear ventana WPF funcional con navegación básica y datos ficticios; abrir sin internet y comprobar que no hay operaciones bloqueadas por servicios externos.
 - [x] **F00-T04.** Integrar SQLite en una ruta de datos de usuario y ejecutar una lectura/escritura simple mediante infraestructura, sin SQL en la vista. Validaciones automáticas y manuales correctas, incluida la reapertura y la operación sin conexión. D-13 sigue pendiente para cualquier uso con datos reales.
 - [x] **F00-T05.** Probar impresión básica en impresora común o, si no está disponible, generar vista previa y registrar la prueba real como pendiente. Vista previa, diálogo de Windows, cancelación sin trabajo e impresión de prueba con Microsoft Print to PDF validados manualmente. La prueba con el equipo físico del local sigue pendiente fuera de este cierre técnico.
-- [>] **F00-T06.** Publicar instalador/prototipo de prueba, abrirlo y medir cualitativamente arranque y fluidez; probar en la PC real cuando esté disponible. La publicación self-contained .NET 10 `win-x64` se generó en el equipo de desarrollo y fue validada manualmente el 2026-09-21 desde su carpeta, fuera de Visual Studio (apertura, navegación, SQLite, funcionamiento sin internet, vista previa, impresión de prueba y fluidez correctas, sin problemas observados, sin mediciones registradas). El instalador de prueba (Inno Setup 6, `installer/`) se genera en este equipo y fue validado manualmente el 2026-09-21 en una cuenta local estándar independiente (instalación, acceso directo, SQLite, impresión, funcionamiento sin internet, desinstalación y conservación de ambas bases con el mismo hash SHA-256 correctos, sin errores ni observaciones); falta la validación en la PC del local.
+- [>] **F00-T06.** Publicar instalador/prototipo de prueba, abrirlo y medir cualitativamente arranque y fluidez; probar en la PC real cuando esté disponible. La publicación self-contained .NET 10 `win-x64` se generó en el equipo de desarrollo y fue validada manualmente el 2026-09-21 desde su carpeta, fuera de Visual Studio (apertura, navegación, SQLite, funcionamiento sin internet, vista previa, impresión de prueba y fluidez correctas, sin problemas observados, sin mediciones registradas). El instalador de prueba (Inno Setup 6, `installer/`) se genera en este equipo y fue validado manualmente el 2026-09-21 en una cuenta local estándar independiente (instalación, acceso directo, SQLite, impresión, funcionamiento sin internet, desinstalación y conservación de ambas bases con el mismo hash SHA-256 correctos, sin errores ni observaciones); falta la validación en la PC del local. Igual que F00-T02: pendiente de hardware definitivo; no bloquea desarrollo, bloquea producción/entrega (decisión 2026-09-29, ver D-36).
 
-**Aceptación:** arranca offline, crea/lee datos locales, interfaz no se congela en operaciones simples, puede instalarse y desinstalarse sin borrar datos de usuario; limitaciones de Windows/impresora documentadas. **No desarrollar módulos comerciales antes de validar este hito.**
+**Aceptación:** arranca offline, crea/lee datos locales, interfaz no se congela en operaciones simples, puede instalarse y desinstalarse sin borrar datos de usuario; limitaciones de Windows/impresora documentadas. **DESARROLLO:** permitido continuar con módulos comerciales (incluidas F04 y fases posteriores) usando el entorno actual y DB ficticias. **PRODUCCIÓN/ENTREGA:** bloqueadas hasta completar la validación en la PC definitiva (F00-T02 y F00-T06 pendientes: Windows/arquitectura, publicación, arranque, persistencia, permisos de archivos, DPI/resolución, rendimiento, impresora cuando corresponda, funcionamiento interactivo general).
 
 ### F01 — Fundamentos: persistencia, operaciones y seguridad básica
 
@@ -187,99 +187,145 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 
 **Objetivo:** completar una venta real de punta a punta, inicialmente con datos de prueba.
 
-- [ ] **F04-T01.** Pantalla POS optimizada para teclado: buscar, seleccionar variante, carrito, cantidades, totales, validación de stock; venta en espera si se valida la necesidad.
-- [ ] **F04-T02.** Registrar medios de pago confirmados y pagos combinados como movimientos separados; validar suma, saldo, vuelto y estado de cobranza.
-- [ ] **F04-T03.** Confirmar venta en transacción atómica con líneas, importes históricos, pagos y salidas de stock. Proteger contra doble clic/confirmación duplicada.
-- [ ] **F04-T04.** Ticket **interno no fiscal** imprimible/reimprimible; número estable y enlace opcional a referencia fiscal externa. Procedimiento fiscal real pendiente de D-01.
-- [ ] **F04-T05.** Correcciones/anulaciones mediante reversos auditados; no eliminar ventas. No activar funciones cuya autorización aún no está definida.
-- [ ] **F04-T06.** Tests: último artículo, pago combinado, vuelto, pago insuficiente, error al persistir, impresión fallida y venta duplicada.
+- [x] **F04-T01.** Pantalla POS optimizada para teclado (`PosView`/`PosViewModel` en rama `feat/f04-pos`): buscador asistido reutilizado (código/nombre, Enter agrega directo, foco vuelve solo), carrito dominante sin filas duplicadas, cantidades +/−, totales, validación de Disponible al agregar; sin venta en espera (diferida explícitamente, no persiste borradores).
+- [x] **F04-T02.** Medios manuales efectivo/transferencia/débito/crédito/billetera como pagos separados; suma imputada == total, vuelto derivable (`recibido − importe`, solo efectivo, CHECK en V10); sin Mercado Pago ni integraciones.
+- [x] **F04-T03.** `ConfirmarVenta` atómica (sesión `BEGIN IMMEDIATE`): revalida Disponible y precio vigente dentro de la tx, aborta con `PrecioCambiado` sin escribir si cambió, idempotencia por `venta.operacion_id` UNIQUE + botón deshabilitado en curso.
+- [x] **F04-T04.** Ticket **interno no fiscal** (`DocumentoTicketVenta` desde snapshots + renderer + `TicketVentaWindow` con vista previa/impresión, leyenda "COMPROBANTE INTERNO — NO FISCAL"); número estable `T-000001`; reimpresión inmutable. Procedimiento fiscal real pendiente de D-01; renderer/vista previa implementados, prueba de impresora física pendiente para producción.
+- [x] **F04-T05.** Solo anulación TOTAL auditada (`AnularVenta` + `reversion_venta` + ingresos compensatorios + motivo obligatorio + anti-doble); sin parciales (diferidas), sin borrar. Autorización definida: `ventas.anular` solo Dueña.
+- [x] **F04-T06.** Tests cubriendo último artículo, pago combinado, vuelto, pago insuficiente/mayor, recibido inválido, error al persistir (rollback total, secuencia no avanza), venta duplicada por `operacion_id`, precio cambiado, histórico inmutable, restitución y doble anulación, permisos por rol, migración V9→V10, VMs POS/consulta/ticket y parseo de miles.
 
-**Aceptación:** venta completada modifica stock una sola vez, cobros coinciden con pagos, ticket reimpreso no altera registros y una falla intermedia revierte toda la confirmación. **Prohibido uso productivo si D-01 y estrategia de respaldos remotos siguen abiertos.**
+**Aceptación:** venta completada modifica stock una sola vez, cobros coinciden con pagos, ticket reimpreso no altera registros y una falla intermedia revierte toda la confirmación. **Prohibido uso productivo si D-01 y estrategia de respaldos remotos siguen abiertos.** No se declara D-01 resuelta, ni PC real validada, ni impresora física validada.
 
 ### F05 — Caja y conciliación básica
 
 **Objetivo:** registrar dinero real sin confundirlo con ventas.
 
-- [ ] **F05-T01.** Apertura, fondo inicial y sesión de caja vinculada al usuario.
-- [ ] **F05-T02.** Cobros automáticos de ventas y egresos/ingresos manuales clasificados; retiros del propietario separados de gastos.
-- [ ] **F05-T03.** Arqueo ciego de efectivo, saldo teórico, diferencia y cierre registrado.
-- [ ] **F05-T04.** Desglose de medios electrónicos como cobros para conciliación, **sin tratarlos como efectivo contado**.
-- [ ] **F05-T05.** Reintegros, anulaciones y correcciones de medio de pago reflejados correctamente en caja.
-- [ ] **F05-T06.** Tests: apertura, cobro mixto, egreso, devolución en efectivo, diferencia y cierre duplicado.
+- [x] **F05-T01.** Apertura, fondo inicial y sesión de caja vinculada al usuario; una sola sesión abierta, apertura auditada y sin movimiento ficticio de apertura (V11).
+- [x] **F05-T02.** Cobros de ventas dentro de la transacción de venta; ingresos/egresos manuales clasificados y justificados; retiro de Dueña separado de gasto y restringido por permiso.
+- [x] **F05-T03.** Arqueo ciego: primero se ingresa el efectivo contado, luego se revela esperado/diferencia; cierre inmutable con responsables y observación obligatoria si hay diferencia. El valor se recalcula bajo transacción para evitar cierre sobre saldo desactualizado.
+- [x] **F05-T04.** Desglose de efectivo, transferencia, débito, crédito y billetera para conciliación; solo efectivo integra el efectivo esperado/contado.
+- [x] **F05-T05.** Anulación total compensatoria en la sesión abierta actual y corrección de medio mediante movimientos compensatorios, preservando venta, pago original y sesiones cerradas.
+- [x] **F05-T06.** Tests automatizados para apertura, pagos simples/mixtos, movimientos manuales, permisos, fallos atómicos, anulaciones, correcciones, arqueo/diferencias, cierre, concurrencia y migración V10→V11.
 
-**Aceptación:** caja esperada se reconcilia con movimientos; el cierre no modifica ni reescribe ventas; existe rastro de quién abrió/cerró.
+**Aceptación:** caja esperada se reconcilia con movimientos; el cierre no modifica ni reescribe ventas; existe rastro de quién abrió/cerró. Verificado mediante suite automatizada y migración temporal V10→V11 con preservación de venta/pago e integridad SQLite. **Pendiente de revisión visual manual de las capturas 90–100**; no se presentan como capturadas.
+
+**Registro F05 (2026-10-03):** migración aditiva V11, casos de uso, repositorio, permisos, navegación e interfaz implementados en `feat/f05-caja`. `dotnet build` Debug: 0 advertencias/0 errores; suite completa: 356/356; tests F05: 25/25; pruebas de migración/respaldos: 26/26; `git diff --check`: sin errores. Capturas visuales reales 90–100 quedan pendientes de una sesión interactiva autenticada; no se alteró ninguna base histórica ni se generaron capturas sintéticas.
+
+**Estado F05:** implementación técnica completa y validación automatizada completa; validación visual/manual WPF (capturas 90–100) pendiente; validación en la PC real pendiente; **producción NO habilitada**.
 
 ### F06 — Cambios, devoluciones y reglas comerciales flexibles
 
 **Objetivo:** una operación genérica para devolver N artículos y entregar M artículos, en lugar de programar cada combinación por separado.
 
-- [ ] **F06-T01.** Recuperar venta original y unidades todavía disponibles para devolución; evitar devolver la misma unidad dos veces.
-- [ ] **F06-T02.** Registrar múltiples artículos de entrada y salida, reconocer importes originalmente pagados y calcular diferencias.
-- [ ] **F06-T03.** Diferencia positiva → cobrar; negativa → permitir agregar artículos o reintegrar resto. El reintegro habitual es efectivo; otro medio requiere decisión/autorización de dueña.
-- [ ] **F06-T04.** Clasificar prendas devueltas aptas/no aptas; solo aptas ingresan a stock vendible.
-- [ ] **F06-T05.** Promoción específica de dos artículos: mostrar vínculo y advertir devolución parcial voluntaria; permitir cambio de talle que conserva condiciones; excepción comercial explícita/auditada, sin bloquear derechos legales.
-- [ ] **F06-T06.** Fechas y plazo visibles, **sin bloqueo rígido por vencimiento**; ajustes comerciales explícitos con permisos a definir.
-- [ ] **F06-T07.** Reintegros en caja, reversos fiscales externos según procedimiento D-01 y auditoría. Probar cambios sin diferencia, con diferencia en ambos sentidos, devolución completa, parcial e intento duplicado.
+- [x] **F06-T01.** Recuperar venta original y unidades todavía disponibles para devolución; evitar devolver la misma unidad dos veces. Validación Application dentro de `BEGIN IMMEDIATE` y trigger acumulado en SQLite.
+- [x] **F06-T02.** Registrar múltiples artículos de entrada y salida, reconocer importes originalmente pagados y calcular diferencias mediante una única operación genérica N/M.
+- [x] **F06-T03.** Diferencia positiva → cobrar; negativa → reintegrar el remanente. Reintegro efectivo habitual; medio no efectivo con autorización puntual presencial de Dueña.
+- [x] **F06-T04.** Clasificar prendas devueltas aptas/no aptas; aptas vuelven a Disponible; no aptas aumentan Físico y Apartado con motivo obligatorio.
+- [!] **F06-T05.** Promoción específica de dos artículos: **BLOQUEADA por D-05**; F04 no registra ni permite reconstruir una promoción real. No inferir ni implementar reglas promocionales.
+- [x] **F06-T06.** Mostrar fecha/antigüedad informativa sin inventar un plazo aprobado ni bloquear por vencimiento; no se muestran estados «vencido/fuera de término».
+- [x] **F06-T07.** Liquidaciones locales en caja y auditoría; cambios C-* inmutables. Reversos fiscales externos no implementados: siguen sujetos a D-01 antes de producción.
 
-**Aceptación:** stock, importes, caja e historial quedan consistentes en todas las combinaciones probadas; no se edita el precio de la venta original; las excepciones no borran el historial.
+**Aceptación técnica del núcleo local:** stock, importes, caja e historial se confirman en una transacción; precio original se conserva; fallos/no idempotencia no producen parciales; ticket C-* interno/no fiscal reimprimible sin mutación; anulación F04 se rechaza tras cualquier cambio. F06-T05 sigue bloqueada por D-05. Capturas WPF 101–110 y validación en PC real siguen pendientes; D-01 impide habilitar producción por el aspecto fiscal externo.
 
-### F07 — Clientes y cuentas corrientes (activación condicionada)
+**Registro F06 (2026-10-03):** V12 aditiva; casos de uso, repositorios, autorización efectiva dentro de transacción, caja/stock/auditoría, búsqueda, histórico/ticket y UI implementados y publicados en `7b0dd5e231ce4f8038a165fc82f50684f8f54ed2` desde `feat/f06-cambios-devoluciones`. `dotnet build` Debug: 0 advertencias/0 errores; suite focalizada de Cambios: 15/15; suite completa: 369/369. Capturas WPF 101–110 pendientes porque la automatización no expone ventanas (`apps: []`); ver D-39.
 
-**Objetivo:** clientes y, **solo después de validar D-02 y D-03**, fiados y pagos de deuda.
+### F07 — Clientes y cuentas corrientes
 
-- [ ] **F07-T01.** Cliente opcional para venta común; ficha mínima y consulta de historial cuando corresponda.
-- [ ] **F07-T02.** Definir con dueña política de fiado, autorizaciones, límites, vencimientos y tratamiento de ajustes: registrar decisión antes de programar activación.
-- [ ] **F07-T03.** Modelo de cuenta corriente con cargos, abonos, ajustes auditados y saldo derivado, sin sobreescrituras arbitrarias.
-- [ ] **F07-T04.** Venta fiada total/parcial: registrar venta y stock; solo el importe recibido afecta cobros/caja; registrar deuda por el resto.
-- [ ] **F07-T05.** Abonos por distintos medios, recibo y consulta de saldos; abono no crea segunda venta.
-- [ ] **F07-T06.** Tests: pago parcial, abono excesivo según política, anulación, devolución de venta fiada, saldo y permisos.
+**Objetivo:** clientes y cuenta corriente local bajo la política específica D-41; la autorización sigue sujeta a la matriz efectiva y al deny-by-default.
 
-**Aceptación:** saldo explicable desde movimientos, caja no incluye saldos impagos, permisos de fiado validados. Si la política no se confirma, entregar clientes sin habilitar fiados y marcar F07 parcial.
+- [x] **F07-T01.** Cliente opcional para venta común; ficha mínima y consulta de historial. V13 aditiva; alta/edición/desactivación, búsqueda paginada por nombre/teléfono, permisos, asociación opcional POS con snapshot histórico y consulta de T-*/C-* vinculados. Ver D-40. Pruebas técnicas aprobadas; capturas/revisión visual WPF 111–118 pendientes (`apps: []`), no bloquean el cierre técnico.
+- [x] **F07-T02.** Política específica de cuenta corriente aprobada y registrada en D-41; el vencimiento es informativo, el límite es opcional por cliente y las decisiones de abono/devolución quedan explícitas.
+- [x] **F07-T03.** Modelo V14 aditivo con cargos, abonos, ajustes auditados, aplicaciones FIFO y saldo derivado de movimientos inmutables; sin migrar ventas históricas a deuda.
+- [x] **F07-T04.** Venta fiada total/parcial con cliente activo y permiso efectivo; solo pagos recibidos afectan caja, el saldo impago se registra como cargo y se valida el límite dentro de la operación.
+- [x] **F07-T05.** Abonos combinables por medio, aplicación exacta FIFO, recibo histórico y consulta; no se admite exceder la deuda ni se crea otra venta.
+- [x] **F07-T06.** Pruebas automatizadas para venta parcial/fiada, límite y permisos, abonos, ajustes, devolución, anulación, migración e invariantes de caja/deuda. Ver D-41 y `docs/PRUEBAS_MANUALES.md`.
+
+**Aceptación técnica:** saldo explicable desde movimientos inmutables, caja no incluye saldos impagos, permisos efectivos validados en Application, operaciones atómicas e históricas. Build y suite completos registrados en el avance F07. La validación visual WPF sigue pendiente; F07 no habilita producción.
+
+**Límite vigente:** F07-T01–T06 están implementadas y verificadas técnicamente. Capturas/revisión visual WPF 111–129 pendientes porque la automatización no expone ventanas (`apps: []`). F00-T02 y la PC real siguen pendientes; producción NO habilitada. D-03 conserva pendientes generales fuera de las autorizaciones específicas aprobadas en D-41.
 
 ### F08 — Respaldos remotos y recuperación (obligatorio antes de producción)
 
 **Objetivo:** automatizar la protección de datos del negocio.
 
-- [ ] **F08-T01.** Fijar retención, cifrado, recuperación de clave, carpeta local y comportamiento con POS cerrado con la dueña/desarrollador (D-09).
-- [ ] **F08-T02.** Programar respaldo consistente SQLite **cada 2 h y al cerrar caja**, separado del archivo en uso, verificando integridad.
-- [ ] **F08-T03.** Comprimir/cifrar, versionar y conservar localmente; cola para subidas pendientes.
-- [ ] **F08-T04.** Autenticación Google Drive adecuada para app de escritorio, permisos mínimos, tokens protegidos; subida y confirmación remota.
-- [ ] **F08-T05.** Reintentos tras desconexión, límites razonables, estado último local/remoto y alertas de error sin bloquear el POS.
-- [ ] **F08-T06.** Asistente/procedimiento de restauración probado de punta a punta en equipo de prueba; impedir sobrescribir datos actuales sin respaldo y confirmación.
-- [ ] **F08-T07.** Pruebas: respaldo durante ventas, sin internet, apagado/arranque, corrupción de copia, credenciales caducadas, restauración con migraciones.
+- [x] **F08-T01.** Política aprobada y registrada en D-42: retención, secreto/código de recuperación, ruta, cifrado, operación offline, POS/caja no bloqueados y restauración solo con caja cerrada.
+- [x] **F08-T02.** Coordinador con worker único; snapshots consistentes mediante `IServicioRespaldos`/`ServicioRespaldos`, programados por ventanas fijas de 2 h, catch-up al arranque y solicitud durable posterior al cierre confirmado. La salida de app espera hasta 5 s y temporales se reconcilian al iniciar.
+- [x] **F08-T03.** Paquete versionado `.libackup`, GZip streaming, libsodium SecretStream autenticado, metadata protegida, publicación/sidecar atómicos, verificación y retención local de 7 días con protección de pendientes/última copia.
+- [>] **F08-T04.** OAuth Desktop/PKCE, loopback, scope `drive.file`, carpeta/IDs, tokens DPAPI, subida idempotente y confirmación implementados. Pendientes Cloud Client ID/proyecto, OAuth real, acceso Drive real y reautorización manual; no probados por falta de credenciales.
+- [x] **F08-T05.** Backoff acotado y retry con ID reservado estable, estados locales/remotos, retención remota idempotente y UI de atención sin condicionar ventas/caja; tests fake cubren timeout, retry, duplicado y fallo de listado. Validación visual WPF y remota real pendientes.
+- [>] **F08-T06.** Restauración local y desde Drive implementada: permiso/reautenticación Dueña, código, caja cerrada, staging validado, backup previo, confirmación y helper de reemplazo/rollback. Pruebas automatizadas verifican rechazo con caja abierta, preservación de la base activa ante staging/clave/formato inválidos, reemplazo correcto y rollback ante fallas antes/durante el intercambio. Pendientes recorrido manual completo, PC nueva y Drive real; no se declara verificada punta a punta.
+- [x] **F08-T07.** Pruebas automáticas de paquete/chunks/tamper/key/truncamiento, checksum, protección secreta abstraída, sidecar/reinicio, retry/ID, retención local/remota, lock entre instancias, scheduler/catch-up/no solapamiento/encolado y cierre durable/idempotente. Incluye snapshot durante escritura WAL y E2E aislado de venta/pago/caja/cliente/cuenta/C-* con restauración a otra base y verificación de integridad/relaciones.
 
-**Aceptación:** se restaura una venta, su pago y sus movimientos desde Drive en prueba controlada; hay historial de versiones; una falla de red no interrumpe cobro; el indicador distingue «local», «pendiente» y «remoto confirmado».
+**Evidencia técnica (2026-10-05):** rama `feat/f08-backup-recovery`, HEAD/base `dc8d55c9753f3592a10221581a4ad91aafea3239`; restore Release `win-x64` correcto; build Debug 0 advertencias/0 errores; tests focalizados de respaldos 38/38; suite completa detallada 409/409 (4,3977 min); publicación Release self-contained `win-x64` correcta en `artifacts/publish/net10-f08-win-x64` (409 archivos, 151.021.404 bytes; sin DB, backups, secretos, temporales ni símbolos PDB). `libsodium.dll` se cargó desde la publicación. El ejecutable publicado se inició directamente, obtuvo handle de ventana y cerró normalmente; no se inspeccionó visualmente ni se probaron flujos WPF manuales. Los tests usan bases temporales. No se alteraron bases del usuario.
+
+**Aceptación global aún pendiente:** no hay credenciales/proyecto OAuth, por lo que Drive real no se validó; tampoco se comprobó manualmente la restauración completa en otra PC. Validación visual WPF/manual, PC real, recuperación en hardware destino y configuración OAuth/Drive continúan pendientes. F08-T04 y F08-T06 siguen parciales por esas dependencias externas/manuales. No hay aprobación de producción.
 
 ### F09 — Reportes básicos y operación cotidiana
 
 **Objetivo:** información útil que no contradiga ventas ni caja.
 
-- [ ] **F09-T01.** Ventas diarias/mensuales y filtro de fechas; separar ventas brutas/netas y cobros.
-- [ ] **F09-T02.** Desglose por medio de pago, efectivo teórico e historial de caja.
-- [ ] **F09-T03.** Stock actual, unidades más vendidas y artículos sin movimiento con fecha de ingreso/temporada cuando existan esos datos.
-- [ ] **F09-T04.** Margen bruto **solo si se aprobó D-07** y con fórmula explicada; nunca etiquetar como ganancia neta.
-- [ ] **F09-T05.** Medición de rendimiento en catálogo representativo y ajustes de índices/consultas.
+- [x] **F09-T01.** Ventas diarias/mensuales y filtro de fechas; separar ventas brutas/netas y cobros. Semántica por fecha del evento (D-43): brutas = líneas de confirmadas creadas en el período; ajustes = anulaciones + entradas − salidas F06 ocurridos en el período; netas = brutas + ajustes. Hoy/Este mes/Personalizado, resumen por día con drill a detalle, detalle con filas venta/anulación/cambio. Ver D-43.
+- [x] **F09-T02.** Desglose por medio de pago (ventas/abonos/cambios/reintegros/neto por medio vigente con corrección aplicada), efectivo teórico reutilizando el libro F05 (sin caja paralela) e historial de caja con filtro de fechas (nuevo `ListarSesionesPorFechaAsync`; detalle con consulta F05 existente).
+- [x] **F09-T03.** Stock actual en vivo (Disponible/Apartado/Físico, filtros texto/categoría/cero/hasta N), unidades más vendidas netas por evento (columnas brutas/devueltas/salidas/netas, variante o producto), sin-ventas con N editable (nunca vendidos vs sin ventas recientes + última venta/recepción/movimiento). Sin temporada (no existe en el esquema) ni stock mínimo comercial.
+- [>] **F09-T04.** BLOQUEADA por D-07: sin margen, costo de venta, ganancia ni rentabilidad en UI ni consultas. Permiso `reportes.costos` reservado sin pantalla.
+- [x] **F09-T05.** Fixture temporal representativa (300 productos, 1200 variantes, 5000 ventas, 15000 líneas, pagos, ~200 operaciones y 300 movimientos de caja, 300 cambios, 50 clientes/abonos): todo ≤ 33 ms salvo `SinVentasAsync` (22 s → 33 ms) que justificó V15 (`ix_venta_linea_variante`, solo índices). Evidencia en `docs/RENDIMIENTO_REPORTES.md`.
 
-**Aceptación:** reportes cuadran con ventas/pagos de pruebas, devoluciones no se cuentan dos veces, consultas frecuentes son ágiles.
+**Aceptación:** reportes cuadran con ventas/pagos de pruebas, devoluciones no se cuentan dos veces, consultas frecuentes son ágiles. F09 no se declara completamente cerrada (T04 bloqueada por D-07).
 
 ### F10 — Instalación, actualización y entrega
 
 **Objetivo:** que el familiar pueda usarlo sin depender de un entorno de desarrollo.
 
-- [ ] **F10-T01.** Empaquetado e instalador Windows; datos almacenados fuera del directorio de instalación; acceso directo y desinstalación segura.
-- [ ] **F10-T02.** Canal de publicación y actualización automática segura; descargar con internet e instalar cuando no haya venta/cambio/cierre abierto.
-- [ ] **F10-T03.** Backup previo a migraciones; pruebas de actualización, interrupción de energía simulada y procedimiento de recuperación.
-- [ ] **F10-T04.** Probar con la PC del local: inicio, búsqueda, venta, impresión, cierre y backup; registrar RAM, tiempos y bloqueos reales.
-- [ ] **F10-T05.** Validar facturación/procedimiento con dueña y contador, permisos, precios, datos iniciales y condiciones comerciales antes de uso real.
-- [ ] **F10-T06.** Documentar guía de uso breve, recuperación, contacto de soporte y procedimiento manual si la PC falla.
+- [>] **F10-T01.** Empaquetado e instalador Windows; datos almacenados fuera del directorio de instalación; acceso directo y desinstalación segura. Script/ISS de preproducción compilan con Inno Setup 6.7.3; se generaron publicación e instalador `0.9.0` self-contained `win-x64`. Aún faltan pruebas aisladas de instalación limpia, actualización encima y desinstalación con conservación de datos.
+- [>] **F10-T02.** Canal de publicación y actualización automática segura; descargar con internet e instalar cuando no haya venta/cambio/cierre abierto. Protocolo Ed25519, firma canónica, verificación, descarga automática, rehidratación y autorización/puerta implementados; falta configurar canal GitHub y clave pública/privada productivas y probar un release real.
+- [>] **F10-T03.** Backup previo a migraciones; pruebas de actualización, interrupción de energía simulada y procedimiento de recuperación. Arranque usa migrador V1–V15 con backup verificado obligatorio para bases con datos; integración temporal cubre base nueva, migración con backup, fallo de backup y esquema desconocido. Pendientes simulación de corte/reinicio de proceso durante migración/instalación y procedimiento probado de recuperación del instalador; no hay rollback automático.
+- [>] **F10-T04.** Probar con la PC del local: inicio, búsqueda, venta, impresión, cierre y backup; registrar RAM, tiempos y bloqueos reales. No ejecutado: PC/Windows/arquitectura/hardware del local no están disponibles. Usar `docs/CHECKLIST_PC_REAL.md`; no se inventan mediciones.
+- [>] **F10-T05.** Validar facturación/procedimiento con dueña y contador, permisos, precios, datos iniciales y condiciones comerciales antes de uso real. Permiso técnico de instalación definido; fiscalidad, D-01/D-03 y confirmación Dueña/contador pendientes. Producción no habilitada.
+- [x] **F10-T06.** Documentar guía de uso breve, recuperación, contacto de soporte y procedimiento manual si la PC falla. Se agregaron guía, checklist PC, protocolo de actualizaciones y piloto aún no ejecutado; soporte se canaliza por quien administra el proyecto, sin inventar contacto externo.
+
+**Estado F10 (2026-10-07):** implementación de preproducción trasladada sobre F11 `9b59094375a2b0fdc6f273a3c770377095311a1a`; schema permanece V15. `dotnet restore` serial y build Debug estándar completaron con concurrencia limitada (`--maxcpucount:1 /nodeReuse:false`); build estándar: 0 errores y advertencias NU1900 porque NuGet no pudo consultar el índice remoto de vulnerabilidades en `api.nuget.org`. Build final `--no-restore` tras la revisión del diff: 0 errores y 8 advertencias (3 NU1900 del feed y 5 nullable/xUnit preexistentes en tests de reportes). Suite completa detallada: 476/476 en 4,7494 min; pruebas focalizadas F10: 15/15; subconjuntos de F11 (barcode/lotes y POS): 39/39. Se regeneraron publicación Release self-contained `win-x64` e instalador Inno Setup 6.7.3 después de actualizar exclusiones de archivos privados. Publicación: 410 archivos/151.798.645 bytes; escaneo: 0 archivos prohibidos; SQLite, ZXing y libsodium presentes. Instalador generado: 48.148.989 bytes. El ejecutable publicado tuvo una prueba de proceso aislada con `--dev-db` y DB temporal, pero no inspección visual ni validación de flujos WPF. No se ejecutaron instalación limpia, upgrade ni desinstalación para evitar modificar el perfil habitual; requieren entorno aislado. F10 sigue en curso: F10-T01/T02/T03/T04/T05 parciales, T06 documentada; faltan pruebas de instalador/recovery, canal/clave/release firmados reales, PC local, validación Dueña/contador y decisiones D-01/D-03. F00-T02 y D-13 siguen pendientes; F08 OAuth/Drive/restore reales, PC/impresora/lector y aprobación de producción también. Producción NO habilitada. Evidencia completa en `docs/PRUEBAS_MANUALES.md`, `docs/DECISIONES.md` D-45–D-47 y documentación F10.
 
 **Aceptación:** instalación limpia, upgrade sin pérdida de datos, respaldo/restauración comprobados, procedimiento fiscal acordado y una jornada de prueba sin inconsistencias graves. Solo entonces habilitar producción.
 
-### F11 — Funcionalidades posteriores, NO empezar sin validar necesidad
+### F11 — Identificación física por variante
 
-- [ ] Reservas y señas con stock disponible vs. reservado y política de cancelación.
-- [ ] Códigos de barras/lector, etiquetas e impresora específica cuando se adquiera hardware.
-- [ ] Promociones adicionales, fidelización con tratamiento adecuado de datos, reportes avanzados y cualquier otro requerimiento surgido del uso real.
+- [x] **F11-A.** Crear variantes en lote desde un producto existente mediante matriz talle/color; cubrir combinaciones parciales y ausencia de atributos, normalización central, duplicados, vista previa de códigos, secuencia compartida, auditoría y transacción atómica. El lote no fija precio ni modifica stock.
+- [x] **F11-B.** Generar Code128 a partir exclusivamente del código interno de variante existente. Dependencia técnica en Infrastructure; sin columna/código alternativo ni serial individual.
+- [x] **F11-C.** Componer etiquetas vectoriales con producto, talle/color cuando existan, barras, código legible y precio vigente opcional. Medidas editables de desarrollo en milímetros; la matriz de impresión no se persiste.
+- [x] **F11-D.** Vista previa `FixedDocument`, distribución multi-etiqueta y paginación A4; diálogo genérico de impresión Windows solo tras acción explícita. Cancelar/no poder imprimir no altera stock ni operación confirmada. Accesos opcionales tras recepción/carga inicial y reimpresión desde ficha.
+- [x] **F11-E.** Resolver Enter del POS primero por código exacto, sin esperar debounce; agregar/incrementar la misma fila con precio vigente y Disponible, devolver foco y mostrar mensajes operativos para inexistente/sin precio/sin stock. Lector HID/teclado no es obligatorio.
+- [>] **F11-F.** Validación física pendiente: lector e impresora del local, calibración, tamaño y legibilidad. Hardware/Windows real aún no confirmado; no se simula ni se considera requisito para estas pruebas técnicas.
+- [ ] Funcionalidades posteriores no autorizadas por esta entrega: reservas/señas, promociones adicionales, fidelización y reportes nuevos.
+
+**Estado:** F11-A–E implementadas y verificadas técnicamente en rama aislada `feat/f11-etiquetas-codigos-batch`; F11-F permanece pendiente. F11 no se declara cerrada ni habilita producción. No se agrega migración a V1–V15 ni se modifica F10. Ver D-44 y `docs/PRUEBAS_MANUALES.md`.
+
+### F12 — Integración Mercado Pago (implementada técnicamente; Point real pendiente)
+
+- [x] **F12-T01.** Configuración segura + terminales: credencial propia en DPAPI CurrentUser (`Secrets/mercadopago_token.bin`), descubrimiento dinámico por `operating_mode` (sin modelos hardcodeados), selección persistida, activación PDV solo explícita de Dueña. Permiso `mercadopago.configurar` solo Dueña.
+- [x] **F12-T02.** Cobro Point + POS: medio `mercado_pago` (no manual directo), pagos combinados sin fiado, saga con order `point`, polling cancelable, estados visibles.
+- [x] **F12-T03.** Persistencia/reconciliación: V16 (`mercado-pago-point-f12`) con snapshot durable previo al POST, idempotency key persistida, timeout ≠ rechazo, reconciliación al arrancar.
+- [x] **F12-T04.** Caja/reportes: medio no efectivo, cierre bloqueado con pendientes, desglose F09 sin métricas inventadas.
+- [x] **F12-T05.** Cancelación/reembolsos/F06: cancel pre-processed propia, refund total/parcial durable con misma key, cobertura F06 sin refunds automáticos, anulación redirige a devolución.
+- [x] **F12-T06.** Tests (49/49 focalizados, suite 525/525) y documentación (`docs/MERCADO_PAGO.md`, D-48, manuales).
+- [>] **F12-T07.** Point/cuenta real: credencial, terminal física PDV, live tests con `LOCALINFANTIL_MP_TEST_ACCESS_TOKEN`, recorrido con dinero de prueba, PC del local.
+
+**Estado:** F12-T01–T06 implementadas y verificadas técnicamente en rama aislada `feat/f12-mercado-pago`; F12-T07 permanece pendiente. F12 global parcial hasta validación real. No se agrega SDK de Mercado Pago. Producción NO habilitada. Ver D-48 y `docs/MERCADO_PAGO.md`.
+
+### F12-B — Ampliación de Point (modos y cobro manual) y conciliación de liquidaciones
+
+> **Etapa A implementada** (modos + cobro manual + V17 acotada). **Etapa de conciliación implementada** (V18 + **V19** aditivas: importación CSV, liquidaciones y vínculos de conciliación; parser puro, dedup por identidad de fila/operación, conciliación automática/asistida y sección en Configuración → Mercado Pago). **V19** corrige el defecto de integridad de `fila_hash UNIQUE` (que descartaba movimientos legítimos idénticos). No se agrega SDK de Mercado Pago. Ver D-49/D-50 y la especificación `docs/LIQUIDACIONES_MERCADO_PAGO.md`.
+
+- [x] **F12-B01.** Modo operativo local (`integrado` | `manual` | `desactivado`) en config no secreta; default seguro `desactivado`; bloqueo de cambio de modo con operaciones no terminales; gating de POS. *(implementado: `ModosPoint`, `ConfigurarMercadoPago.CambiarModoAsync`, gating en `PosViewModel`)*
+- [x] **F12-B02.** Cobro Point **manual** seguro: venta + pago `mercado_pago` + declaración `pendiente_conciliacion`, importe bruto, dedup con confirmación humana (sin excluir conciliados) y comprobante único. *(implementado: `RegistrarCobroManualPoint` + `ConfirmarVenta.EjecutarConRegistroPagoMercadoPagoAsync`; reverso vía anulación de venta existente, no refund remoto)*
+- [ ] **F12-B03.** Metadata de cobro: persistir `payment_id`, comprobante, terminal/pos, snapshot no sensible de cuotas/tarjeta. *(parcial: comprobante/terminal/pos/importe; `payment_id`/cuotas/tarjeta pendientes por F12-T07)*
+- [x] **F12-B04.** Importación CSV oficial (dinero liberado): validación, dedup, clasificación por `RECORD_TYPE`/`DESCRIPTION`, errores por fila. *(implementado: `LectorReporteLiquidacionMp` + `PrevisualizarImportacionLiquidacionMp` + `ImportarLiquidacionMp`; V18 `mercado_pago_importacion`/`liquidacion`; fixtures ficticios, pendiente validar CSV real)*
+- [x] **F12-B05.** Conciliación: automática en integrado por `LI-<operacionId>`/order; asistida y con confirmación humana en manual; importe/fecha solo como ayuda. *(implementado: `ConciliarLiquidacionMp` automática por identidad remota y asistida por confirmación humana; devolución/contracargo sin reembolso local → `requiere_intervencion`)*
+- [x] **F12-B06.** Esquema V17 aditivo: `mercado_pago_cobro_manual` (+ triggers inmutables). V16 intacta. V18 aditiva: `mercado_pago_importacion`/`liquidacion`/`conciliacion`. **V19** aditiva: corrige la identidad de fila (`fila_ordinal` + `identidad_remota`; `fila_hash` deja de ser UNIQUE). *(implementado)*
+- [x] **F12-B07.** UX: selector de modalidad en Configuración → Mercado Pago; POS con acciones integrado/manual y panel de cobro manual; sección de Conciliación (importar/previsualizar/conciliar asistida). *(implementado)*
+- [ ] **F12-B08.** Descarga automatizada del reporte por API (`/v1/account/release_report*`). *(diseñado; condicionado al alcance del token/cuenta)*
+- [~] **F12-B09.** Pruebas de aceptación: cubiertos los escenarios de modos/cobro manual/V17 y conciliación (parser, importación idempotente, conciliación automática/asistida, V18/V19, deduplicación de filas idénticas y superpuestas). *(resto de los fixtures de la especificación §17 pendiente de validación con CSV real)*
+
+**Estado:** Etapa A implementada en rama `feat/f12-mercado-pago` (V17 + modos + cobro manual + gating de POS); conciliación CSV implementada con V18/V19. La descarga automática de reportes por API permanece pendiente. Falta validar el circuito y la deduplicación con CSV real y confirmar con la Dueña modalidad y comprobante. F12-T07 sigue pendiente para validar Point y su metadata real (payment_id/cuotas/tarjeta).
 
 ---
 
@@ -293,6 +339,7 @@ El árbol concreto de carpetas, dependencias y responsabilidades está en **`EST
 | E3 | F06–F07 | Cambios y clientes/cuentas corrientes si se aprueban reglas | No, hasta validación final |
 | E4 | F08–F10 | Drive, restauración, reportes, actualizaciones, validación PC real | Sí, solo después del checklist de salida |
 | E5 | F11 | Ampliaciones validadas por uso real | Según cada entrega |
+| E6 | F12 | Integración Mercado Pago (roadmap; no iniciada) | No, hasta validar API, dispositivo y procedimiento operativo |
 
 **No es una estimación de fechas ni horas.** Si alguna tarea resulta demasiado grande, descomponerla conservando sus criterios de aceptación.
 
@@ -378,5 +425,13 @@ Al terminar, ejecutá los comandos de compilación disponibles en el entorno e i
 
 | 2026-09-21 | Administración Dueña | Terminado en `feat/owner-users-individual-permissions` (merge 3109eeb); F00-T02 bloqueada, F00-T06 en curso | V6 + permisos individuales con denegación explícita + régimen Dueña (D-27, reemplaza D-21); restore/build 0/0 y 132/132 pruebas en temporales; V1-V5 intactas; base provisional intacta | Recuperación de Dueña, inactividad, resto D-03, PC real |
 | 2026-09-21 | F03-T05 + Reversión | Integrado en `main` `8eae690`; F00-T02 bloqueada, F00-T06 en curso; F03-T04 sigue parcial por dañado | Conteo parcial, foto vieja, doble aprobación, reversión multilínea/duplicada/stock insuficiente + V6→V7 con respaldo y fallo atómico; restore/build 0/0 y 144/144 pruebas (12 del bloque + 132 previas); V1-V6 intactas hasta V7; base provisional intacta | Pantalla WPF conteo, F03-T04 dañado, D-07/D-09/PC real, recuperación Dueña |
+| 2026-09-26 | Rediseño UI WPF (etapa aprobada y cerrada) | Terminado y validado en `feat/wpf-ui-redesign-phase1`; F04 no iniciado | `LoginWindow` separada + shells por módulos + master/detail (Catálogo, Proveedores, Usuarios, Consultas) + `FichaProductoWindow`/`DetalleRecepcionWindow` + Conteo por pasos 1-4 + Inicio con datos reales (`ConsultasInicio`/`RepositorioInicio`); `dotnet build` Debug 0 advertencias 0 errores; 263/263 pruebas; `git diff --check` limpio; mínima 980×620 validada (`DevMainWindow` 1200×750, `MinWidth=980 MinHeight=620`, captura 64); sin `.db`/capturas/binarios en el árbol; ver D-34 | `docs/ui-reference/` queda fuera del commit (material de trabajo, 4 archivos); `ContentStringFormat` propagado en los 5 templates de `Button` (fix puntual de cierre); F00-T02 sigue bloqueada y F00-T06 sigue en curso |
+| 2026-09-29 | F00-T02/F00-T06 (criterio de planificación) | Pendientes de hardware definitivo; dejan de bloquear DESARROLLO | Decisión de la persona usuaria (ver D-36): F00-T02 y F00-T06 permanecen pendientes, no se marcan completadas; no bloquean el desarrollo de F04 ni fases posteriores (entorno actual + DB ficticias); pasan a bloquear instalación definitiva, puesta en producción y entrega al local | Validación obligatoria en PC definitiva antes de producción: Windows/arquitectura, publicación, arranque, persistencia, permisos de archivos, DPI/resolución, rendimiento, impresora cuando corresponda, funcionamiento interactivo general |
+| 2026-10-03 | F06 core | Núcleo implementado y publicado en `7b0dd5e231ce4f8038a165fc82f50684f8f54ed2`; T01–T04/T06/T07 completadas técnicamente; T05 bloqueada por D-05 | V12 aditiva; build Debug 0 advertencias/0 errores; suite focalizada 15/15; suite completa 369/369; ver D-39 | Capturas WPF 101–110 pendientes (`apps: []`); D-01 procedimiento fiscal externo y validación PC real pendientes; no producción |
+| 2026-10-04 | F07-T01 | Implementada y validada técnicamente en `feat/f07-clientes-cuenta-corriente`; F07 seguía parcial en ese corte | V13 aditiva; clientes/CRUD lógico, permisos efectivos, consulta paginada, asociación POS opcional, snapshot histórico en consulta/ticket y ventas/cambios en historial; build Debug 0 advertencias/0 errores; F07-T01 5/5; suite 374/374; `git diff --check` limpio | WPF manual/capturas 111–118 pendientes (`apps: []`); F00-T02 y PC real pendientes |
+| 2026-10-04 | F07-T02–T06 | Implementadas y validadas técnicamente; sin commit/push | Política D-02 aprobada (D-41); V14 aditiva y migración V13→V14 con respaldo probado; fiado parcial/total, ledger, abonos FIFO y por medio, ajustes, recibo, integración de caja/F06/anulación, permisos; build Debug 0/0; tests 386/386 (17/17 focalizados de Clientes/cuenta corriente); `git diff --check` limpio | Capturas/revisión visual manual 119–129 pendientes (`apps: []`); capturas 111–118 de T01 también pendientes; validación PC real/F00-T02 y F00-T06 pendiente; D-01 y producción NO habilitada |
+| 2026-10-06 | F11-A–E | Implementadas y verificadas técnicamente en `feat/f11-etiquetas-codigos-batch`; sin commit/push | `dotnet restore LocalInfantil.sln` correcto; build Debug 0 advertencias/0 errores; suite focalizada 41/41 y suite completa detallada 461/461 (5,3657 min); `git diff --check` limpio. Lote transaccional/idempotente, Code128 round-trip, etiquetas vectoriales A4, impresión Windows y escaneo exacto POS; sin migración V1–V15 ni cambios de stock por imprimir | Validación visual WPF no disponible (`apps: []`); probar manualmente matriz, preview/PDF/cancelación, cargas y POS con `--dev-db`; F11-F lector/impresora/calibración y PC real pendientes; producción NO habilitada |
+| 2026-10-07 | F12-T01–T06 | Implementadas y verificadas técnicamente en `feat/f12-mercado-pago`; sin commit/push | Orders API sin SDK; V16 `mercado-pago-point-f12`; build Debug 0 errores/0 warnings CS; suite 525/525; focalizada F12 49/49; publish Release self-contained win-x64 por pipeline F10 (410 archivos, 145,1 MB) + instalador Inno 48.196.634 bytes; `git diff --check` limpio; saga durable/idempotente, DPAPI, `--dev-db` aislado | F12-T07 Point/cuenta real (credencial, terminal PDV, live tests, dinero de prueba); manual visual con hardware; F00-T02/PC real; producción NO habilitada |
+| 2026-10-17 | F12-B (modos/cobro manual + conciliación) y corrección V19 | Implementado y verificado técnicamente en `feat/f12-mercado-pago`; sin commit/push | Etapa A: modos de Point + cobro manual + V17 acotada (D-49). Conciliación: importación CSV + V18 (D-49). **Corrección de integridad V19 (D-50)**: `fila_hash` deja de ser UNIQUE (huella de contenido), `fila_ordinal` (`UNIQUE(importacion_id, fila_ordinal)`) + `identidad_remota`; dedup entre reportes solo por identidad de operación (no por contenido); ambiguas → `requiere_intervencion`; guard de doble vínculo en conciliación. Build Debug 0 advertencias/0 errores; focalizada MercadoPago 117/117 y suites de versión/migración/respaldo/WPF-arranque 272/272; `git diff --check` limpio; migración V18→V19 con `foreign_key_check`/`integrity_check` y preservación de filas/conciliaciones probadas | CSV real para fijar la clave de dedup definitiva; F12-T07 (Point/cuenta real); descarga por API (F12-B08); F00-T02/PC real; producción NO habilitada |
 
 > Actualizar esta tabla al final de cada iteración. No inventar resultados de compilación, pruebas ni pruebas en hardware real.

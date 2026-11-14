@@ -10,6 +10,7 @@ namespace LocalInfantil.Application.Features.Inventario;
 /// movimientos confirmados; el historial conserva variantes inactivas.
 /// Físico = disponible + apartado; el disponible es vendible (puerta de venta
 /// futura F04) y el apartado es no vendible (dañado/en revisión).
+/// El identificador operativo es el código interno (ex-SKU).
 /// </summary>
 public sealed class ConsultasInventario
 {
@@ -17,6 +18,7 @@ public sealed class ConsultasInventario
     private readonly IRepositorioVariantes _variantes;
     private readonly IRepositorioConteos _conteos;
     private readonly IRepositorioApartados _apartados;
+    private readonly IRepositorioProductos _productos;
     private readonly GestorSesiones _sesiones;
     private readonly IFabricaSesionesPersistencia _fabrica;
 
@@ -25,6 +27,7 @@ public sealed class ConsultasInventario
         IRepositorioVariantes variantes,
         IRepositorioConteos conteos,
         IRepositorioApartados apartados,
+        IRepositorioProductos productos,
         GestorSesiones sesiones,
         IFabricaSesionesPersistencia fabrica)
     {
@@ -32,27 +35,28 @@ public sealed class ConsultasInventario
         _variantes = variantes;
         _conteos = conteos;
         _apartados = apartados;
+        _productos = productos;
         _sesiones = sesiones;
         _fabrica = fabrica;
     }
 
-    public async Task<ExistenciaVariante?> ObtenerExistenciaAsync(string sku, string? idSesion, CancellationToken cancellationToken = default)
+    public async Task<ExistenciaVariante?> ObtenerExistenciaAsync(string codigo, string? idSesion, CancellationToken cancellationToken = default)
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
-        var variante = await _variantes.ObtenerPorSkuAsync(sesion, sku, cancellationToken);
+        var variante = await _variantes.ObtenerPorCodigoInternoAsync(sesion, codigo.Trim(), cancellationToken);
         if (variante is null)
         {
             return null;
         }
 
         var existencias = await _movimientos.SumarPorVarianteAsync(sesion, variante.Id, cancellationToken);
-        return new ExistenciaVariante(variante.Id, variante.Sku, existencias);
+        return new ExistenciaVariante(variante.Id, variante.CodigoInterno, existencias);
     }
 
-    public async Task<IReadOnlyList<MovimientoHistorial>> HistorialPorSkuAsync(string sku, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<MovimientoHistorial>> HistorialPorSkuAsync(string codigo, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
-        var variante = await _variantes.ObtenerPorSkuAsync(sesion, sku, cancellationToken);
+        var variante = await _variantes.ObtenerPorCodigoInternoAsync(sesion, codigo.Trim(), cancellationToken);
         if (variante is null)
         {
             return Array.Empty<MovimientoHistorial>();
@@ -67,10 +71,10 @@ public sealed class ConsultasInventario
         return await _conteos.InformeAsync(sesion, conteoId, cancellationToken);
     }
 
-    public async Task<ExistenciaClasificada?> ObtenerClasificadaAsync(string sku, string? idSesion, CancellationToken cancellationToken = default)
+    public async Task<ExistenciaClasificada?> ObtenerClasificadaAsync(string codigo, string? idSesion, CancellationToken cancellationToken = default)
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
-        var variante = await _variantes.ObtenerPorSkuAsync(sesion, sku, cancellationToken);
+        var variante = await _variantes.ObtenerPorCodigoInternoAsync(sesion, codigo.Trim(), cancellationToken);
         if (variante is null)
         {
             return null;
@@ -78,13 +82,15 @@ public sealed class ConsultasInventario
 
         var fisico = await _movimientos.SumarPorVarianteAsync(sesion, variante.Id, cancellationToken);
         var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, variante.Id, cancellationToken);
-        return new ExistenciaClasificada(variante.Id, variante.Sku, fisico, fisico - apartado, apartado);
+        var producto = await _productos.ObtenerPorIdAsync(sesion, variante.ProductoId, cancellationToken);
+        return new ExistenciaClasificada(variante.Id, variante.CodigoInterno, fisico, fisico - apartado, apartado,
+            producto?.Nombre ?? string.Empty, variante.Talle, variante.Color);
     }
 
-    public async Task<IReadOnlyList<ApartadoHistorial>> HistorialApartadosPorSkuAsync(string sku, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ApartadoHistorial>> HistorialApartadosPorSkuAsync(string codigo, int limite, int desplazamiento, string? idSesion, CancellationToken cancellationToken = default)
     {
         await using var sesion = await SesionValidadaAsync(idSesion, cancellationToken);
-        var variante = await _variantes.ObtenerPorSkuAsync(sesion, sku, cancellationToken);
+        var variante = await _variantes.ObtenerPorCodigoInternoAsync(sesion, codigo.Trim(), cancellationToken);
         if (variante is null)
         {
             return Array.Empty<ApartadoHistorial>();
@@ -108,7 +114,7 @@ public sealed class ConsultasInventario
 
         var fisico = await _movimientos.SumarPorVarianteAsync(sesion, varianteId, cancellationToken);
         var apartado = await _apartados.SumarApartadoPorVarianteAsync(sesion, varianteId, cancellationToken);
-        return new StockVendible(varianteId, variante.Sku, fisico - apartado);
+        return new StockVendible(varianteId, variante.CodigoInterno, fisico - apartado);
     }
 
     private async Task<ISesionPersistencia> SesionValidadaAsync(string? idSesion, CancellationToken cancellationToken)

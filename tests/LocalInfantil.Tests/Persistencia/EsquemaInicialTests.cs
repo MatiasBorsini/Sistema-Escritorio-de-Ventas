@@ -89,8 +89,8 @@ public sealed class EsquemaInicialTests
 
             var varianteHuerfana = CrearComando(
                 conexion,
-                "INSERT INTO variante (id, producto_id, sku, creado_en) VALUES ($id, $producto, $sku, $ahora);",
-                ("$id", NuevoId()), ("$producto", NuevoId()), ("$sku", "SKU-" + NuevoId()), ("$ahora", Ahora()));
+                "INSERT INTO variante (id, producto_id, sku, codigo_interno, creado_en) VALUES ($id, $producto, $sku, $codigo, $ahora);",
+                ("$id", NuevoId()), ("$producto", NuevoId()), ("$sku", "SKU-" + NuevoId()), ("$codigo", "COD-" + NuevoId()), ("$ahora", Ahora()));
             await Assert.ThrowsAsync<SqliteException>(() => varianteHuerfana.ExecuteNonQueryAsync());
         }
         finally
@@ -111,21 +111,39 @@ public sealed class EsquemaInicialTests
             var productoId = NuevoId();
             await CrearComando(
                 conexion,
-                "INSERT INTO producto (id, nombre, creado_en) VALUES ($id, 'Remera', $ahora);",
+                "INSERT INTO producto (id, codigo_interno, nombre, categoria_id, creado_en) VALUES ($id, 'REM-001', 'Remera', 'cat-rem', $ahora);",
                 ("$id", productoId), ("$ahora", Ahora())).ExecuteNonQueryAsync();
 
             const string sku = "REM-UNICO-001";
             await CrearComando(
                 conexion,
-                "INSERT INTO variante (id, producto_id, sku, creado_en) VALUES ($id, $producto, $sku, $ahora);",
-                ("$id", NuevoId()), ("$producto", productoId), ("$sku", sku), ("$ahora", Ahora())).ExecuteNonQueryAsync();
+                "INSERT INTO variante (id, producto_id, sku, codigo_interno, talle, talle_norm, color_norm, creado_en) VALUES ($id, $producto, $sku, $codigo, '6', '6', '', $ahora);",
+                ("$id", NuevoId()), ("$producto", productoId), ("$sku", sku), ("$codigo", "REM-001-01"), ("$ahora", Ahora())).ExecuteNonQueryAsync();
 
+            // Mismo SKU con distinta norma y código: solo viola variante.sku.
             var duplicado = CrearComando(
                 conexion,
-                "INSERT INTO variante (id, producto_id, sku, creado_en) VALUES ($id, $producto, $sku, $ahora);",
-                ("$id", NuevoId()), ("$producto", productoId), ("$sku", sku), ("$ahora", Ahora()));
+                "INSERT INTO variante (id, producto_id, sku, codigo_interno, talle, talle_norm, color_norm, creado_en) VALUES ($id, $producto, $sku, $codigo, '8', '8', '', $ahora);",
+                ("$id", NuevoId()), ("$producto", productoId), ("$sku", sku), ("$codigo", "REM-001-02"), ("$ahora", Ahora()));
             var errorDuplicado = await Assert.ThrowsAsync<SqliteException>(() => duplicado.ExecuteNonQueryAsync());
-            Assert.Contains("UNIQUE", errorDuplicado.Message);
+            Assert.Contains("variante.sku", errorDuplicado.Message);
+
+            // Mismo código con distinto SKU y norma: solo viola el código.
+            var codigoDuplicado = CrearComando(
+                conexion,
+                "INSERT INTO variante (id, producto_id, sku, codigo_interno, talle, talle_norm, color_norm, creado_en) VALUES ($id, $producto, $sku2, $codigo, '4', '4', '', $ahora);",
+                ("$id", NuevoId()), ("$producto", productoId), ("$sku2", "REM-UNICO-002"), ("$codigo", "REM-001-01"), ("$ahora", Ahora()));
+            var errorCodigo = await Assert.ThrowsAsync<SqliteException>(() => codigoDuplicado.ExecuteNonQueryAsync());
+            Assert.Contains("variante.codigo_interno", errorCodigo.Message);
+
+            // Misma norma Talle+Color con distinto texto visible/código:
+            // viola la unicidad lógica aunque el texto difiera en espacios.
+            var talleColorDuplicado = CrearComando(
+                conexion,
+                "INSERT INTO variante (id, producto_id, sku, codigo_interno, talle, talle_norm, color_norm, creado_en) VALUES ($id, $producto, $sku3, $codigo3, ' 6 ', '6', '', $ahora);",
+                ("$id", NuevoId()), ("$producto", productoId), ("$sku3", "REM-UNICO-003"), ("$codigo3", "REM-001-03"), ("$ahora", Ahora()));
+            var errorTalleColor = await Assert.ThrowsAsync<SqliteException>(() => talleColorDuplicado.ExecuteNonQueryAsync());
+            Assert.Contains("talle_norm", errorTalleColor.Message);
 
             var precioNegativo = CrearComando(
                 conexion,
@@ -157,13 +175,13 @@ public sealed class EsquemaInicialTests
             var productoId = NuevoId();
             await CrearComando(
                 conexion,
-                "INSERT INTO producto (id, nombre, creado_en) VALUES ($id, 'Pantalón', $ahora);",
+                "INSERT INTO producto (id, codigo_interno, nombre, categoria_id, creado_en) VALUES ($id, 'PAN-001', 'Pantalón', 'cat-pan', $ahora);",
                 ("$id", productoId), ("$ahora", Ahora())).ExecuteNonQueryAsync();
 
             var varianteId = NuevoId();
             await CrearComando(
                 conexion,
-                "INSERT INTO variante (id, producto_id, sku, talle, creado_en) VALUES ($id, $producto, 'PAN-T4', '4', $ahora);",
+                "INSERT INTO variante (id, producto_id, sku, codigo_interno, talle, creado_en) VALUES ($id, $producto, 'PAN-T4', 'PAN-001-01', '4', $ahora);",
                 ("$id", varianteId), ("$producto", productoId), ("$ahora", Ahora())).ExecuteNonQueryAsync();
 
             await CrearComando(
@@ -526,7 +544,7 @@ public sealed class EsquemaInicialTests
             Assert.Equal(new[] { 1, 2, 3, 4 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV4, null));
             await InsertarRegistrosFicticiosAsync(ruta);
 
-            Assert.Equal(new[] { 5, 6, 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
 
             var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ConsultarIntegridadAsync(archivo));
@@ -541,6 +559,105 @@ public sealed class EsquemaInicialTests
         finally
         {
             Limpiar(directorio);
+        }
+    }
+
+    [Fact]
+    public async Task Migracion_V10_ventas_pos_con_datos_y_sin_duplicados()
+    {
+        var (directorio, ruta) = CrearBaseTemporal();
+        var respaldos = Path.Combine(directorio, "respaldos");
+        try
+        {
+            var catalogoV9 = MigracionesF01.Todas.Where(m => m.Version <= 9).ToList();
+            Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV9, null));
+            await InsertarRegistrosFicticiosV9Async(ruta);
+            await using (var previa = await AbrirConexionAsync(ruta))
+            {
+                await CrearComando(
+                    previa,
+                    "INSERT INTO venta (id, estado, total_minor, creada_en) VALUES ('v-ficticia', 'confirmada', 20000, $ahora);",
+                    ("$ahora", Ahora())).ExecuteNonQueryAsync();
+                // Legado no-efectivo: migra limpio (un efectivo sin recibido
+                // no puede existir en datos reales: la columna nace en V10).
+                await CrearComando(
+                    previa,
+                    "INSERT INTO pago (id, venta_id, medio, importe_minor, creado_en) VALUES ('pago-ficticio', 'v-ficticia', 'debito', 20000, $ahora);",
+                    ("$ahora", Ahora())).ExecuteNonQueryAsync();
+            }
+
+            Assert.Equal(new[] { 10, 11 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas.Take(11).ToArray(), respaldos));
+
+            var archivo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
+            Assert.Equal("ok", await ConsultarIntegridadAsync(archivo));
+            await using var verificacion = await AbrirConexionAsync(ruta);
+            // Backfill: número y operación provisorios, recibido queda NULL.
+            Assert.Equal("MIG-v-fictic", await ConsultarTextoAsync(verificacion, "SELECT numero FROM venta WHERE id = 'v-ficticia';"));
+            Assert.Equal("MIG-v-fictic", await ConsultarTextoAsync(verificacion, "SELECT operacion_id FROM venta WHERE id = 'v-ficticia';"));
+            using var tablas = verificacion.CreateCommand();
+            tablas.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('secuencia_venta', 'reversion_venta');";
+            Assert.Equal(2L, await tablas.ExecuteScalarAsync());
+            using var columnas = verificacion.CreateCommand();
+            columnas.CommandText = "SELECT COUNT(*) FROM pragma_table_info('venta_linea') WHERE name IN ('codigo_interno', 'nombre_producto', 'talle', 'color');";
+            Assert.Equal(4L, await columnas.ExecuteScalarAsync());
+            using var recibido = verificacion.CreateCommand();
+            recibido.CommandText = "SELECT COUNT(*) FROM pragma_table_info('pago') WHERE name = 'recibido_minor';";
+            Assert.Equal(1L, await recibido.ExecuteScalarAsync());
+
+            // Unicidad real: ni número ni operación se repiten.
+            var duplicada = CrearComando(
+                verificacion,
+                "INSERT INTO venta (id, numero, operacion_id, estado, total_minor, creada_en) VALUES ($id, 'T-000001', $op, 'confirmada', 1000, $ahora);",
+                ("$id", NuevoId()), ("$op", NuevoId()), ("$ahora", Ahora()));
+            await duplicada.ExecuteNonQueryAsync();
+            var numeroRepetido = CrearComando(
+                verificacion,
+                "INSERT INTO venta (id, numero, operacion_id, estado, total_minor, creada_en) VALUES ($id, 'T-000001', $op, 'confirmada', 1000, $ahora);",
+                ("$id", NuevoId()), ("$op", NuevoId()), ("$ahora", Ahora()));
+            var errorNumero = await Assert.ThrowsAsync<SqliteException>(() => numeroRepetido.ExecuteNonQueryAsync());
+            Assert.Contains("venta.numero", errorNumero.Message);
+
+            // Efectivo sin recibido o con recibido menor se rechaza.
+            var sinRecibido = CrearComando(
+                verificacion,
+                "INSERT INTO pago (id, venta_id, medio, importe_minor, creado_en) VALUES ($id, 'v-ficticia', 'efectivo', 1000, $ahora);",
+                ("$id", NuevoId()), ("$ahora", Ahora()));
+            await Assert.ThrowsAsync<SqliteException>(() => sinRecibido.ExecuteNonQueryAsync());
+            var recibidoMenor = CrearComando(
+                verificacion,
+                "INSERT INTO pago (id, venta_id, medio, importe_minor, recibido_minor, creado_en) VALUES ($id, 'v-ficticia', 'efectivo', 1000, 900, $ahora);",
+                ("$id", NuevoId()), ("$ahora", Ahora()));
+            await Assert.ThrowsAsync<SqliteException>(() => recibidoMenor.ExecuteNonQueryAsync());
+            var recibidoAjeno = CrearComando(
+                verificacion,
+                "INSERT INTO pago (id, venta_id, medio, importe_minor, recibido_minor, creado_en) VALUES ($id, 'v-ficticia', 'debito', 1000, 1000, $ahora);",
+                ("$id", NuevoId()), ("$ahora", Ahora()));
+            await Assert.ThrowsAsync<SqliteException>(() => recibidoAjeno.ExecuteNonQueryAsync());
+
+            Assert.Empty(await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas.Take(11).ToArray(), respaldos));
+        }
+        finally
+        {
+            Limpiar(directorio);
+        }
+    }
+
+    /// <summary>
+    /// Siembra con forma V9 (códigos, normas y categoría obligatoria): la
+    /// siembra V1 no compila contra el esquema V9 (columnas inexistentes).
+    /// </summary>
+    private static async Task InsertarRegistrosFicticiosV9Async(string ruta)
+    {
+        await using var conexion = await AbrirConexionAsync(ruta);
+        foreach (var sql in new[]
+        {
+            "INSERT INTO producto (id, codigo_interno, nombre, categoria_id, creado_en) VALUES ('p-ficticio', 'REM-FIC', 'Remera Ficticia', 'cat-rem', '2026-09-21T00:00:00Z');",
+            "INSERT INTO variante (id, producto_id, sku, codigo_interno, talle, talle_norm, color_norm, creado_en) VALUES ('v-ficticia', 'p-ficticio', 'REM-FIC-001', 'REM-FIC-001', '6', '6', '', '2026-09-21T00:00:00Z');",
+        })
+        {
+            using var comando = conexion.CreateCommand();
+            comando.CommandText = sql;
+            await comando.ExecuteNonQueryAsync();
         }
     }
 

@@ -14,5 +14,7 @@ public interface IRepositorioPermisos
 
     Task<bool?> ObtenerAsync(ISesionPersistencia sesion, string usuarioId, string permiso, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyDictionary<string, bool>> ObtenerDefinidosAsync(ISesionPersistencia sesion, string usuarioId, IReadOnlyCollection<string> permisos, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<string>> ListarConcedidosAsync(ISesionPersistencia sesion, string usuarioId, CancellationToken cancellationToken = default);
 }

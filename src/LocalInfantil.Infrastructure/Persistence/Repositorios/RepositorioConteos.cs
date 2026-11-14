@@ -174,13 +174,26 @@ public sealed class RepositorioConteos : IRepositorioConteos
         {
             using var comando = s.Conexion.CreateCommand();
             comando.CommandTimeout = s.TimeoutSegundos;
-            comando.CommandText = "SELECT id, operacion_id, estado, aprobado_por_usuario_id FROM conteo ORDER BY creado_en DESC, id DESC LIMIT $limite OFFSET $desplazamiento;";
+            comando.CommandText = """
+                SELECT c.id, c.operacion_id, c.estado, c.aprobado_por_usuario_id, c.creado_en,
+                       (SELECT COUNT(*) FROM conteo_detalle d WHERE d.conteo_id = c.id),
+                       u.nombre
+                FROM conteo c LEFT JOIN usuario u ON u.id = c.creado_por_usuario_id
+                ORDER BY c.creado_en DESC, c.id DESC LIMIT $limite OFFSET $desplazamiento;
+                """;
             comando.Parameters.AddWithValue("$limite", limite);
             comando.Parameters.AddWithValue("$desplazamiento", desplazamiento);
             await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
             var lista = new List<ConteoRegistrado>();
             while (await lector.ReadAsync(cancellationToken))
-                lista.Add(new ConteoRegistrado(lector.GetString(0), lector.GetString(1), lector.GetString(2), lector.IsDBNull(3) ? null : lector.GetString(3)));
+                lista.Add(new ConteoRegistrado(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.GetString(4),
+                    (int)lector.GetInt64(5),
+                    lector.IsDBNull(6) ? null : lector.GetString(6)));
             return lista;
         }
         catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
@@ -212,6 +225,46 @@ public sealed class RepositorioConteos : IRepositorioConteos
                     lector.GetInt64(2),
                     lector.GetInt64(3),
                     lector.GetInt64(4)));
+            }
+
+            return resultado;
+        }
+        catch (SqliteException ex) when (ErroresSqlite.EsBloqueo(ex))
+        {
+            throw ErroresSqlite.OcupadoException(ex);
+        }
+    }
+
+    public async Task<IReadOnlyList<LineaCorreccionConteo>> ListarLineasCorreccionAsync(ISesionPersistencia sesion, string conteoId, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        try
+        {
+            using var comando = s.Conexion.CreateCommand();
+            comando.CommandTimeout = s.TimeoutSegundos;
+            comando.CommandText = """
+                SELECT d.variante_id, v.codigo_interno, p.nombre, v.talle, v.color,
+                       d.existencia_esperada, d.cantidad_contada,
+                       d.cantidad_contada - d.existencia_esperada
+                FROM conteo_detalle d
+                JOIN variante v ON v.id = d.variante_id
+                JOIN producto p ON p.id = v.producto_id
+                WHERE d.conteo_id = $conteo ORDER BY v.codigo_interno;
+                """;
+            comando.Parameters.AddWithValue("$conteo", conteoId);
+            await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
+            var resultado = new List<LineaCorreccionConteo>();
+            while (await lector.ReadAsync(cancellationToken))
+            {
+                resultado.Add(new LineaCorreccionConteo(
+                    lector.GetString(0),
+                    lector.GetString(1),
+                    lector.IsDBNull(2) ? null : lector.GetString(2),
+                    lector.IsDBNull(3) ? null : lector.GetString(3),
+                    lector.IsDBNull(4) ? null : lector.GetString(4),
+                    lector.GetInt64(5),
+                    lector.GetInt64(6),
+                    lector.GetInt64(7)));
             }
 
             return resultado;

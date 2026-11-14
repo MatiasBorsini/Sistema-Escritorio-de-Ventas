@@ -1,21 +1,31 @@
 namespace LocalInfantil.Application.Contracts;
 
 /// <summary>Edición con reemplazo total: nombre obligatorio, marca/categoría se reemplazan (null las vacía).</summary>
-public sealed record EdicionProducto(string Nombre, string? Marca, string? Categoria);
+public sealed record EdicionProducto(string Nombre, string? Marca, string? CategoriaId);
 
-/// <summary>Edición con reemplazo total de talle/color (null los vacía). SKU y producto inmutables.</summary>
+/// <summary>Edición con reemplazo total de talle/color (null los vacía). Código interno y producto inmutables.</summary>
 public sealed record EdicionVariante(string? Talle, string? Color);
 
 /// <summary>Variante con su precio vigente e existencias derivadas, en una sola lectura.</summary>
 public sealed record FichaVariante(
     string Id,
-    string Sku,
+    string CodigoInterno,
     string? Talle,
     string? Color,
     bool Activa,
     long? PrecioMinor,
     string? Moneda,
-    long Existencias);
+    long Existencias)
+{
+    /// <summary>Texto humano talle/color para vistas de lectura ("M · Rojo").</summary>
+    public string TalleColorTexto => (Talle, Color) switch
+    {
+        (null, null) => "—",
+        (null, var c) => c!,
+        (var t, null) => t!,
+        (var t, var c) => $"{t} · {c}"
+    };
+}
 
 /// <summary>Ficha de producto: cabecera más sus variantes con precio y existencias.</summary>
 public sealed record FichaProducto(ProductoRegistrado Producto, IReadOnlyList<FichaVariante> Variantes);

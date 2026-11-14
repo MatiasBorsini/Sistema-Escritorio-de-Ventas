@@ -1,36 +1,135 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.RecepcionView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12">
-        <StackPanel>
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="SUMAR INGRESO DE MERCADERÍA — Recepción"/>
-            <TextBlock Foreground="#92400E" TextWrapping="Wrap" Text="SUMA existencias (movimientos ingreso). No confundir con ESTABLECER existencia inicial." Margin="0,4,0,8"/>
-            <TextBlock Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
-            <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <ComboBox Width="240" ItemsSource="{Binding Proveedores}" SelectedItem="{Binding ProveedorSeleccionado}" DisplayMemberPath="Nombre" ToolTip="Proveedor"/>
-                <Button Content="Refrescar proveedores" Margin="8,0,0,0" Padding="8,4" Command="{Binding RefrescarProveedoresCommand}"/>
-            </StackPanel>
-            <TextBox Margin="0,0,0,8" Text="{Binding ComprobanteRef, UpdateSourceTrigger=PropertyChanged}" ToolTip="Comprobante referencia (opcional)" Width="300" HorizontalAlignment="Left"/>
-            <TextBlock FontFamily="Consolas" FontSize="11" Text="{Binding OperacionId, StringFormat=operacion_id: {0}}" Margin="0,0,0,8"/>
-            <ItemsControl ItemsSource="{Binding Filas}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBox Width="140" Margin="0,0,8,0" Text="{Binding Sku, UpdateSourceTrigger=PropertyChanged}" ToolTip="SKU"/>
-                            <TextBox Width="90" Margin="0,0,8,0" Text="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad >0"/>
-                            <TextBox Width="110" Margin="0,0,8,0" Text="{Binding CostoTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Costo ARS opcional (vacío=NULL, 0=informado cero)"/>
-                            <TextBox Width="60" Margin="0,0,8,0" Text="{Binding Moneda, UpdateSourceTrigger=PropertyChanged}" ToolTip="Moneda (ARS)"/>
-                            <TextBlock Foreground="#6B7280" FontSize="11" Text="{Binding Detalle}" Width="200" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="+ Fila" Padding="8,4" Command="{Binding AgregarFilaCommand}"/>
-                <Button Content="− Fila" Margin="8,0,0,0" Padding="8,4" Command="{Binding QuitarFilaCommand}"/>
-                <Button Content="CONFIRMAR RECEPCIÓN — SUMAR" Margin="12,0,0,0" Padding="12,4" Background="#DBEAFE" BorderBrush="#3B82F6" Command="{Binding ConfirmarCommand}"/>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:LocalInfantil.Wpf.Views">
+    <DockPanel Background="{StaticResource Color.CanvasBrush}">
+        <StackPanel DockPanel.Dock="Top" Margin="20,12,20,0">
+            <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Recepción de mercadería" Margin="0,0,0,0"/>
+            <TextBlock Style="{StaticResource EstiloAyuda}" Text="Registrá un ingreso recibido de un proveedor. Esta operación suma unidades al stock." Margin="0,0,0,4"/>
+            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
+            <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal" Margin="0,2,0,4">
+                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Proveedor" Margin="0,0,8,0"/>
+                <ComboBox Style="{StaticResource EstiloCombo}" Width="260" ItemsSource="{Binding Proveedores}" SelectedItem="{Binding ProveedorSeleccionado}" DisplayMemberPath="Nombre"/>
+                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Refrescar" Command="{Binding RefrescarProveedoresCommand}"/>
+                <TextBlock VerticalAlignment="Center" Style="{StaticResource EstiloEtiqueta}" Text="Comprobante del proveedor (opcional)" Margin="8,0,8,0"/>
+                <TextBox Style="{StaticResource EstiloCampoTexto}" Width="160" Text="{Binding ComprobanteRef, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Número de remito, factura u otra referencia de entrega" AutomationProperties.Name="Comprobante del proveedor (opcional)"/>
             </StackPanel>
         </StackPanel>
-    </ScrollViewer>
+        <Grid Margin="20,2,20,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="300"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,12,0" Padding="{StaticResource RellenoPanel}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Border Style="{StaticResource EstiloAvisoInfo}" Margin="0,0,0,4">
+                            <TextBlock Foreground="{StaticResource Color.InfoTextBrush}" FontSize="12" TextWrapping="Wrap" Text="Recepción = SUMAR existencias. La carga inicial es otra operación: ESTABLECE la cantidad."/>
+                        </Border>
+                        <StackPanel Style="{StaticResource EstiloToolbar}" Orientation="Horizontal">
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="＋ Agregar variante" Command="{Binding AgregarFilaCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="− Quitar última" Command="{Binding QuitarFilaCommand}"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Verificar filas" Command="{Binding VerificarCommand}" ToolTip="Revalida las variantes y el stock antes de confirmar; el resumen se actualiza al editar"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" SelectionMode="Single" SelectionUnit="FullRow"
+                              CanUserSortColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                              ItemsSource="{Binding Filas}" BorderBrush="{StaticResource Color.BorderBrush}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="Variante / Código" Width="170">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <views:BuscadorAsistido Modo="Variante" Motor="{Binding MotorVariantes}"
+                                                                SeleccionCommand="{Binding SeleccionarSugerenciaCommand}"
+                                                                BusquedaDirectaCommand="{Binding BuscarDirectaCommand}"
+                                                                 ToolTip="Código interno o nombre de producto"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Stock actual" Binding="{Binding StockActual, TargetNullValue=—}" IsReadOnly="True" Width="95">
+                                <DataGridTextColumn.HeaderTemplate>
+                                    <DataTemplate><TextBlock Text="Stock actual" ToolTip="Existencia física actual; incluye unidades apartadas."/></DataTemplate>
+                                </DataGridTextColumn.HeaderTemplate>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Cantidad recibida" Binding="{Binding CantidadTexto, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" Width="120">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="DataGridCell">
+                                        <Setter Property="ToolTip" Value="{Binding AvisoEntrada}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CantidadInvalida}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Color.ErrorBgBrush}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Color.ErrorTextBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Costo unitario" Binding="{Binding CostoTexto, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" Width="105">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="DataGridCell">
+                                        <Setter Property="ToolTip" Value="{Binding AvisoEntrada}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CostoInvalido}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Color.ErrorBgBrush}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Color.ErrorTextBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Moneda" Binding="{Binding Moneda}" IsReadOnly="True" Width="60"/>
+                            <DataGridTextColumn Header="Stock después" Binding="{Binding Quedara, TargetNullValue=—}" IsReadOnly="True" Width="105">
+                                <DataGridTextColumn.HeaderTemplate>
+                                    <DataTemplate><TextBlock Text="Stock después" ToolTip="Stock físico actual más la cantidad recibida."/></DataTemplate>
+                                </DataGridTextColumn.HeaderTemplate>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Costo total" Binding="{Binding SubtotalMinor, Converter={StaticResource MinorToArs}, TargetNullValue=—}" IsReadOnly="True" Width="100">
+                                <DataGridTextColumn.HeaderTemplate>
+                                    <DataTemplate><TextBlock Text="Costo total" ToolTip="Cantidad recibida por costo unitario informado."/></DataTemplate>
+                                </DataGridTextColumn.HeaderTemplate>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="Detalle" IsReadOnly="True" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Detalle}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="Consultando stock físico…" FontSize="10" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                                       Visibility="{Binding CargandoStock, Converter={StaticResource BoolToVisibility}}"/>
+                                            <TextBlock Text="{Binding AvisoEntrada}" FontSize="10" Foreground="{StaticResource Color.ErrorTextBrush}"
+                                                       TextWrapping="Wrap" Visibility="{Binding AvisoEntrada, Converter={StaticResource NullToVisibility}}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0" Padding="{StaticResource RellenoPanel}" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Resumen" FontSize="15"/>
+                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Antes de confirmar" Margin="0,0,0,4"/>
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Proveedor" Margin="0,0,8,6"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding ProveedorSeleccionado.Nombre, FallbackValue=—}" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="1" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Líneas" Margin="0,0,8,6"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CantidadLineas, FallbackValue=—}"/>
+                        <TextBlock Grid.Row="2" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Unidades a sumar" Margin="0,0,8,6"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding UnidadesSumar, FallbackValue=—}"/>
+                        <TextBlock Grid.Row="3" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Total estimado" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" FontSize="15" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="{Binding CostoEstimadoTexto, FallbackValue=—}" TextWrapping="Wrap"/>
+                    </Grid>
+                    <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding ResumenEstadoTexto}" TextWrapping="Wrap"/>
+                    <Button Style="{StaticResource EstiloBotonPrimario}" Content="{Binding ConfirmarTexto}" Command="{Binding ConfirmarCommand}" IsEnabled="{Binding PuedeConfirmar}" HorizontalAlignment="Stretch" Margin="0,8,0,0" MinHeight="{StaticResource AlturaToolbar}"/>
+                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Imprimir etiquetas de la última recepción" Click="ImprimirEtiquetas_Click" Visibility="{Binding EtiquetasRecepcionDisponibles, Converter={StaticResource BoolToVisibility}}" HorizontalAlignment="Stretch" Margin="0,6,0,0"/>
+                    <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Se sumarán las unidades; el stock existente no se reemplaza." TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
 </UserControl>

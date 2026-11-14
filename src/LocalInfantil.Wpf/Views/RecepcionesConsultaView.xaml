@@ -1,70 +1,329 @@
-<UserControl x:Class="LocalInfantil.Wpf.Views.RecepcionesConsultaView"
+﻿<UserControl
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <DockPanel Margin="12">
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Recepciones — consulta y reversión completa"/>
-            <TextBlock Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
-            <TextBlock Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap"/>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="Refrescar" Padding="8,4" Command="{Binding CargarCommand}"/>
-                <Button Content="◀ Anterior" Margin="8,0,0,0" Padding="8,4" Command="{Binding AnteriorCommand}"/>
-                <Button Content="Siguiente ▶" Margin="4,0,0,0" Padding="8,4" Command="{Binding SiguienteCommand}"/>
-                <TextBlock Margin="8,6,0,0" Text="{Binding Desplazamiento, StringFormat=desde {0}}"/>
-            </StackPanel>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" x:Class="LocalInfantil.Wpf.Views.RecepcionesConsultaView"
+             d:DesignHeight="1061.231">
+  <UserControl.Resources>
+    <!-- Tratamiento local: no cambia las grillas de otros módulos. -->
+    <Style x:Key="EncabezadoRecepciones" TargetType="{x:Type DataGridColumnHeader}">
+      <Setter Property="Background" Value="{StaticResource Color.Surface2Brush}"/>
+      <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Color.BorderSoftBrush}"/>
+      <Setter Property="BorderThickness" Value="0,0,0,1"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    </Style>
+    <Style x:Key="CeldaRecepciones" TargetType="{x:Type DataGridCell}">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{StaticResource Color.TextBrush}"/>
+      <Setter Property="Padding" Value="10,0"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="FocusVisualStyle" Value="{StaticResource EstiloFocoTeclado}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type DataGridCell}">
+            <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="FilaRecepciones" TargetType="{x:Type DataGridRow}">
+      <Setter Property="Background" Value="{StaticResource Color.SurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="3,0,0,0"/>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{StaticResource Color.Surface2Brush}"/>
+        </Trigger>
+        <Trigger Property="IsSelected" Value="True">
+          <Setter Property="Background" Value="{StaticResource Color.SuccessBgBrush}"/>
+          <Setter Property="BorderBrush" Value="{StaticResource Color.PrimaryBrush}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="TextoRecepciones" TargetType="{x:Type TextBlock}">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+      <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+    </Style>
+    <Style x:Key="ComprobanteRecepciones" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource TextoRecepciones}">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ComprobanteInformado}" Value="False">
+          <Setter Property="FontWeight" Value="Normal"/>
+          <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
+  <DockPanel Background="{StaticResource Color.CanvasBrush}">
+    <Grid DockPanel.Dock="Top" Margin="20,10,20,4">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel>
+        <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Recepciones" Margin="0"/>
+        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Historial de ingresos y detalle de mercadería recibida." Margin="0,0,0,2"/>
+      </StackPanel>
+    </Grid>
+
+    <StackPanel DockPanel.Dock="Top" Margin="20,0,20,0">
+      <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}" Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}"/>
+      <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}" Visibility="{Binding Mensaje, Converter={StaticResource NullToVisibility}}"/>
+      <DockPanel MinHeight="{StaticResource AlturaToolbar}" LastChildFill="True">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorCommand}" IsEnabled="{Binding HayAnterior}" Margin="8,0,4,0"/>
+          <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding PaginaTexto}" VerticalAlignment="Center" Margin="6,0,10,0"/>
+          <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteCommand}" IsEnabled="{Binding HaySiguiente}"/>
         </StackPanel>
-        <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="280"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <ListBox Grid.Column="0" ItemsSource="{Binding Recepciones}" SelectedItem="{Binding Seleccionada}" Margin="0,0,8,0">
-                <ListBox.ItemTemplate>
+        <StackPanel Orientation="Horizontal" Width="922">
+          <TextBox Style="{StaticResource EstiloCampoTexto}" MinWidth="140" Width="180"
+                             Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar por comprobante o proveedor"
+                             AutomationProperties.Name="Buscar por comprobante o proveedor"/>
+          <Button Style="{StaticResource EstiloBotonPrimario}" Content="Buscar" Command="{Binding CargarCommand}" Margin="5,0,10,0"/>
+          <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Estado" Margin="0,0,5,0"/>
+          <ComboBox Style="{StaticResource EstiloCombo}" Width="105" ItemsSource="{Binding FiltrosEstado}" SelectedItem="{Binding FiltroEstado}" ToolTip="Filtrar por estado" SelectionChanged="ComboBox_SelectionChanged" Height="13" RenderTransformOrigin="0.5,0.5">
+            <ComboBox.RenderTransform>
+              <TransformGroup>
+                <ScaleTransform ScaleY="-1" ScaleX="-1"/>
+                <SkewTransform/>
+                <RotateTransform Angle="-179.997"/>
+                <TranslateTransform/>
+              </TransformGroup>
+            </ComboBox.RenderTransform>
+          </ComboBox>
+          <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Filas" Margin="10,0,5,0"/>
+          <ComboBox Style="{StaticResource EstiloCombo}" Width="58" ItemsSource="{Binding TamanosPagina}" SelectedItem="{Binding TamanoPagina}" ToolTip="Filas por página" Height="24"/>
+          <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Desde" Margin="10,0,4,0"/>
+          <DatePicker SelectedDate="{Binding Desde, UpdateSourceTrigger=PropertyChanged}" Width="91"
+                                ToolTip="Fecha local del registro de la recepción, inclusive"
+                                AutomationProperties.Name="Desde, fecha de registro" Height="26"/>
+          <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Hasta" Margin="8,0,4,0"/>
+          <DatePicker SelectedDate="{Binding Hasta, UpdateSourceTrigger=PropertyChanged}" Width="93"
+                                ToolTip="Fecha local del registro de la recepción, inclusive"
+                                AutomationProperties.Name="Hasta, fecha de registro" Height="24"/>
+          <Button Style="{StaticResource EstiloBotonSecundario}" Content="Limpiar fechas"
+                            Command="{Binding LimpiarFechasCommand}" Padding="6,4" MinHeight="28" Margin="6,0,0,0"/>
+        </StackPanel>
+      </DockPanel>
+    </StackPanel>
+
+    <Grid x:Name="CuerpoRecepciones" Margin="20,2,20,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="59*" MinWidth="330"/>
+        <ColumnDefinition Width="41*" MinWidth="285"/>
+      </Grid.ColumnDefinitions>
+      <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,10,0" Padding="{StaticResource RellenoPanel}">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Historial de ingresos"/>
+            <TextBlock Grid.Column="1" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding Resumen}" VerticalAlignment="Center"/>
+          </Grid>
+          <Grid>
+            <DataGrid x:Name="Grilla" Style="{StaticResource EstiloGrillaOperativa}" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                                  SelectionUnit="FullRow" CanUserSortColumns="False"
+                                  ItemsSource="{Binding Historial}" SelectedItem="{Binding FilaSeleccionada}"
+                                  MouseDoubleClick="Grilla_MouseDoubleClick"
+                                  BorderThickness="0" Background="{StaticResource Color.SurfaceBrush}" RowHeight="40" ColumnHeaderHeight="36"
+                                  ColumnHeaderStyle="{StaticResource EncabezadoRecepciones}" CellStyle="{StaticResource CeldaRecepciones}" RowStyle="{StaticResource FilaRecepciones}"
+                                  HorizontalGridLinesBrush="{StaticResource Color.BorderSoftBrush}" VerticalGridLinesBrush="Transparent"
+                                  EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.VirtualizationMode="Recycling">
+              <DataGrid.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding AbrirDetalleCommand}"/>
+              </DataGrid.InputBindings>
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Comprobante" Binding="{Binding Referencia}" ElementStyle="{StaticResource ComprobanteRecepciones}" Width="23*" MinWidth="100"/>
+                <DataGridTextColumn Header="Proveedor" Binding="{Binding Resumen.ProveedorNombre}" ElementStyle="{StaticResource TextoRecepciones}" Width="25*" MinWidth="110"/>
+                <DataGridTextColumn Header="Unidades" Binding="{Binding UnidadesTexto}" Width="12*" MinWidth="72">
+                  <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource TextoRecepciones}">
+                      <Setter Property="TextAlignment" Value="Right"/>
+                    </Style>
+                  </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTemplateColumn Header="Estado" Width="17*" MinWidth="100">
+                  <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Id}" FontFamily="Consolas" FontSize="10"/>
-                            <TextBlock Text="{Binding ComprobanteRef, FallbackValue=—}" Foreground="#6B7280" FontSize="11"/>
-                        </StackPanel>
+                      <TextBlock x:Name="EstadoTexto" FontSize="12" Foreground="{StaticResource Color.SuccessTextBrush}" Text="Confirmada"/>
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Revertida}" Value="True">
+                          <Setter TargetName="EstadoTexto" Property="Text" Value="Revertida"/>
+                          <Setter TargetName="EstadoTexto" Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
                     </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <TextBlock Text="{Binding Seleccionada.ProveedorId, FallbackValue=Seleccione recepción}" FontWeight="SemiBold"/>
-                    <TextBlock FontFamily="Consolas" FontSize="11" Text="{Binding Seleccionada.OperacionId}"/>
-                    <TextBlock Foreground="#6B7280" Text="{Binding Seleccionada.CreadoEn}"/>
-                    <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding Lineas}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="4">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding VarianteId}" FontFamily="Consolas" FontSize="10" Width="180" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding Cantidad}" Width="60"/>
-                                        <TextBlock Text="{Binding CostoUnitarioMinor, Converter={StaticResource MinorToArs}}" Width="120"/>
-                                        <TextBlock Text="{Binding Moneda, FallbackValue=—}" Width="60"/>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Margin="0,8,0,0" Foreground="#92400E" Text="Reversión: COMPLETA, motivo obligatorio, resta stock; stock insuficiente rechaza toda; no doble." TextWrapping="Wrap"/>
-                    <TextBlock FontFamily="Consolas" FontSize="11" Text="{Binding OperacionIdReversion, StringFormat=operacion_id reversión: {0}}"/>
-                    <TextBox Margin="0,4,0,0" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" ToolTip="Motivo reversión"/>
-                    <TextBlock Foreground="#6B7280" Text="{Binding EstaRevertida, StringFormat=Revertida: {0}}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="Solicitar reversión" Padding="8,4" Command="{Binding SolicitarReversionCommand}"/>
-                    </StackPanel>
-                    <Border Margin="0,8,0,0" Padding="8" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" Visibility="{Binding ConfirmacionVisible, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Foreground="#991B1B" TextWrapping="Wrap" Text="¿Confirmás reversión COMPLETA? Se restará stock de todas las líneas."/>
-                            <ItemsControl Margin="0,4,0,0" ItemsSource="{Binding Lineas}">
-                                <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding Cantidad, StringFormat=- {0} x}" FontFamily="Consolas" FontSize="11"/></DataTemplate></ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Content="Confirmar reversión" Padding="8,4" Command="{Binding ConfirmarReversionCommand}"/>
-                                <Button Content="Cancelar" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarReversionCommand}"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Fecha" Binding="{Binding FechaTexto}" ElementStyle="{StaticResource TextoRecepciones}" Width="23*" MinWidth="138"/>
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                                   Text="No hay recepciones para mostrar." IsHitTestVisible="False">
+              <TextBlock.Style>
+                <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource EstiloEstadoVacio}">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding HasItems, ElementName=Grilla}" Value="False">
+                      <Setter Property="Visibility" Value="Visible"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+          </Grid>
+        </DockPanel>
+      </Border>
+
+      <Border x:Name="FichaRecepcion" Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Padding="{StaticResource RellenoPanel}"
+                    VerticalAlignment="Top" MaxHeight="{Binding ActualHeight, ElementName=CuerpoRecepciones}" Margin="0">
+        <Grid>
+          <ScrollViewer x:Name="DetalleSeleccionado" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding FilaSeleccionada, Converter={StaticResource NullToVisibility}}">
+            <StackPanel>
+              <TextBlock FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="RECEPCIÓN SELECCIONADA"/>
+              <Grid Margin="0,4,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Recepción de mercadería" TextWrapping="Wrap"/>
+                <Border Grid.Column="1" CornerRadius="4" Padding="7,3" Margin="8,0,0,0" VerticalAlignment="Center">
+                  <Border.Style>
+                    <Style TargetType="{x:Type Border}">
+                      <Setter Property="Background" Value="{StaticResource Color.SuccessBgBrush}"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding FilaSeleccionada.Revertida}" Value="True">
+                          <Setter Property="Background" Value="{StaticResource Color.Surface2Brush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Border.Style>
+                  <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding FilaSeleccionada.EstadoTexto}"/>
+                </Border>
+              </Grid>
+              <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}"
+                                       Text="{Binding FilaSeleccionada.Resumen.ProveedorNombre, FallbackValue=—}" TextTrimming="CharacterEllipsis"/>
+              <Grid Margin="0,2,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding FilaSeleccionada.FechaTexto, FallbackValue=—}"/>
+                <TextBlock Grid.Column="1" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                           Text="{Binding ResponsableDetalle, FallbackValue=—, StringFormat=Registrada por \{0\}}" TextTrimming="CharacterEllipsis"/>
+              </Grid>
+              <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource Color.TextSecondaryBrush}"
+                                       Visibility="{Binding FilaSeleccionada.ComprobanteInformado, Converter={StaticResource BoolToVisibility}}"
+                                       Text="{Binding FilaSeleccionada.Referencia, StringFormat=Comprobante del proveedor: \{0\}}"/>
+              <Border Style="{StaticResource EstiloSeparador}" Margin="0,7,0,6"/>
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="1.6*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                  <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Unidades"/>
+                  <TextBlock Style="{StaticResource EstiloNumeroMetrica}" Text="{Binding UnidadesDetalle, FallbackValue=—}"/>
                 </StackPanel>
-            </ScrollViewer>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Líneas"/>
+                  <TextBlock Style="{StaticResource EstiloNumeroMetrica}" Text="{Binding LineasDetalle.Count, FallbackValue=—}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Importe"/>
+                  <TextBlock FontSize="16" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}"
+                                               Text="{Binding TotalDetalleExacto, Converter={StaticResource MinorToArs}, FallbackValue=—, TargetNullValue=—}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Style="{StaticResource EstiloEtiqueta}" Margin="0,8,0,4" Text="Resumen de mercadería"/>
+              <Grid Margin="0,0,0,2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Variante / SKU" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+                <TextBlock Grid.Column="1" Text="Cantidad" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding PrimerasLineas}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="0,6">
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock FontFamily="Consolas" FontSize="11" Foreground="{StaticResource Color.TextBrush}"
+                                                           Text="{Binding Sku}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Margin="12,0,0,0" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Color.TextBrush}" Text="{Binding Cantidad, StringFormat=\{0\} u.}" VerticalAlignment="Center"/>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Style="{StaticResource EstiloBotonSecundario}" Content="Ver detalle completo" Command="{Binding AbrirDetalleCommand}"
+                                    HorizontalAlignment="Stretch" Margin="0,7,0,0" Background="#FF4B8437" Foreground="White" Click="Button_Click" FontWeight="Bold"/>
+              <Border Style="{StaticResource EstiloSeparador}" Margin="0,7,0,7"/>
+
+              <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="10">
+                <Border.Style>
+                  <Style TargetType="{x:Type Border}">
+                    <Setter Property="Opacity" Value="1"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding FilaSeleccionada}" Value="{x:Null}">
+                        <Setter Property="Opacity" Value="0.55"/>
+                        <Setter Property="IsEnabled" Value="False"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <StackPanel>
+                  <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.DestructiveBrush}" Text="Revertir recepción"/>
+                  <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Solo si necesitás deshacer por completo este ingreso." TextWrapping="Wrap"/>
+                  <TextBlock Style="{StaticResource EstiloEtiqueta}" Margin="0,6,0,2" Text="Motivo de la reversión (obligatorio)"/>
+                  <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" ToolTip="Indicá el motivo antes de solicitar la reversión"/>
+                  <Button Style="{StaticResource EstiloBotonDangerOutline}" Content="Solicitar reversión" Command="{Binding SolicitarReversionCommand}"
+                                            HorizontalAlignment="Left" Margin="0,7,0,0"/>
+                  <StackPanel Visibility="{Binding ConfirmacionVisible, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Margin="0,7,0,0" FontSize="12" Foreground="{StaticResource Color.DestructiveBrush}" TextWrapping="Wrap" Text="La reversión resta todo lo ingresado y requiere un motivo."/>
+                    <StackPanel Orientation="Horizontal">
+                      <Button Style="{StaticResource EstiloBotonDestructivo}" Content="Confirmar reversión" Command="{Binding ConfirmarReversionCommand}"/>
+                      <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarReversionCommand}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+          <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16" TextAlignment="Center"
+                               Text="Seleccioná una recepción para ver el detalle.">
+            <TextBlock.Style>
+              <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource EstiloEstadoVacio}">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding FilaSeleccionada}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
         </Grid>
-    </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
 </UserControl>

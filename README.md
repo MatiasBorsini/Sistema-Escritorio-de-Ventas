@@ -1,84 +1,98 @@
-# LocalInfantil
+# LocalInfantil — Sistema de Gestión Comercial
 
-Estructura inicial para una aplicación de escritorio de un único local de ropa infantil. El alcance actual incluye la publicación de prueba de **F00-T06**: navegación de demostración, comprobación mínima de SQLite, prototipo de impresión y una carpeta self-contained para el equipo de desarrollo. No contiene flujos comerciales ni datos reales del comercio.
+![C#](https://img.shields.io/badge/C%23-.NET%2010-512BD4) ![WPF](https://img.shields.io/badge/Interfaz-WPF-512BD4) ![SQLite](https://img.shields.io/badge/Datos-SQLite-003B57) ![xUnit](https://img.shields.io/badge/Pruebas-xUnit-5C2D91)
 
-## 📸 Capturas de la versión avanzada
+Aplicación de escritorio para Windows destinada a administrar las operaciones comerciales de un local de ropa infantil. Integra catálogo, existencias, ventas, clientes y caja.
 
-> **Importante:** las imágenes corresponden a la versión más avanzada en desarrollo de LocalInfantil (rama `feat/f12-mercado-pago`). La rama `main` documenta un prototipo anterior. No representan las funciones de `main` ni una instalación validada en el comercio.
+Forma parte del portafolio académico y profesional de **Matías Borsini**, estudiante de Desarrollo de Software. Está en desarrollo y **no está habilitada para producción ni para datos comerciales reales**.
 
-### Inicio y resumen
-![Inicio de LocalInfantil](assets/capturas/01_inicio_dashboard.png)
+## Funcionalidades
 
-### Catálogo de productos
-![Catálogo de LocalInfantil](assets/capturas/02_catalogo_productos.png)
+- **Productos:** categorías, variantes por talle y color, códigos internos y precios.
+- **Inventario:** carga inicial, recepción de mercadería, movimientos, stock apartado y conteo físico.
+- **Ventas:** búsqueda y carrito, pagos simples o combinados, confirmación transaccional y anulación total auditada.
+- **Clientes y cuenta corriente:** fichas, límites explícitos de crédito, ventas a cuenta, cargos y abonos.
+- **Caja:** apertura, movimientos, arqueo, cierre y conciliación por medio de cobro.
+- **Cambios y devoluciones:** prendas devueltas, artículos nuevos y liquidación de diferencias. La promoción de F06-T05 sigue bloqueada.
+- **Reportes:** consultas de ventas, caja e inventario. Costos y márgenes definitivos siguen pendientes de definición.
+- **Comprobantes e impresión:** comprobantes internos no fiscales, vista previa y diálogo de impresión de Windows.
+- **Usuarios:** autenticación local, roles, permisos individuales y auditoría.
+- **Respaldos:** copias locales protegidas y preparación de respaldos remotos; Google Drive real sigue pendiente de validación.
 
-### Punto de venta
-![Punto de venta de LocalInfantil](assets/capturas/04_punto_de_venta.png)
+## Mercado Pago Point
 
-Capturas con datos de demostración. Mercado Pago Point no fue verificado con hardware real.
+El módulo vincula el cobro de una venta con una terminal Point mediante HTTP y JSON, sin SDK de Mercado Pago. Descubre terminales, crea y consulta órdenes, gestiona cancelaciones y reembolsos, y conserva identificadores para reconciliar resultados inciertos. También contempla registro manual y conciliación mediante importación de liquidaciones.
 
-## Requisitos provisionales
+La integración **no fue validada con una terminal y cuenta de producción**. La descarga automática de liquidaciones por API está diseñada, pero no implementada. No hay webhooks en esta aplicación de escritorio. Ver [Mercado Pago](docs/MERCADO_PAGO.md).
 
-- Windows para compilar y ejecutar el proyecto WPF.
-- SDK de .NET 10.0.x compatible con `net10.0`.
+## Tecnologías y arquitectura
 
-Los proyectos usan `net10.0` / `net10.0-windows` como migración controlada y verificada en el equipo de desarrollo. .NET 10 es LTS hasta noviembre de 2028. Esto no aprueba su instalación en el local: la edición, versión y arquitectura del Windows real siguen pendientes en F00-T02. Ver [DECISIONES.md](docs/DECISIONES.md).
+C#, .NET 10, WPF y XAML, SQLite mediante `Microsoft.Data.Sqlite`, xUnit, ZXing.Net para códigos de barras y Sodium.Core para operaciones criptográficas. Los secretos locales de Windows utilizan DPAPI.
 
-## Estructura
+```mermaid
+flowchart TD
+    WPF[WPF: vistas y ViewModels] --> APP[Application: casos de uso y contratos]
+    WPF --> INF[Infrastructure: SQLite y servicios externos]
+    INF --> APP
+    INF --> DOM[Domain: tipos y reglas]
+    APP --> DOM
+```
 
-- `src/LocalInfantil.Domain`: reglas y tipos puros, sin dependencias de UI ni SQLite.
-- `src/LocalInfantil.Application`: casos de uso; depende de Domain.
-- `src/LocalInfantil.Infrastructure`: adaptador SQLite de la comprobación técnica e I/O futuro; depende de Application y Domain.
-- `src/LocalInfantil.Wpf`: único ejecutable WPF; depende de Application e Infrastructure.
-- `tests/LocalInfantil.Tests`: pruebas de Domain y de la navegación WPF del prototipo.
+Los repositorios concretos y servicios se conectan en WPF; las reglas de aplicación y autorización están separadas de las vistas. Ver [ESTRUCTURA.md](ESTRUCTURA.md) y [DECISIONES.md](docs/DECISIONES.md).
 
-La ventana principal ofrece Inicio y Estado del prototipo mediante MVVM simple. En Estado se puede ejecutar una comprobación técnica SQLite y abrir una vista previa de impresión con datos ficticios. Solo desde esa vista se abre el diálogo nativo para seleccionar y confirmar una impresora; no se imprime automáticamente. No realiza operaciones comerciales ni conexiones a red.
+```text
+LocalInfantil.sln
+src/
+  LocalInfantil.Domain/          Dominio
+  LocalInfantil.Application/     Casos de uso y contratos
+  LocalInfantil.Infrastructure/  SQLite, migraciones e integraciones
+  LocalInfantil.Wpf/             Aplicación de escritorio
+tests/LocalInfantil.Tests/       Pruebas automatizadas
+docs/                            Decisiones y guías
+installer/                       Instalador de prueba
+```
 
-La base SQLite, sus archivos WAL/SHM, respaldos, logs y secretos se mantienen fuera del repositorio. Solo para el prototipo, la ruta predeterminada es `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db`; no es una decisión de producción. La ruta definitiva de datos depende de D-13 y se resolverá antes de guardar datos reales.
+## Compilación y ejecución
 
-## Comandos
-
-Desde la raíz de la solución:
+Se necesita Windows y el SDK de .NET 10. Desde la raíz:
 
 ```powershell
 dotnet restore LocalInfantil.sln
 dotnet build LocalInfantil.sln --configuration Debug
+$env:LOCALINFANTIL_MP_TEST_ACCESS_TOKEN = ''
 dotnet test LocalInfantil.sln --configuration Debug --no-build
 ```
 
-## Publicación de prueba
+Las pruebas abarcan casos de uso, transacciones, persistencia, permisos y componentes WPF. Algunas requieren una sesión gráfica de Windows. La variable vacía impide que la prueba live de Point contacte el servicio desde esa consola; esa prueba solo debe ejecutarse en un entorno autorizado y no es necesaria para la demostración.
 
-La publicación .NET 10 actual es una carpeta self-contained de prueba para la arquitectura confirmada del equipo de desarrollo (`win-x64`). No es un instalador ni valida la arquitectura de la PC del local. La publicación .NET 8 anterior permanece separada en `artifacts\publish\win-x64`.
-
-```powershell
-dotnet restore LocalInfantil.sln --runtime win-x64
-dotnet publish src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts\publish\net10-win-x64 --disable-build-servers -m:1 -p:DebugType=None -p:DebugSymbols=false
-.\artifacts\publish\net10-win-x64\LocalInfantil.Wpf.exe
-```
-
-La carpeta publicada se puede eliminar sin borrar datos de usuario porque la comprobación SQLite usa `%LOCALAPPDATA%\LocalInfantil\Prototype\`, fuera de `artifacts\publish`. Para borrar solo la publicación de prueba:
+Para iniciar con una base ficticia **nueva y aislada**, elegí una ruta que no corresponda a una base existente:
 
 ```powershell
-Remove-Item -LiteralPath .\artifacts\publish\net10-win-x64 -Recurse
+dotnet run --project src/LocalInfantil.Wpf/LocalInfantil.Wpf.csproj --configuration Debug -- --dev-db "C:\ruta-de-prueba\demo-localinfantil.db"
 ```
 
-## Instalador de prueba (F00-T06, Inno Setup 6)
+La carpeta de destino debe existir. La aplicación prepara el esquema y solicita configurar la primera usuaria según el flujo de inicio. No guardes credenciales de demostración en el repositorio. El comando de inicio debe comprobarse en el equipo de presentación.
 
-El instalador de prueba se genera con Inno Setup 6 a partir de la publicación anterior. Solo están versionados `installer/inno/LocalInfantil-Prototype.iss` y `installer/Build-PrototypeInstaller.ps1`; el Setup generado queda en `artifacts/installer/` (fuera de git). Instala por usuario (sin admin) en `%LOCALAPPDATA%\Programs\LocalInfantil-Prototype`, crea acceso directo en el menú Inicio y se desinstala desde Configuración > Aplicaciones instaladas sin tocar `%LOCALAPPDATA%\LocalInfantil` (D-13 sigue pendiente; la ruta SQLite provisional no cambia). Requiere tener instalado Inno Setup 6 (`ISCC.exe`). No incluye actualizaciones automáticas ni afirma compatibilidad con la PC del local.
+## Demostración y capturas
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\installer\Build-PrototypeInstaller.ps1
-```
+El recorrido de 90 segundos y los cuidados para preparar datos ficticios están en [DEMO_COLOQUIO.md](docs/DEMO_COLOQUIO.md).
 
-El procedimiento de prueba manual con datos ficticios aislados está en `docs/PRUEBAS_MANUALES.md`. No ejecutar instalación/desinstalación sin leerlo: protege la base provisional existente.
+### Inicio y resumen
 
-## Convenciones
+![Inicio de LocalInfantil](assets/capturas/01_inicio_dashboard.png)
 
-- Código y documentación en español cuando describan el negocio; nombres de tipos y APIs de .NET se mantienen claros y consistentes.
-- `Nullable` e `ImplicitUsings` están habilitados en todos los proyectos.
-- Las dependencias siguen el sentido indicado en `ESTRUCTURA.md`; WPF nunca accede a SQLite directamente.
-- El único paquete de SQLite incorporado para F00-T04 es `Microsoft.Data.Sqlite` 10.0.12; no se utiliza Entity Framework ni otro ORM.
+### Catálogo de productos
 
-## Estado
+![Catálogo de LocalInfantil](assets/capturas/02_catalogo_productos.png)
 
-Consultar `PLAN.md` para la planificación y `docs/DECISIONES.md` para decisiones pendientes. F00-T02 queda bloqueada hasta validar la PC del local; F00-T06 sigue en curso: el instalador de prueba ya se genera y fue validado manualmente en una cuenta local estándar independiente, y resta la validación en ese equipo.
+### Punto de venta
+
+![Punto de venta de LocalInfantil](assets/capturas/04_punto_de_venta.png)
+
+Las capturas usan datos de demostración y no acreditan una instalación validada en el comercio. La prueba de Mercado Pago Point con hardware real sigue pendiente.
+
+## Estado y limitaciones
+
+El catálogo de migraciones del código llega a **V19**: V16 incorpora persistencia Point, V17 cobro manual, V18 liquidaciones y V19 identidad de filas. Las migraciones no almacenan credenciales.
+
+Siguen pendientes la prueba de Point con cuenta y terminal reales, OAuth/Drive real, la validación en la computadora e impresora definitivas y la definición del procedimiento fiscal. Los comprobantes son internos, no facturas. El instalador y las actualizaciones requieren validaciones adicionales; ver [PLAN.md](PLAN.md), [pruebas manuales](docs/PRUEBAS_MANUALES.md) y [guía de uso](docs/GUIA_USO.md).

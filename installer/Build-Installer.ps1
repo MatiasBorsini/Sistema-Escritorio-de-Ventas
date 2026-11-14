@@ -1,32 +1,33 @@
-# Build-PrototypeInstaller.ps1 — Genera el instalador de prueba F00-T06.
+# Build-Installer.ps1 — Genera el instalador productivo F10.
 #
 # Flujo (se detiene ante el primer fallo, sin compilar el instalador):
-#   1. Limpieza segura de artifacts\publish\net10-win-x64: solo esa carpeta,
+#   1. Lee la versión de una única fuente: <Version> del csproj WPF.
+#   2. Limpieza segura de artifacts\publish\net10-f10-win-x64: solo esa carpeta,
 #      solo si no contiene datos personales; nada fuera de ella se toca.
-#   2. Publicación Release self-contained .NET 10 (win-x64) recién generada.
+#   3. Publicación Release self-contained .NET 10 (win-x64) recién generada.
 #      Si la publicación falla, no se compila el instalador.
-#   3. Verificación de que la publicación no contiene archivos privados.
-#   4. Compilación del instalador con Inno Setup 6 (ISCC.exe).
+#   4. Verificación de que la publicación no contiene archivos privados.
+#   5. Compilación del instalador con Inno Setup 6 (ISCC.exe), pasando
+#      /DAppVersion con la versión del csproj.
 #
 # El instalador generado queda en artifacts\installer\ (fuera de git).
 # No instala ni desinstala nada: esos pasos son manuales y están descritos
-# en docs/PRUEBAS_MANUALES.md. No toca la base provisional existente.
+# en docs/PRUEBAS_MANUALES.md. No toca ninguna base existente.
 #
 # Uso desde la raíz del repositorio:
-#   powershell -ExecutionPolicy Bypass -File .\installer\Build-PrototypeInstaller.ps1
+#   powershell -ExecutionPolicy Bypass -File .\installer\Build-Installer.ps1
 
 $ErrorActionPreference = "Stop"
 
 $Raiz = Split-Path -Parent $PSScriptRoot
-$Publicacion = Join-Path $Raiz "artifacts\publish\net10-win-x64"
+$Publicacion = Join-Path $Raiz "artifacts\publish\net10-f10-win-x64"
 $ProyectoWpf = Join-Path $Raiz "src\LocalInfantil.Wpf\LocalInfantil.Wpf.csproj"
-$ScriptIss = Join-Path $PSScriptRoot "inno\LocalInfantil-Prototype.iss"
+$ScriptIss = Join-Path $PSScriptRoot "inno\LocalInfantil.iss"
 $Salida = Join-Path $Raiz "artifacts\installer"
-$Instalador = Join-Path $Salida "LocalInfantil-Prototype-Setup-net10-win-x64.exe"
 $Iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
-$nombresPersonales = @("secrets.json", "appsettings.Local.json")
-$extensionesPersonales = @(".db", ".db-shm", ".db-wal", ".sqlite", ".sqlite-shm", ".sqlite-wal", ".log", ".bak", ".pfx", ".p12", ".pem", ".key", ".token")
+$nombresPersonales = @("secrets.json", "appsettings.Local.json", "credentials.json", "client_secrets.json", "token.json", "tokens.json")
+$extensionesPersonales = @(".db", ".db-shm", ".db-wal", ".db3", ".sqlite", ".sqlite-shm", ".sqlite-wal", ".sqlite3", ".libackup", ".dpapi", ".log", ".bak", ".pfx", ".p12", ".pem", ".key", ".token")
 
 function Buscar-ArchivosPersonales {
     param([string]$Carpeta)
@@ -36,23 +37,30 @@ function Buscar-ArchivosPersonales {
     }
 }
 
+# Versión desde una única fuente: <Version> del csproj (F10-T01).
+[xml]$csproj = Get-Content -LiteralPath $ProyectoWpf
+$version = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+if ([string]::IsNullOrWhiteSpace($version)) {
+    throw "El csproj no define <Version>. No se compiló el instalador."
+}
+if ($version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Versión con formato inesperado ('$version'). Se espera MAJOR.MINOR.PATCH."
+}
+$Instalador = Join-Path $Salida "LocalInfantil-Setup-$version-net10-win-x64.exe"
+Write-Host "Versión (única fuente, csproj): $version"
+
 if (-not (Test-Path -LiteralPath $Iscc)) {
     throw "No se encontró ISCC.exe en '$Iscc'. Instalá Inno Setup 6 antes de continuar."
 }
 if (-not (Test-Path -LiteralPath $ScriptIss)) {
     throw "No se encontró el script Inno en '$ScriptIss'."
 }
-if (-not (Test-Path -LiteralPath $ProyectoWpf)) {
-    throw "No se encontró el proyecto WPF en '$ProyectoWpf'."
-}
 
 # 1. Limpieza estrictamente limitada a la carpeta de publicación generada.
-#    Guarda: la ruta debe ser exactamente artifacts\publish\net10-win-x64 bajo
-#    la raíz del repositorio; cualquier otra ruta aborta sin borrar nada.
 $pubFull = [System.IO.Path]::GetFullPath($Publicacion)
 $raizFull = [System.IO.Path]::GetFullPath($Raiz)
 $relativa = $pubFull.Substring($raizFull.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
-$esperada = Join-Path "artifacts" (Join-Path "publish" "net10-win-x64")
+$esperada = Join-Path "artifacts" (Join-Path "publish" "net10-f10-win-x64")
 if ($relativa -ne $esperada) {
     throw "Ruta de publicación inesperada ('$pubFull'). No se limpia nada."
 }
@@ -87,11 +95,11 @@ if ($hallazgos.Count -gt 0) {
 }
 Write-Host "Publicación verificada: sin bases, respaldos, símbolos ni secretos."
 
-# 4. Compilar el instalador.
+# 4. Compilar el instalador con la versión del csproj.
 if (-not (Test-Path -LiteralPath $Salida)) {
     New-Item -ItemType Directory -Path $Salida | Out-Null
 }
-& $Iscc $ScriptIss
+& $Iscc $ScriptIss "/DAppVersion=$version"
 if ($LASTEXITCODE -ne 0) {
     throw "ISCC.exe terminó con código $LASTEXITCODE."
 }

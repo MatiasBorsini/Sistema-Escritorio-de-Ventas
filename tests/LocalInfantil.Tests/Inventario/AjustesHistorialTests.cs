@@ -24,9 +24,11 @@ public sealed class AjustesHistorialTests
     public async Task Flujo_ajustes_existencias_e_historial()
     {
         using var entorno = await EntornoInventario.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-A-004", "4", null), entorno.Sesion);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-A-006", "6", null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.Sesion);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.Sesion);
+        var cod1 = (await entorno.Catalogo.ObtenerVarianteAsync(v1, entorno.Sesion))!.CodigoInterno;
+        var cod2 = (await entorno.Catalogo.ObtenerVarianteAsync(v2, entorno.Sesion))!.CodigoInterno;
 
         await entorno.Carga.EjecutarAsync(
             new List<FilaCargaInicial> { new(v1, 5), new(v2, 8) },
@@ -38,8 +40,8 @@ public sealed class AjustesHistorialTests
         entorno.AvanzarReloj(TimeSpan.FromMinutes(1));
         await entorno.Ajuste.EjecutarAsync(v1, -2, "Muestra vidriera", "op-aj-002", entorno.Sesion);
 
-        var e1 = await entorno.Consultas.ObtenerExistenciaAsync("REM-A-004", entorno.Sesion);
-        var e2 = await entorno.Consultas.ObtenerExistenciaAsync("REM-A-006", entorno.Sesion);
+        var e1 = await entorno.Consultas.ObtenerExistenciaAsync(cod1, entorno.Sesion);
+        var e2 = await entorno.Consultas.ObtenerExistenciaAsync(cod2, entorno.Sesion);
         Assert.NotNull(e1);
         Assert.NotNull(e2);
         Assert.Equal(6, e1.Existencias);
@@ -47,8 +49,8 @@ public sealed class AjustesHistorialTests
         Assert.Equal(8, e2.Existencias);
         Assert.Null(await entorno.Consultas.ObtenerExistenciaAsync("REM-X-000", entorno.Sesion));
 
-        var pagina1 = await entorno.Consultas.HistorialPorSkuAsync("REM-A-004", 2, 0, entorno.Sesion);
-        var pagina2 = await entorno.Consultas.HistorialPorSkuAsync("REM-A-004", 2, 2, entorno.Sesion);
+        var pagina1 = await entorno.Consultas.HistorialPorSkuAsync(cod1, 2, 0, entorno.Sesion);
+        var pagina2 = await entorno.Consultas.HistorialPorSkuAsync(cod1, 2, 2, entorno.Sesion);
         Assert.Equal(["inicial", "ajuste"], pagina1.Select(m => m.Tipo));
         Assert.Equal(["ajuste"], pagina2.Select(m => m.Tipo));
         Assert.All(pagina1.Concat(pagina2), m => Assert.False(string.IsNullOrWhiteSpace(m.OperacionId)));
@@ -60,35 +62,37 @@ public sealed class AjustesHistorialTests
     public async Task Repetir_operacion_no_duplica_y_rechaza_invalidos()
     {
         using var entorno = await EntornoInventario.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-B-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
+        var codB = (await entorno.Catalogo.ObtenerVarianteAsync(v1, entorno.Sesion))!.CodigoInterno;
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5) }, "op-ini-001", entorno.Sesion);
         await entorno.Ajuste.EjecutarAsync(v1, 2, "Suma", "op-aj-010", entorno.Sesion);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             entorno.Ajuste.EjecutarAsync(v1, 2, "Suma", "op-aj-010", entorno.Sesion));
-        Assert.Equal(7, (await entorno.Consultas.ObtenerExistenciaAsync("REM-B-001", entorno.Sesion))!.Existencias);
+        Assert.Equal(7, (await entorno.Consultas.ObtenerExistenciaAsync(codB, entorno.Sesion))!.Existencias);
 
         await Assert.ThrowsAsync<ArgumentException>(() => entorno.Ajuste.EjecutarAsync(v1, 0, "Cero", "op-aj-011", entorno.Sesion));
         await Assert.ThrowsAsync<ArgumentException>(() => entorno.Ajuste.EjecutarAsync(v1, 1, "  ", "op-aj-012", entorno.Sesion));
         await Assert.ThrowsAsync<InvalidOperationException>(() => entorno.Ajuste.EjecutarAsync(v1, -100, "Exceso", "op-aj-013", entorno.Sesion));
         await Assert.ThrowsAsync<InvalidOperationException>(() => entorno.Ajuste.EjecutarAsync("variante-inexistente", 1, "X", "op-aj-014", entorno.Sesion));
-        Assert.Equal(7, (await entorno.Consultas.ObtenerExistenciaAsync("REM-B-001", entorno.Sesion))!.Existencias);
+        Assert.Equal(7, (await entorno.Consultas.ObtenerExistenciaAsync(codB, entorno.Sesion))!.Existencias);
     }
 
     [Fact]
     public async Task Repetir_operacion_tras_reapertura_no_duplica()
     {
         using var entorno = await EntornoInventario.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-E-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
+        var codE = (await entorno.Catalogo.ObtenerVarianteAsync(v1, entorno.Sesion))!.CodigoInterno;
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5) }, "op-ini-r1", entorno.Sesion);
         await entorno.Ajuste.EjecutarAsync(v1, 2, "Suma", "op-reap-001", entorno.Sesion);
 
         var reabierto = entorno.AjusteReabierto();
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             reabierto.EjecutarAsync(v1, 2, "Suma", "op-reap-001", entorno.Sesion));
-        Assert.Equal(7, (await entorno.Consultas.ObtenerExistenciaAsync("REM-E-001", entorno.Sesion))!.Existencias);
+        Assert.Equal(7, (await entorno.Consultas.ObtenerExistenciaAsync(codE, entorno.Sesion))!.Existencias);
     }
 
     [Fact]
@@ -100,8 +104,8 @@ public sealed class AjustesHistorialTests
         var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), new RelojFijo(MomentoFijo));
         var fabrica = entorno.Fabrica;
 
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var varianteId = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-F-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var varianteId = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
 
         await using (var sesion = await fabrica.IniciarAsync())
         {
@@ -123,13 +127,14 @@ public sealed class AjustesHistorialTests
     public async Task Escrituras_denegadas_sin_sesion_o_permiso()
     {
         using var entorno = await EntornoInventario.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-C-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
+        var codC = (await entorno.Catalogo.ObtenerVarianteAsync(v1, entorno.Sesion))!.CodigoInterno;
 
         await Assert.ThrowsAsync<SesionInvalidaException>(() =>
             entorno.Ajuste.EjecutarAsync(v1, 1, "X", "op-s1", null));
         await Assert.ThrowsAsync<SesionInvalidaException>(() =>
-            entorno.Consultas.ObtenerExistenciaAsync("REM-C-001", null));
+            entorno.Consultas.ObtenerExistenciaAsync(codC, null));
 
         using var denegado = await EntornoInventario.CrearAsyncMatrizVacia();
         var sesion = await denegado.SesionValidaAsync();
@@ -141,15 +146,16 @@ public sealed class AjustesHistorialTests
     public async Task Desactivar_conserva_historial_y_compensatorio_funciona()
     {
         using var entorno = await EntornoInventario.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-D-001", null, null), entorno.Sesion);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
+        var codD = (await entorno.Catalogo.ObtenerVarianteAsync(v1, entorno.Sesion))!.CodigoInterno;
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 6) }, "op-ini-d", entorno.Sesion);
         await entorno.Ajuste.EjecutarAsync(v1, -6, "Rotura", "op-aj-d1", entorno.Sesion);
         await entorno.Ajuste.EjecutarAsync(v1, 6, "Compensa op-aj-d1: reclasificada apta", "op-aj-d2", entorno.Sesion);
-        Assert.Equal(6, (await entorno.Consultas.ObtenerExistenciaAsync("REM-D-001", entorno.Sesion))!.Existencias);
+        Assert.Equal(6, (await entorno.Consultas.ObtenerExistenciaAsync(codD, entorno.Sesion))!.Existencias);
 
         await entorno.DesactivarVariante.EjecutarAsync(v1, entorno.Sesion);
-        var historial = await entorno.Consultas.HistorialPorSkuAsync("REM-D-001", 10, 0, entorno.Sesion);
+        var historial = await entorno.Consultas.HistorialPorSkuAsync(codD, 10, 0, entorno.Sesion);
         Assert.Equal(3, historial.Count);
         Assert.Contains(historial, m => m.Motivo != null && m.Motivo.Contains("op-aj-d1"));
     }
@@ -185,6 +191,7 @@ public sealed class AjustesHistorialTests
         public readonly CargarExistenciaInicial Carga;
         public readonly AjustarInventario Ajuste;
         public readonly ConsultasInventario Consultas;
+        public readonly ConsultasCatalogo Catalogo;
         public FabricaConexionesSqlite Fabrica => _fabrica;
 
         private string? _sesionId;
@@ -206,12 +213,13 @@ public sealed class AjustesHistorialTests
             var apartados = new RepositorioApartados(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj);
             var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
-            CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
+            CrearProducto = new CrearProducto(productos, new RepositorioCategorias(_ids), autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             DesactivarVariante = new DesactivarVariante(variantes, autorizador, _fabrica, auditoria, _ids);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
             Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
-            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, _sesiones, _fabrica);
+            Consultas = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(new GeneradorIds()), apartados, productos, _sesiones, _fabrica);
+            Catalogo = new ConsultasCatalogo(productos, variantes, _sesiones, _fabrica);
         }
 
         public static async Task<EntornoInventario> CrearAsync()

@@ -1,74 +1,35 @@
 <UserControl x:Class="LocalInfantil.Wpf.Views.AdministracionUsuariosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <DockPanel Margin="12">
-        <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Margin="0,0,0,12">
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Administración de usuarios (Dueña)"/>
-            <TextBlock Foreground="#6B7280" Text="Creá empleados, desactivá y configurá permisos comerciales. Ocultar no autoriza: el backend valida cada operación." TextWrapping="Wrap"/>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <TextBox Width="160" Margin="0,0,8,0" Text="{Binding NuevoNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre de empleado"/>
-                <PasswordBox x:Name="NuevaPwd" Width="160" Margin="0,0,8,0" PasswordChanged="NuevaPwd_PasswordChanged" ToolTip="Contraseña inicial (mín. 12)"/>
-                <Button Content="Crear empleado" Padding="8,4" Command="{Binding CrearCommand}"/>
-                <Button Content="Refrescar" Margin="8,0,0,0" Padding="8,4" Command="{Binding RefrescarCommand}"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <Button Content="Desactivar seleccionado" Padding="8,4" Command="{Binding SolicitarDesactivacionCommand}"/>
-                <Button Content="Restablecer contraseña (usa campo nueva)" Margin="8,0,0,0" Padding="8,4" Command="{Binding RestablecerCommand}"/>
-            </StackPanel>
-            <Border Margin="0,8,0,0" Padding="8" Background="#FEF2F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionDesactivacionVisible, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock TextWrapping="Wrap" Foreground="#991B1B">
-                        <Run Text="¿Confirmás desactivar a "/><Run Text="{Binding NombrePendienteDesactivacion, Mode=OneWay}" FontWeight="SemiBold"/><Run Text="? Esta acción no se puede deshacer desde esta pantalla."/>
-                    </TextBlock>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="Confirmar" Padding="8,4" Command="{Binding ConfirmarDesactivacionCommand}"/>
-                        <Button Content="Cancelar" Margin="8,0,0,0" Padding="8,4" Command="{Binding CancelarDesactivacionCommand}"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-            <TextBlock Margin="0,6,0,0" Foreground="#DC2626" Text="{Binding Error}" TextWrapping="Wrap"/>
-            <TextBlock Margin="0,2,0,0" Foreground="#059669" Text="{Binding Mensaje}" TextWrapping="Wrap"/>
-        </StackPanel>
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="260"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <ListBox Grid.Column="0" ItemsSource="{Binding Usuarios}" SelectedItem="{Binding Seleccionado}" Margin="0,0,8,0">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Nombre}" FontWeight="SemiBold"/>
-                            <TextBlock Margin="6,0,0,0" Foreground="#6B7280" Text="{Binding Rol}"/>
-                            <TextBlock Margin="6,0,0,0" Foreground="#9CA3AF" Text="(inactivo)" Visibility="{Binding Activo, Converter={StaticResource BoolToVisibilityInverted}}"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding Seleccionado.Permisos}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="6">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Permiso}" FontFamily="Consolas" FontSize="12"/>
-                                        <TextBlock Foreground="#6B7280" FontSize="11" Text="{Binding TextoEstado}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Button Content="Conceder" Padding="6,2" Margin="0,0,4,0" Click="Conceder_Click" Tag="{Binding}"/>
-                                        <Button Content="Denegar" Padding="6,2" Click="Denegar_Click" Tag="{Binding}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+    <Grid Margin="20,12,20,14">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Text="ADMINISTRACIÓN"/><TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Usuarios"/><TextBlock Style="{StaticResource EstiloAyuda}" Text="Creá empleados, administrá permisos comerciales y gestioná el acceso sin mezclar acciones sensibles."/></StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource EstiloBotonPrimario}" VerticalAlignment="Center" Content="+ Crear empleado" Click="AbrirAlta_Click"/>
         </Grid>
-    </DockPanel>
+        <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource EstiloTarjeta}" Margin="0,0,10,0"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock FontSize="16" FontWeight="SemiBold" Text="Equipo"/><TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Elegí una cuenta para administrar su acceso."/></StackPanel><Button Grid.Column="1" Style="{StaticResource EstiloBotonQuiet}" Margin="0" Content="Refrescar" Command="{Binding RefrescarCommand}"/></Grid>
+                <ListBox Grid.Row="1" Style="{StaticResource EstiloLista}" Margin="0,10,0,0" ItemsSource="{Binding Usuarios}" SelectedItem="{Binding Seleccionado}">
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="3"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="Fila" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="5"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="Fila" Property="Background" Value="{StaticResource Color.Surface2Brush}"/><Setter TargetName="Fila" Property="BorderBrush" Value="{StaticResource Color.PrimaryBrush}"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Fila" Property="Background" Value="{StaticResource Color.Surface2Brush}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate><DataTemplate><Grid Margin="5,5"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Nombre}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="{Binding Rol}"/></StackPanel><Border Grid.Column="1" Background="{StaticResource Color.SuccessBgBrush}" CornerRadius="4" Padding="7,3" VerticalAlignment="Center" Visibility="{Binding Activo, Converter={StaticResource BoolToVisibility}}"><TextBlock Foreground="{StaticResource Color.SuccessTextBrush}" FontSize="12" FontWeight="SemiBold" Text="Activa"/></Border><Border Grid.Column="1" Background="{StaticResource Color.Surface2Brush}" CornerRadius="4" Padding="7,3" VerticalAlignment="Center" Visibility="{Binding Activo, Converter={StaticResource BoolToVisibilityInverted}}"><TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Text="Inactiva"/></Border></Grid></DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+            </Grid></Border>
+            <Border Grid.Column="1" Style="{StaticResource EstiloTarjeta}" Margin="0"><Grid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="310"><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Seleccionado}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Text="Seleccioná un usuario"/><TextBlock Style="{StaticResource EstiloAyuda}" TextAlignment="Center" Text="Los permisos y las acciones de seguridad aparecerán al elegir una cuenta."/></StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding Seleccionado, Converter={StaticResource NullToVisibility}}"><StackPanel>
+                    <TextBlock Foreground="{StaticResource Color.TextSecondaryBrush}" FontSize="12" FontWeight="SemiBold" Text="CUENTA SELECCIONADA"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,2"><TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Seleccionado.Nombre}"/><Border Background="{StaticResource Color.SuccessBgBrush}" CornerRadius="4" Padding="7,3" Margin="10,2,0,0" Visibility="{Binding Seleccionado.Activo, Converter={StaticResource BoolToVisibility}}"><TextBlock Foreground="{StaticResource Color.SuccessTextBrush}" FontSize="12" FontWeight="SemiBold" Text="Activa"/></Border></StackPanel><TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding Seleccionado.Rol, StringFormat={}{0} · acceso comercial}"/>
+                    <Grid Margin="0,2,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,8,0"><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Usuario"/><Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="9,7"><TextBlock Text="{Binding Seleccionado.Nombre}"/></Border></StackPanel><StackPanel Grid.Column="1"><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Rol"/><Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="4" Padding="9,7"><TextBlock FontWeight="SemiBold" Text="{Binding Seleccionado.Rol}"/></Border></StackPanel></Grid>
+                    <Border Style="{StaticResource EstiloSeparador}"/><TextBlock FontSize="16" FontWeight="SemiBold" Text="Permisos comerciales"/><TextBlock Style="{StaticResource EstiloAyuda}" Text="Ocultar una opción no reemplaza la validación del backend."/>
+                    <ItemsControl ItemsSource="{Binding Seleccionado.Permisos}"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="0,7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Permiso}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="{Binding TextoEstado}"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button Style="{StaticResource EstiloBotonQuiet}" Padding="8,3" MinHeight="28" Margin="0,0,5,0" Content="Conceder" Click="Conceder_Click" Tag="{Binding}"/><Button Style="{StaticResource EstiloBotonQuiet}" Padding="8,3" MinHeight="28" Margin="0" Content="Denegar" Click="Denegar_Click" Tag="{Binding}"/></StackPanel></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    <Border Style="{StaticResource EstiloSeparador}"/>
+                    <Border Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12"><StackPanel><TextBlock FontSize="16" FontWeight="SemiBold" Text="Seguridad de la cuenta"/><TextBlock Style="{StaticResource EstiloAyuda}" Margin="0,2,0,8" Text="Acciones sensibles, separadas de la configuración cotidiana."/><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Nueva contraseña"/><PasswordBox x:Name="NuevaPwd" Height="34" Padding="8,3" Margin="0,0,0,8" PasswordChanged="NuevaPwd_PasswordChanged" ToolTip="Contraseña nueva (mín. 12)"/><Button Style="{StaticResource EstiloBotonSecundario}" Content="Restablecer contraseña" HorizontalAlignment="Left" Command="{Binding RestablecerCommand}"/></StackPanel></Border>
+                    <Border Background="{StaticResource Color.ErrorBgBrush}" BorderBrush="{StaticResource Color.DestructiveBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,10,0,0"><StackPanel><TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Color.ErrorTextBrush}" Text="Zona destructiva"/><TextBlock Style="{StaticResource EstiloAyuda}" Margin="0,2,0,8" Text="Desactivar impide el acceso de esta cuenta."/><Button Style="{StaticResource EstiloBotonDangerOutline}" Content="Desactivar usuario" HorizontalAlignment="Left" Command="{Binding SolicitarDesactivacionCommand}"/></StackPanel></Border>
+                    <Border Style="{StaticResource EstiloAvisoInfo}" Background="{StaticResource Color.ErrorBgBrush}" BorderBrush="{StaticResource Color.DestructiveBrush}" Visibility="{Binding ConfirmacionDesactivacionVisible, Converter={StaticResource BoolToVisibility}}"><StackPanel><TextBlock TextWrapping="Wrap" Foreground="{StaticResource Color.ErrorTextBrush}"><Run Text="¿Confirmás desactivar a "/><Run Text="{Binding NombrePendienteDesactivacion}" FontWeight="SemiBold"/><Run Text="? Esta acción no se puede deshacer desde esta pantalla."/></TextBlock><StackPanel Orientation="Horizontal" Style="{StaticResource EstiloToolbar}" Margin="0,6,0,0"><Button Style="{StaticResource EstiloBotonDestructivo}" Content="Confirmar desactivación" Command="{Binding ConfirmarDesactivacionCommand}"/><Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar" Command="{Binding CancelarDesactivacionCommand}"/></StackPanel></StackPanel></Border>
+                </StackPanel></ScrollViewer>
+                <Border x:Name="AltaPanel" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14" HorizontalAlignment="Right" VerticalAlignment="Top" Width="350" Visibility="Collapsed"><StackPanel><TextBlock FontSize="16" FontWeight="SemiBold" Text="Crear empleado"/><TextBlock Style="{StaticResource EstiloAyuda}" Text="Definí usuario y contraseña inicial."/><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Nombre"/><TextBox x:Name="NuevoNombreInput" Style="{StaticResource EstiloCampoTexto}" Text="{Binding NuevoNombre, UpdateSourceTrigger=PropertyChanged}" ToolTip="Nombre de empleado"/><TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Contraseña inicial"/><PasswordBox x:Name="NuevaPwdAlta" Height="34" Padding="8,3" Margin="0,0,0,8" PasswordChanged="NuevaPwd_PasswordChanged" ToolTip="Contraseña inicial (mín. 12)"/><StackPanel Orientation="Horizontal" Style="{StaticResource EstiloToolbar}"><Button Style="{StaticResource EstiloBotonPrimario}" Content="Crear empleado" Command="{Binding CrearCommand}"/><Button Style="{StaticResource EstiloBotonSecundario}" Content="Cancelar" Click="CerrarAlta_Click"/></StackPanel><TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/><TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/></StackPanel></Border>
+            </Grid></Border>
+        </Grid>
+    </Grid>
 </UserControl>

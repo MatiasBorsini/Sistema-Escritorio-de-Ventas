@@ -1,0 +1,48 @@
+<UserControl x:Class="LocalInfantil.Wpf.Views.ArqueoCajaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="{StaticResource Color.CanvasBrush}">
+        <Border Style="{StaticResource EstiloTarjeta}" Width="520" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid>
+                <StackPanel Visibility="{Binding HayResultado, Converter={StaticResource BoolToVisibilityInverted}}">
+                    <TextBlock Text="Cerrar caja" Style="{StaticResource EstiloTituloPagina}"/>
+                    <TextBlock Text="Contá el efectivo disponible e ingresá el total." Style="{StaticResource EstiloAyuda}" Margin="0,2,0,14"/>
+                    <TextBlock Text="{Binding UsuarioApertura, StringFormat=Sesión abierta por: {0}}" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+                    <TextBlock Text="{Binding AbiertaEn, StringFormat=Fecha de apertura: {0}}" Foreground="{StaticResource Color.TextSecondaryBrush}" Margin="0,2,0,14"/>
+                    <TextBlock Text="Efectivo contado" Style="{StaticResource EstiloEtiqueta}"/>
+                    <TextBox Text="{Binding EfectivoContadoTexto, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTextoGrande}" Margin="0,0,0,12"/>
+                    <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Continuar" Command="{Binding ContinuarCommand}" Style="{StaticResource EstiloBotonPrimario}" Margin="0"/>
+                        <Button Content="Volver" Command="{Binding VolverCommand}" Style="{StaticResource EstiloBotonSecundario}"/>
+                    </DockPanel>
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding HayResultado, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Resultado del arqueo" Style="{StaticResource EstiloTituloPagina}"/>
+                    <TextBlock Text="Revisá los importes antes de confirmar el cierre." Style="{StaticResource EstiloAyuda}" Margin="0,2,0,14"/>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Efectivo esperado" Margin="0,4"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EfectivoEsperadoTexto}" FontWeight="SemiBold" Margin="8,4"/>
+                        <TextBlock Grid.Row="1" Text="Efectivo contado" Margin="0,4"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EfectivoContadoResultadoTexto}" FontWeight="SemiBold" Margin="8,4"/>
+                        <TextBlock Grid.Row="2" Text="Diferencia" Margin="0,4"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DiferenciaTexto}" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Margin="8,4"/>
+                    </Grid>
+                    <StackPanel Visibility="{Binding RequiereObservacion, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,10">
+                        <TextBlock Text="Observación obligatoria" Style="{StaticResource EstiloEtiqueta}"/>
+                        <TextBox Text="{Binding Observacion, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                    <TextBlock Text="{Binding Mensaje}" Foreground="{StaticResource Color.InfoTextBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Confirmar cierre" Command="{Binding ConfirmarCommand}" Style="{StaticResource EstiloBotonPrimario}" Margin="0"/>
+                        <Button Content="Volver a contar" Command="{Binding VolverCommand}" Style="{StaticResource EstiloBotonSecundario}"/>
+                    </DockPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

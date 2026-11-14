@@ -6,6 +6,20 @@ namespace LocalInfantil.Infrastructure.Persistence.Repositorios;
 
 public sealed class RepositorioPermisos : IRepositorioPermisos
 {
+    public async Task<IReadOnlyDictionary<string, bool>> ObtenerDefinidosAsync(ISesionPersistencia sesion, string usuarioId, IReadOnlyCollection<string> permisos, CancellationToken cancellationToken = default)
+    {
+        var s = Sesion(sesion);
+        if (permisos.Count == 0) return new Dictionary<string, bool>();
+        using var c = s.Conexion.CreateCommand(); c.CommandTimeout = s.TimeoutSegundos;
+        var nombres = new List<string>(); var i = 0;
+        foreach (var permiso in permisos) { var n = "$p" + i++; nombres.Add(n); c.Parameters.AddWithValue(n, permiso); }
+        c.Parameters.AddWithValue("$u", usuarioId);
+        c.CommandText = $"SELECT permiso, concedido FROM permiso_usuario WHERE usuario_id = $u AND permiso IN ({string.Join(',', nombres)});";
+        var resultado = new Dictionary<string, bool>();
+        await using var r = await c.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken)) resultado[r.GetString(0)] = r.GetInt64(1) == 1;
+        return resultado;
+    }
     public async Task DefinirAsync(ISesionPersistencia sesion, string usuarioId, string permiso, bool concedido, string actualizadoEn, string? actualizadoPorUsuarioId, CancellationToken cancellationToken = default)
     {
         var s = Sesion(sesion);

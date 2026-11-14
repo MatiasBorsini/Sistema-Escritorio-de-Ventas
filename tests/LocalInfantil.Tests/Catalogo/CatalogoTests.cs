@@ -25,11 +25,11 @@ public sealed class CatalogoTests
     {
         using var entorno = await EntornoPrueba.CrearAsync();
         var remeraId = await entorno.Casos.CrearProducto.EjecutarAsync(
-            new NuevoProducto("Remera", "Marca Ficticia", "Niños"), entorno.Sesion);
+            new NuevoProducto("Remera", "Marca Ficticia", "cat-rem"), entorno.Sesion);
 
-        var v1 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(remeraId, "REM-6-ROJO", "6", "Rojo"), entorno.Sesion);
-        var v2 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(remeraId, "REM-8-AZUL", "8", "Azul"), entorno.Sesion);
-        var v3 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(remeraId, "REM-10-VERDE", "10", "Verde"), entorno.Sesion);
+        var v1 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(remeraId, "6", "Rojo"), entorno.Sesion);
+        var v2 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(remeraId, "8", "Azul"), entorno.Sesion);
+        var v3 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(remeraId, "10", "Verde"), entorno.Sesion);
 
         Assert.NotEqual(v1, v2);
         Assert.NotEqual(v2, v3);
@@ -40,11 +40,11 @@ public sealed class CatalogoTests
     public async Task Articulos_sin_talle_sin_color_y_sin_ambos()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Gorro", null, null), entorno.Sesion);
+        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Gorro", null, "cat-acc"), entorno.Sesion);
 
-        var sinTalle = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "GORRO-ROJO", null, "Rojo"), entorno.Sesion);
-        var sinColor = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "GORRO-T4", "4", null), entorno.Sesion);
-        var sinAmbos = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "GORRO-UNICO", null, null), entorno.Sesion);
+        var sinTalle = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, "Rojo"), entorno.Sesion);
+        var sinColor = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.Sesion);
+        var sinAmbos = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.Sesion);
 
         var leida1 = await entorno.Casos.Consultas.ObtenerVarianteAsync(sinTalle, entorno.Sesion);
         var leida2 = await entorno.Casos.Consultas.ObtenerVarianteAsync(sinColor, entorno.Sesion);
@@ -64,10 +64,10 @@ public sealed class CatalogoTests
     public async Task Consultar_y_editar_conserva_ids()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Pantalón", null, null), entorno.Sesion);
-        var varianteId = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "PAN-T4", "4", null), entorno.Sesion);
+        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Pantalón", null, "cat-pan"), entorno.Sesion);
+        var varianteId = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.Sesion);
 
-        await entorno.Casos.EditarProducto.EjecutarAsync(productoId, new EdicionProducto("Pantalón Largo", "Marca", "Niños"), entorno.Sesion);
+        await entorno.Casos.EditarProducto.EjecutarAsync(productoId, new EdicionProducto("Pantalón Largo", "Marca", "cat-rem"), entorno.Sesion);
         await entorno.Casos.EditarVariante.EjecutarAsync(varianteId, new EdicionVariante("6", "Azul"), entorno.Sesion);
 
         var producto = await entorno.Casos.Consultas.ObtenerProductoAsync(productoId, entorno.Sesion);
@@ -79,34 +79,46 @@ public sealed class CatalogoTests
         Assert.Equal(varianteId, variante.Id);
         Assert.Equal("6", variante.Talle);
         Assert.Equal("Azul", variante.Color);
-        Assert.Equal("PAN-T4", variante.Sku);
+        Assert.NotNull(producto);
+        Assert.Equal($"{producto.CodigoInterno}-01", variante.CodigoInterno);
         Assert.Equal(productoId, variante.ProductoId);
     }
 
     [Fact]
-    public async Task Buscar_por_sku_exacto()
+    public async Task Buscar_por_codigo_interno_exacto()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-BUS-001", "6", null), entorno.Sesion);
+        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var varianteId = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.Sesion);
+        var creada = await entorno.Casos.Consultas.ObtenerVarianteAsync(varianteId, entorno.Sesion);
+        Assert.NotNull(creada);
 
-        var hallada = await entorno.Casos.Consultas.BuscarPorSkuAsync("REM-BUS-001", entorno.Sesion);
+        // Código exacto válido resuelve sin obligar a elegir sugerencia.
+        var hallada = await entorno.Casos.Consultas.BuscarPorCodigoInternoAsync(creada.CodigoInterno, entorno.Sesion);
         Assert.NotNull(hallada);
-        Assert.Equal("REM-BUS-001", hallada.Sku);
-        Assert.Null(await entorno.Casos.Consultas.BuscarPorSkuAsync("REM-BUS-999", entorno.Sesion));
+        Assert.Equal(creada.CodigoInterno, hallada.CodigoInterno);
+        Assert.Null(await entorno.Casos.Consultas.BuscarPorCodigoInternoAsync("REM-999-99", entorno.Sesion));
     }
 
     [Fact]
-    public async Task Sku_duplicado_se_rechaza_sin_parciales()
+    public async Task Codigos_internos_automaticos_unicos_y_secuenciales()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-DUP-001", "6", null), entorno.Sesion);
+        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var producto = await entorno.Casos.Consultas.ObtenerProductoAsync(productoId, entorno.Sesion);
+        Assert.NotNull(producto);
 
-        var error = await Assert.ThrowsAsync<SqliteException>(() =>
-            entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-DUP-001", "8", null), entorno.Sesion));
-        Assert.Contains("UNIQUE", error.Message);
-        Assert.Single(await entorno.Casos.Consultas.ListarPorProductoAsync(productoId, entorno.Sesion));
+        var v1 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.Sesion);
+        var v2 = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "8", null), entorno.Sesion);
+
+        var l1 = await entorno.Casos.Consultas.ObtenerVarianteAsync(v1, entorno.Sesion);
+        var l2 = await entorno.Casos.Consultas.ObtenerVarianteAsync(v2, entorno.Sesion);
+        Assert.NotNull(l1);
+        Assert.NotNull(l2);
+        Assert.NotEqual(l1.CodigoInterno, l2.CodigoInterno);
+        Assert.Equal($"{producto.CodigoInterno}-01", l1.CodigoInterno);
+        Assert.Equal($"{producto.CodigoInterno}-02", l2.CodigoInterno);
+        Assert.Equal(2, (await entorno.Casos.Consultas.ListarPorProductoAsync(productoId, entorno.Sesion)).Count);
     }
 
     [Fact]
@@ -115,15 +127,15 @@ public sealed class CatalogoTests
         using var entorno = await EntornoPrueba.CrearAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante("producto-inexistente", "REM-X-001", null, null), entorno.Sesion));
+            entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante("producto-inexistente", null, null), entorno.Sesion));
     }
 
     [Fact]
     public async Task Desactivar_conserva_historial()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
-        var varianteId = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-H-001", "6", null), entorno.Sesion);
+        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
+        var varianteId = await entorno.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.Sesion);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             entorno.Casos.DesactivarProducto.EjecutarAsync(productoId, entorno.Sesion));
@@ -155,10 +167,11 @@ public sealed class CatalogoTests
         await using (var sesion = await fabrica.IniciarAsync())
         {
             productoId = await productos.InsertarAsync(sesion, new NuevoProducto("Campera", null, null), Fecha);
-            var varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "CAM-C-001", null, null), Fecha);
+            var varianteId = await variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "6", null), Fecha);
             await auditoria.RegistrarAsync(sesion, Evento("op-compuesta", "catalogo.producto_alta", "producto", productoId));
+            // El fallo compuesto se provoca con una FK inexistente y todo revierte.
             await Assert.ThrowsAsync<SqliteException>(() =>
-                variantes.InsertarAsync(sesion, new NuevaVariante(productoId, "CAM-C-001", null, null), Fecha));
+                variantes.InsertarAsync(sesion, new NuevaVariante("producto-inexistente", null, null), Fecha));
             _ = varianteId;
         }
 
@@ -171,7 +184,7 @@ public sealed class CatalogoTests
     public async Task Escrituras_denegadas_sin_sesion_o_permiso()
     {
         using var entorno = await EntornoPrueba.CrearAsync();
-        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.Sesion);
+        var productoId = await entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.Sesion);
 
         await Assert.ThrowsAsync<SesionInvalidaException>(() =>
             entorno.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Otra", null, null), null));
@@ -183,7 +196,7 @@ public sealed class CatalogoTests
         await Assert.ThrowsAsync<AccesoDenegadoException>(() =>
             denegado.Casos.CrearProducto.EjecutarAsync(new NuevoProducto("Otra", null, null), sesionSinPermiso));
         await Assert.ThrowsAsync<AccesoDenegadoException>(() =>
-            denegado.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-N-001", null, null), sesionSinPermiso));
+            denegado.Casos.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), sesionSinPermiso));
         await Assert.ThrowsAsync<AccesoDenegadoException>(() =>
             denegado.Casos.EditarProducto.EjecutarAsync(productoId, new EdicionProducto("X", null, null), sesionSinPermiso));
         await Assert.ThrowsAsync<AccesoDenegadoException>(() =>
@@ -257,8 +270,8 @@ public sealed class CatalogoTests
             var autorizador = new Autorizador(_sesiones, new RepositorioUsuarios(_ids), new RepositorioPermisos(), _fabrica, matriz);
             Casos = new JuegoCasos
             {
-                CrearProducto = new CrearProducto(_productos, autorizador, _fabrica, _auditoria, _ids, reloj),
-                EditarProducto = new EditarProducto(_productos, autorizador, _fabrica, _auditoria, _ids),
+                CrearProducto = new CrearProducto(_productos, new RepositorioCategorias(_ids), autorizador, _fabrica, _auditoria, _ids, reloj),
+                EditarProducto = new EditarProducto(_productos, new RepositorioCategorias(_ids), autorizador, _fabrica, _auditoria, _ids),
                 DesactivarProducto = new DesactivarProducto(_productos, _variantes, autorizador, _fabrica, _auditoria, _ids),
                 CrearVariante = new CrearVariante(_variantes, _productos, autorizador, _fabrica, _auditoria, _ids, reloj),
                 EditarVariante = new EditarVariante(_variantes, autorizador, _fabrica, _auditoria, _ids),

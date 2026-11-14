@@ -41,6 +41,12 @@ public sealed class ConsultasConteos
         return await _conteos.InformeAsync(s, conteoId, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<LineaCorreccionConteo>> ListarLineasCorreccionAsync(string conteoId, string? idSesion, CancellationToken cancellationToken = default)
+    {
+        await using var s = await SesionValidadaAsync(idSesion, cancellationToken);
+        return await _conteos.ListarLineasCorreccionAsync(s, conteoId, cancellationToken);
+    }
+
     private async Task<ISesionPersistencia> SesionValidadaAsync(string? idSesion, CancellationToken cancellationToken)
     {
         if (idSesion is null || _sesiones.Obtener(idSesion) is null) throw new SesionInvalidaException();

@@ -1,0 +1,807 @@
+﻿<UserControl x:Class="LocalInfantil.Wpf.Views.ReportesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="EstiloPestanaReporte" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="FocusVisualStyle" Value="{StaticResource EstiloFocoTeclado}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Fondo" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2"
+                                Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Fondo" Property="BorderBrush" Value="{StaticResource Color.PrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource Color.PrimaryBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Color.TextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EstiloEncabezadoGrillaReporte" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{StaticResource Color.Surface2Brush}"/>
+            <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Color.BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="EstiloTablaReporte" TargetType="DataGrid" BasedOn="{StaticResource EstiloGrillaOperativa}">
+            <Setter Property="RowHeight" Value="38"/>
+            <Setter Property="ColumnHeaderHeight" Value="34"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
+            <Setter Property="CanUserReorderColumns" Value="False"/>
+            <Setter Property="CanUserSortColumns" Value="False"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Color.BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource Color.BorderSoftBrush}"/>
+            <Setter Property="RowBackground" Value="{StaticResource Color.SurfaceBrush}"/>
+            <Setter Property="AlternatingRowBackground" Value="{StaticResource Color.Surface2Brush}"/>
+            <Setter Property="AlternationCount" Value="2"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ColumnHeaderStyle" Value="{StaticResource EstiloEncabezadoGrillaReporte}"/>
+        </Style>
+
+        <Style x:Key="EstiloCeldaTextoReporte" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="8,0,6,0"/>
+            <Setter Property="Foreground" Value="{StaticResource Color.TextBrush}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <Style x:Key="EstiloCeldaImporteReporte" TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="4,0,8,0"/>
+        </Style>
+
+        <Style x:Key="EstiloTituloSeccionReporte" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Color.TextBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="EstiloBarraFiltros" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Color.SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Color.BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+
+        <Style x:Key="EstiloBotonFiltroReporte" TargetType="Button" BasedOn="{StaticResource EstiloBotonSecundario}">
+            <Setter Property="MinHeight" Value="{StaticResource AlturaCampo}"/>
+            <Setter Property="MinWidth" Value="96"/>
+        </Style>
+
+        <Style x:Key="EstiloGrupoMetricaReporte" TargetType="StackPanel">
+            <Setter Property="Margin" Value="4,0"/>
+        </Style>
+
+        <Style x:Key="EstiloEtiquetaGrupoReporte" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel Background="{StaticResource Color.CanvasBrush}">
+        <StackPanel DockPanel.Dock="Top" Margin="20,6,20,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource EstiloTituloPagina}" Text="Reportes"/>
+                    <TextBlock Style="{StaticResource EstiloAyuda}" Text="Consultá e imprimí la información de tu negocio" Margin="0,2,0,0"/>
+                </StackPanel>
+                <Image Grid.Column="1" Source="{StaticResource LogoBannerTiNA}" Height="36"
+                       Stretch="Uniform" VerticalAlignment="Center"/>
+            </Grid>
+            <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"
+                       Visibility="{Binding Error, Converter={StaticResource NullToVisibility}}"/>
+            <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"
+                       Visibility="{Binding Mensaje, Converter={StaticResource NullToVisibility}}"/>
+        </StackPanel>
+
+        <TabControl Margin="20,2,20,12" Padding="0" BorderThickness="0" Background="Transparent"
+                    SelectedValue="{Binding TabActiva}" SelectedValuePath="Tag">
+            <TabControl.Resources>
+                <Style TargetType="TabItem" BasedOn="{StaticResource EstiloPestanaReporte}"/>
+            </TabControl.Resources>
+
+            <TabItem Header="Ventas" Tag="Ventas" Visibility="{Binding PuedeVerVentas, Converter={StaticResource BoolToVisibility}}">
+                <Grid Margin="0,6,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource EstiloBarraFiltros}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar"
+                                        Command="{Binding CargarVentasCommand}" MinWidth="96" Margin="8,0,0,0"/>
+                                <Button Style="{StaticResource EstiloBotonFiltroReporte}" Content="Imprimir"
+                                        Click="Imprimir_Click" IsEnabled="{Binding PuedeImprimir}" Margin="8,0,0,0"
+                                        ToolTip="Imprime el reporte en A4. Para guardar como PDF elegí «Microsoft Print to PDF» en el diálogo de impresión."/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="{StaticResource Color.Surface2Brush}" CornerRadius="7" Padding="2" Margin="0,0,12,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource EstiloSegmento}" Content="Hoy" GroupName="PresetVentas" IsChecked="{Binding PresetHoy}"/>
+                                        <RadioButton Style="{StaticResource EstiloSegmento}" Content="Este mes" GroupName="PresetVentas" IsChecked="{Binding PresetEsteMes}"/>
+                                        <RadioButton Style="{StaticResource EstiloSegmento}" Content="Personalizado" GroupName="PresetVentas" IsChecked="{Binding PresetPersonalizado}"/>
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Desde" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding Desde}" Width="126" Height="{StaticResource AlturaCampo}" VerticalContentAlignment="Center"/>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Hasta" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding Hasta}" Width="126" Height="{StaticResource AlturaCampo}" VerticalContentAlignment="Center"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" Margin="0,8,0,0" Focusable="False"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                    <TextBlock Grid.Row="1" Style="{StaticResource EstiloEstadoVacio}" Margin="2,0,0,0"
+                               Text="{Binding TextoVacioVentas}"
+                               Visibility="{Binding TextoVacioVentas, Converter={StaticResource NullToVisibility}}"/>
+
+                    <Border Grid.Row="2" Style="{StaticResource EstiloTarjeta}" Padding="12,8" Margin="0,10,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="1.15*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="0.9*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Style="{StaticResource EstiloGrupoMetricaReporte}">
+                                <TextBlock Style="{StaticResource EstiloEtiquetaGrupoReporte}" Text="Ventas"/>
+                                <DockPanel Margin="0,1">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Brutas" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}"
+                                               Text="{Binding Resumen.BrutasMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,1">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Ajustes" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}"
+                                               Text="{Binding AjustesVentasMinor, Converter={StaticResource MinorConSignoToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,3,0,0">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Netas" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="14" FontWeight="Bold"
+                                               Foreground="{StaticResource Color.PrimaryBrush}"
+                                               Text="{Binding Resumen.NetasMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                            </StackPanel>
+
+                            <Border Grid.Column="1" Width="1" Background="{StaticResource Color.BorderSoftBrush}" Margin="10,0"/>
+
+                            <StackPanel Grid.Column="2" Style="{StaticResource EstiloGrupoMetricaReporte}" VerticalAlignment="Top">
+                                <TextBlock Style="{StaticResource EstiloEtiquetaGrupoReporte}" Text="Cobros"/>
+                                <DockPanel Margin="0,3,0,0">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Cobrado" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}"
+                                               Text="{Binding Resumen.CobradoMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" FontSize="11" Text="Pagos registrados en el período" Margin="0,2,0,0"/>
+                                <DockPanel Margin="0,6,0,0">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Flujo neto" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="15" FontWeight="Bold"
+                                               Foreground="{StaticResource Color.PrimaryBrush}"
+                                               Text="{Binding Resumen.FlujoNetoMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" FontSize="11" Text="Cobrado − reintegros" Margin="0,2,0,0"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="3" Width="1" Background="{StaticResource Color.BorderSoftBrush}" Margin="10,0"/>
+
+                            <StackPanel Grid.Column="4" Style="{StaticResource EstiloGrupoMetricaReporte}">
+                                <TextBlock Style="{StaticResource EstiloEtiquetaGrupoReporte}" Text="Devoluciones y cambios"/>
+                                <DockPanel Margin="0,1">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Crédito por devoluciones" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}"
+                                               Text="{Binding Resumen.CreditoDevolucionesMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,1">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Salidas por cambio" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}"
+                                               Text="{Binding Resumen.SalidasCambioMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <DockPanel Margin="0,3,0,0">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Reintegros" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="14" FontWeight="Bold"
+                                               Foreground="{StaticResource Color.WarningTextBrush}"
+                                               Text="{Binding Resumen.ReintegrosMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                            </StackPanel>
+
+                            <Border Grid.Column="5" Width="1" Background="{StaticResource Color.BorderSoftBrush}" Margin="10,0"/>
+
+                            <StackPanel Grid.Column="6" Style="{StaticResource EstiloGrupoMetricaReporte}" VerticalAlignment="Top">
+                                <TextBlock Style="{StaticResource EstiloEtiquetaGrupoReporte}" Text="Resultado"/>
+                                <DockPanel Margin="0,3,0,0">
+                                    <TextBlock Style="{StaticResource EstiloEtiquetaMetrica}" Text="Ventas netas" VerticalAlignment="Center"/>
+                                    <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Color.TextBrush}"
+                                               Text="{Binding Resumen.NetasMinor, Converter={StaticResource MinorToArs}, FallbackValue=—}"/>
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" FontSize="11" Text="Brutas − anulaciones − devoluciones + salidas" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="3" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="14"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <DockPanel Grid.Column="0">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                <TextBlock Style="{StaticResource EstiloAyuda}" DockPanel.Dock="Right" Text="Totales del período" Margin="0"/>
+                                <TextBlock Style="{StaticResource EstiloTituloSeccionReporte}" Text="Por día"/>
+                            </DockPanel>
+                            <DataGrid Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      SelectionMode="Single" ItemsSource="{Binding FilasDiarias}"
+                                      SelectedValue="{Binding DiaSeleccionado}" SelectedValuePath="Fecha"
+                                      MinHeight="212" VerticalScrollBarVisibility="Disabled">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Fecha" Binding="{Binding Fecha}" Width="1.1*" MinWidth="88">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Brutas" Binding="{Binding BrutasMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Ajustes" Binding="{Binding AjustesMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Netas" Binding="{Binding NetasMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Cobros" Binding="{Binding CobrosMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Reintegros" Binding="{Binding ReintegrosMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="88">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+
+                        <DockPanel Grid.Column="2">
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                                <TextBlock Style="{StaticResource EstiloAyuda}" DockPanel.Dock="Right" Text="Neto por medio" Margin="0"/>
+                                <TextBlock Style="{StaticResource EstiloTituloSeccionReporte}" Text="Por medio"/>
+                            </DockPanel>
+                            <DataGrid Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding Medios}" MinHeight="212"
+                                      VerticalScrollBarVisibility="Disabled">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Medio" Binding="{Binding Medio, Converter={StaticResource CajaTextoHumano}}" Width="1.3*" MinWidth="92">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Ventas" Binding="{Binding VentasMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Abonos" Binding="{Binding AbonosMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="78">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Cambios" Binding="{Binding CambiosCobrosMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Reintegros" Binding="{Binding ReintegrosMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="86">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Neto" Binding="{Binding NetoMinor, Converter={StaticResource MinorToArs}}" Width="*" MinWidth="82">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Grid>
+
+                    <DockPanel Grid.Row="4" Margin="0,12,0,6">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding TextoPaginacionDetalle}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorDetalleCommand}"
+                                    IsEnabled="{Binding HayAnteriorDetalle}" Margin="0,0,8,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteDetalleCommand}"
+                                    IsEnabled="{Binding HayMasDetalle}"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource EstiloTituloSeccionReporte}" Text="Detalle de ventas"/>
+                    </DockPanel>
+
+                    <Grid Grid.Row="5">
+                        <DataGrid Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                                  ItemsSource="{Binding Detalle}" VerticalScrollBarVisibility="Disabled">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fecha" Binding="{Binding Fecha, Converter={StaticResource FechaCorta}}" Width="1.2*" MinWidth="108">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Referencia" Binding="{Binding Referencia}" Width="1*" MinWidth="92">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Tipo" Binding="{Binding Tipo, Converter={StaticResource CajaTextoHumano}}" Width="0.8*" MinWidth="82">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Cliente" Binding="{Binding ClienteNombre, TargetNullValue=—}" Width="2*" MinWidth="120">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Bruta" Binding="{Binding BrutaMinor, Converter={StaticResource MinorToArs}}" Width="1*" MinWidth="94">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Ajustes" Binding="{Binding AjustesMinor, Converter={StaticResource MinorToArs}}" Width="1*" MinWidth="94">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Neto" Binding="{Binding NetoMinor, Converter={StaticResource MinorToArs}}" Width="1*" MinWidth="94">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Estado" Binding="{Binding Estado, Converter={StaticResource CajaTextoHumano}}" Width="0.9*" MinWidth="86">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Style="{StaticResource EstiloEstadoVacio}" Margin="10,8,0,0" VerticalAlignment="Top"
+                                   Text="{Binding TextoVacioDetalle}"
+                                   Visibility="{Binding TextoVacioDetalle, Converter={StaticResource NullToVisibility}}"/>
+                    </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Caja" Tag="Caja" Visibility="{Binding PuedeVerCaja, Converter={StaticResource BoolToVisibility}}">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Style="{StaticResource EstiloBarraFiltros}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar"
+                                        Command="{Binding CargarCajaCommand}" MinWidth="96" Margin="8,0,0,0"/>
+                                <Button Style="{StaticResource EstiloBotonFiltroReporte}" Content="Imprimir"
+                                        Click="Imprimir_Click" IsEnabled="{Binding PuedeImprimir}" Margin="8,0,0,0"
+                                        ToolTip="Imprime el reporte en A4. Para guardar como PDF elegí «Microsoft Print to PDF» en el diálogo de impresión."/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="{StaticResource Color.Surface2Brush}" CornerRadius="7" Padding="2" Margin="0,0,12,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource EstiloSegmento}" Content="Hoy" GroupName="PresetCaja" IsChecked="{Binding PresetHoy}"/>
+                                        <RadioButton Style="{StaticResource EstiloSegmento}" Content="Este mes" GroupName="PresetCaja" IsChecked="{Binding PresetEsteMes}"/>
+                                        <RadioButton Style="{StaticResource EstiloSegmento}" Content="Personalizado" GroupName="PresetCaja" IsChecked="{Binding PresetPersonalizado}"/>
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Desde" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding Desde}" Width="126" Height="{StaticResource AlturaCampo}" VerticalContentAlignment="Center"/>
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Hasta" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding Hasta}" Width="126" Height="{StaticResource AlturaCampo}" VerticalContentAlignment="Center"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <TextBlock Grid.Row="1" Style="{StaticResource EstiloEstadoVacio}" Margin="2,8,0,0"
+                               Text="{Binding TextoVacioCaja}"
+                               Visibility="{Binding TextoVacioCaja, Converter={StaticResource NullToVisibility}}"/>
+
+                    <DataGrid Grid.Row="2" Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" ItemsSource="{Binding SesionesCaja}" SelectedItem="{Binding SesionCajaSeleccionada}"
+                              Margin="0,10,0,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Apertura" Binding="{Binding AbiertaEn, Converter={StaticResource FechaCorta}}" Width="1.2*" MinWidth="118">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Cierre" Binding="{Binding CerradaEn, Converter={StaticResource FechaCorta}, TargetNullValue=Abierta}" Width="1.2*" MinWidth="110">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Apertura por" Binding="{Binding UsuarioAperturaNombre, TargetNullValue=—}" Width="1.6*" MinWidth="120">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Fondo" Binding="{Binding FondoInicialMinor, Converter={StaticResource MinorToArs}}" Width="1*" MinWidth="98">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Teórico" Binding="{Binding EfectivoEsperadoMinor, Converter={StaticResource MinorToArs}, TargetNullValue=—}" Width="1*" MinWidth="98">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Contado" Binding="{Binding EfectivoContadoMinor, Converter={StaticResource MinorToArs}, TargetNullValue=—}" Width="1*" MinWidth="98">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Diferencia" Binding="{Binding DiferenciaMinor, Converter={StaticResource MinorConSignoToArs}, TargetNullValue=—}" Width="1.05*" MinWidth="102">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}">
+                                        <Setter Property="Foreground" Value="{Binding DiferenciaMinor, Converter={StaticResource DiferenciaColor}}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Estado" Binding="{Binding Estado, Converter={StaticResource CajaTextoHumano}}" Width="0.8*" MinWidth="84">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Estado}" Value="abierta">
+                                                <Setter Property="Foreground" Value="{StaticResource Color.WarningTextBrush}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Estado}" Value="cerrada">
+                                                <Setter Property="Foreground" Value="{StaticResource Color.TextSecondaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <DockPanel Grid.Row="3" Margin="0,8,0,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding TextoPaginacionCaja}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorCajaCommand}"
+                                    IsEnabled="{Binding HayAnteriorCaja}" Margin="0,0,8,0"/>
+                            <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteCajaCommand}"
+                                    IsEnabled="{Binding HayMasCaja}"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Las cajas abiertas muestran «Abierta» en Cierre. El detalle de movimientos se consulta en Caja."/>
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Inventario" Tag="Inventario" Visibility="{Binding PuedeVerInventario, Converter={StaticResource BoolToVisibility}}">
+                <Grid Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{StaticResource Color.Surface2Brush}" CornerRadius="7" Padding="2"
+                            HorizontalAlignment="Left" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource EstiloSegmento}" Content="Stock actual" GroupName="SubAreaInventario" IsChecked="{Binding EsReporteStock}"/>
+                            <RadioButton Style="{StaticResource EstiloSegmento}" Content="Más movidos" GroupName="SubAreaInventario" IsChecked="{Binding EsReporteRanking}"/>
+                            <RadioButton Style="{StaticResource EstiloSegmento}" Content="Sin ventas" GroupName="SubAreaInventario" IsChecked="{Binding EsReporteSinVentas}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="1">
+                        <Grid Visibility="{Binding SubAreaStockVisible, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Style="{StaticResource EstiloBarraFiltros}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar"
+                                                Command="{Binding CargarInventarioCommand}" MinWidth="96" Margin="8,0,0,0"/>
+                                        <Button Style="{StaticResource EstiloBotonFiltroReporte}" Content="Imprimir"
+                                                Click="Imprimir_Click" IsEnabled="{Binding PuedeImprimir}" Margin="8,0,0,0"
+                                                ToolTip="Imprime el reporte en A4. Para guardar como PDF elegí «Microsoft Print to PDF» en el diálogo de impresión."/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Buscar" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Width="220"
+                                                 Text="{Binding TextoStock, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Nombre del producto o código interno"/>
+                                        <CheckBox Content="Solo stock 0" IsChecked="{Binding SoloCero}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Hasta unidades" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Width="72"
+                                                 Text="{Binding HastaUnidadesTexto, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Tope de unidades disponibles (vacío = sin tope)"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <TextBlock Grid.Row="1" Style="{StaticResource EstiloEstadoVacio}" Margin="2,8,0,0"
+                                       Text="{Binding TextoVacioStock}"
+                                       Visibility="{Binding TextoVacioStock, Converter={StaticResource NullToVisibility}}"/>
+
+                            <DataGrid Grid.Row="2" Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding FilasStock}" Margin="0,10,0,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Producto" Binding="{Binding ProductoNombre}" Width="2*" MinWidth="150">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="1.1*" MinWidth="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Talle/Color" Binding="{Binding TalleColor}" Width="1.2*" MinWidth="110">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Disponible" Binding="{Binding Disponible}" Width="0.9*" MinWidth="92">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Apartado" Binding="{Binding Apartado}" Width="0.9*" MinWidth="88">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Físico" Binding="{Binding Fisico}" Width="0.8*" MinWidth="80">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <DockPanel Grid.Row="3" Margin="0,8,0,0">
+                                <TextBlock Style="{StaticResource EstiloAyuda}" DockPanel.Dock="Right" Text="Disponible + Apartado = Físico"/>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding TextoConteoStock}"/>
+                            </DockPanel>
+                        </Grid>
+
+                        <Grid Visibility="{Binding SubAreaRankingVisible, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Style="{StaticResource EstiloBarraFiltros}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar"
+                                                Command="{Binding CargarInventarioCommand}" MinWidth="96" Margin="8,0,0,0"/>
+                                        <Button Style="{StaticResource EstiloBotonFiltroReporte}" Content="Imprimir"
+                                                Click="Imprimir_Click" IsEnabled="{Binding PuedeImprimir}" Margin="8,0,0,0"
+                                                ToolTip="Imprime el reporte en A4. Para guardar como PDF elegí «Microsoft Print to PDF» en el diálogo de impresión."/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Background="{StaticResource Color.Surface2Brush}" CornerRadius="7" Padding="2" Margin="0,0,12,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Style="{StaticResource EstiloSegmento}" Content="Hoy" GroupName="PresetRanking" IsChecked="{Binding PresetHoy}"/>
+                                                <RadioButton Style="{StaticResource EstiloSegmento}" Content="Este mes" GroupName="PresetRanking" IsChecked="{Binding PresetEsteMes}"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Desde" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <DatePicker SelectedDate="{Binding Desde}" Width="126" Height="{StaticResource AlturaCampo}" VerticalContentAlignment="Center"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Hasta" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                        <DatePicker SelectedDate="{Binding Hasta}" Width="126" Height="{StaticResource AlturaCampo}" VerticalContentAlignment="Center"/>
+                                        <CheckBox Content="Agrupar por producto" IsChecked="{Binding AgruparPorProducto}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <TextBlock Grid.Row="1" Style="{StaticResource EstiloEstadoVacio}" Margin="2,8,0,0"
+                                       Text="{Binding TextoVacioRanking}"
+                                       Visibility="{Binding TextoVacioRanking, Converter={StaticResource NullToVisibility}}"/>
+
+                            <DataGrid Grid.Row="2" Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding Ranking}" Margin="0,10,0,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Producto" Binding="{Binding NombreProducto}" Width="2*" MinWidth="150">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="1.1*" MinWidth="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Talle/Color" Binding="{Binding TalleColor}" Width="1.15*" MinWidth="105">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Brutas" Binding="{Binding BrutasUnidades}" Width="0.8*" MinWidth="76">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Anuladas" Binding="{Binding AnuladasUnidades}" Width="0.9*" MinWidth="84">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Devueltas" Binding="{Binding DevueltasUnidades}" Width="0.9*" MinWidth="84">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Salidas" Binding="{Binding SalidasCambioUnidades}" Width="0.8*" MinWidth="76">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Netas" Binding="{Binding NetasUnidades}" Width="0.8*" MinWidth="76">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaImporteReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <DockPanel Grid.Row="3" Margin="0,8,0,0">
+                                <TextBlock Style="{StaticResource EstiloAyuda}" DockPanel.Dock="Right"
+                                           Text="Netas = brutas − anuladas − devueltas + salidas por cambio. Las anulaciones cuentan en la fecha en que se registran."/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding TextoPaginacionRanking}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorRankingCommand}"
+                                            IsEnabled="{Binding HayAnteriorRanking}" Margin="0,0,8,0"/>
+                                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteRankingCommand}"
+                                            IsEnabled="{Binding HayMasRanking}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Grid>
+
+                        <Grid Visibility="{Binding SubAreaSinVentasVisible, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Border Grid.Row="0" Style="{StaticResource EstiloBarraFiltros}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource EstiloBotonPrimario}" Content="Consultar"
+                                                Command="{Binding CargarInventarioCommand}" MinWidth="96" Margin="8,0,0,0"/>
+                                        <Button Style="{StaticResource EstiloBotonFiltroReporte}" Content="Imprimir"
+                                                Click="Imprimir_Click" IsEnabled="{Binding PuedeImprimir}" Margin="8,0,0,0"
+                                                ToolTip="Imprime el reporte en A4. Para guardar como PDF elegí «Microsoft Print to PDF» en el diálogo de impresión."/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Sin ventas en los últimos" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Width="64"
+                                                 Text="{Binding DiasSinVentasTexto, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Días hacia atrás desde hoy"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="días" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Corte al día de hoy" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <TextBlock Grid.Row="1" Style="{StaticResource EstiloEstadoVacio}" Margin="2,8,0,0"
+                                       Text="{Binding TextoVacioSinVentas}"
+                                       Visibility="{Binding TextoVacioSinVentas, Converter={StaticResource NullToVisibility}}"/>
+
+                            <DataGrid Grid.Row="2" Style="{StaticResource EstiloTablaReporte}" AutoGenerateColumns="False" IsReadOnly="True"
+                                      ItemsSource="{Binding SinVentasFilas}" Margin="0,10,0,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Producto" Binding="{Binding ProductoNombre}" Width="2*" MinWidth="150">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Código" Binding="{Binding CodigoInterno}" Width="1.1*" MinWidth="100">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Talle/Color" Binding="{Binding TalleColor}" Width="1.15*" MinWidth="105">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Última venta" Binding="{Binding UltimaVentaEn, Converter={StaticResource FechaCorta}, TargetNullValue=Nunca}" Width="1.2*" MinWidth="112">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Última recepción" Binding="{Binding UltimaRecepcionEn, Converter={StaticResource FechaCorta}, TargetNullValue=—}" Width="1.2*" MinWidth="118">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource EstiloCeldaTextoReporte}"/>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <DockPanel Grid.Row="3" Margin="0,8,0,0">
+                                <TextBlock Style="{StaticResource EstiloAyuda}" DockPanel.Dock="Right" Text="Sin ventas registradas en el período indicado"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Style="{StaticResource EstiloAyuda}" Text="{Binding TextoPaginacionSinVentas}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="◀ Anterior" Command="{Binding AnteriorSinVentasCommand}"
+                                            IsEnabled="{Binding HayAnteriorSinVentas}" Margin="0,0,8,0"/>
+                                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Siguiente ▶" Command="{Binding SiguienteSinVentasCommand}"
+                                            IsEnabled="{Binding HayMasSinVentas}"/>
+                                </StackPanel>
+                            </DockPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>

@@ -3,7 +3,7 @@ using LocalInfantil.Application.Contracts;
 
 namespace LocalInfantil.Application.Features.Catalogo;
 
-/// <summary>Edición de talle/color (reemplazo total). SKU y producto inmutables.</summary>
+/// <summary>Edición de talle/color (reemplazo total). Código interno y producto inmutables. Mantiene la regla sin duplicados.</summary>
 public sealed class EditarVariante
 {
     private readonly IRepositorioVariantes _variantes;
@@ -41,6 +41,12 @@ public sealed class EditarVariante
         if (existente is null)
         {
             throw new InvalidOperationException("La variante no existe.");
+        }
+
+        var hermanas = await _variantes.ListarPorProductoAsync(sesion, existente.ProductoId, cancellationToken);
+        if (hermanas.Any(v => v.Id != id && NormalizacionVariante.MismaCombinacion(v.Talle, v.Color, edicion.Talle, edicion.Color)))
+        {
+            throw new InvalidOperationException("Ya existe una variante con ese talle y color.");
         }
 
         await _variantes.ActualizarAsync(sesion, id, edicion, cancellationToken);

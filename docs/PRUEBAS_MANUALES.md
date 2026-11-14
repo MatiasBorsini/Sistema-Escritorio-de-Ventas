@@ -1,5 +1,19 @@
 # Pruebas manuales
 
+## F08 — Verificación técnica automatizada (2026-10-05; no sustituye pruebas manuales)
+
+- `dotnet restore LocalInfantil.sln --runtime win-x64 --property:Configuration=Release`: correcto. El primer `publish --no-restore` sin activos runtime falló con `NETSDK1047`; tras el restore indicado, la publicación concluyó correctamente.
+- `dotnet build LocalInfantil.sln --configuration Debug`: correcto, 0 advertencias y 0 errores.
+- `dotnet test tests/LocalInfantil.Tests/LocalInfantil.Tests.csproj --configuration Debug --filter FullyQualifiedName~Respaldos --logger "console;verbosity=normal"`: correcto, 38/38 pruebas de respaldos.
+- `dotnet test LocalInfantil.sln --configuration Debug --logger "console;verbosity=normal"`: correcto, 409/409 pruebas superadas en 4,3977 minutos. La búsqueda representativa de Catálogo tardó 2m55s y terminó; no se canceló.
+- `dotnet publish src/LocalInfantil.Wpf/LocalInfantil.Wpf.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output artifacts/publish/net10-f08-win-x64 -m:1 -p:DebugType=None -p:DebugSymbols=false`: correcto, publicación de 409 archivos / 151.021.404 bytes (144,03 MiB). `libsodium.dll` se cargó correctamente. No se encontraron DB, backups, secretos, temporales ni PDB; `.deps.json` y `.runtimeconfig.json` son metadatos normales de .NET.
+- Inicio directo de `LocalInfantil.Wpf.exe`: el proceso permaneció activo y obtuvo un handle de ventana después de 5 segundos; cerró normalmente. No se inspeccionó visualmente la UI, no se inició sesión y no se probaron operaciones manuales de F08; esta comprobación no sustituye la validación visual.
+- Las pruebas automatizadas operan con bases temporales. No se abrió, escribió ni migró una base de usuario/histórica.
+- Build de Release se produjo como parte de `dotnet publish` y finalizó correctamente con 0 advertencias/0 errores.
+- `git diff --check`: ejecutado, salida limpia (código 0).
+
+Pendientes manuales F08: configuración y OAuth/Drive real; autorización/reconexión y retry con cuenta de prueba; capturas y recorrido visual WPF; restauración local completa, cancelación y revisión visual de caja abierta/rollback/staging; restauración en una PC/perfil Windows nuevo; repetición manual del comportamiento post-cierre/scheduler; validación de PC/hardware real. No se afirma que esos escenarios se hayan probado. La cobertura automatizada F08-T07 está completa, pero F08-T04 y F08-T06 siguen parciales; F08 no queda cerrada y producción NO está habilitada.
+
 ## F00-T01 — Estructura inicial
 
 - Compilación ejecutada el 2026-09-20 en Windows: `dotnet build LocalInfantil.sln --configuration Debug --no-restore`, correcta (0 advertencias, 0 errores).
@@ -72,3 +86,162 @@ La validación visual manual de F00-T03 está completada.
   9. Verificar conservación: primero comprobar que la base de prueba sigue existiendo tras desinstalar (el desinstalador solo retira `...\Programs\LocalInfantil-Prototype` de esa cuenta) —no borrarla antes de esta comprobación— y después, desde tu sesión con la aplicación cerrada, verificar que la base principal conserva el hash/tamaño "antes". Recién entonces, limpieza manual de la cuenta/datos de prueba.
 - Corrección 2026-09-21 (revisión): el aislamiento mediante `set LOCALAPPDATA=...` en un `cmd` queda ELIMINADO como garantía y no debe usarse. La aplicación resuelve su ruta con `Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)`, que consulta la carpeta conocida del shell del usuario actual e ignora la variable de entorno del proceso: lanzar el exe con `LOCALAPPDATA` modificada seguiría escribiendo en la base real.
 - Pendiente para cierre de F00-T06: validar compatibilidad, arranque y fluidez en la PC del local y registrar el resultado. La cuenta de prueba y sus datos se conservan hasta tu indicación; no se avanzó de fase.
+
+## F06 — Cambios y devoluciones
+
+- Verificación visual/manual pendiente al 2026-10-03. La sesión de automatización informó `apps: []`; no fue posible observar ni accionar ventanas WPF y no se generaron capturas sintéticas.
+- Quedan pendientes las capturas reales 101–110, todas a 1200×750 (verificar también tamaño mínimo 980×620): 101 búsqueda; 102 venta seleccionada; 103 cambio sin diferencia; 104 devolución no apta; 105 diferencia a cobrar; 106 diferencia a reintegrar; 107 autorización presencial de Dueña; 108 confirmación C-*; 109 histórico; 110 comprobante.
+- Prueba manual a realizar con base ficticia/aislada: buscar por número T-* y por código/nombre/fechas; cuando haya varias ventas elegir manualmente; hacer un cambio 1→1 sin diferencia con caja cerrada; devolución apta y no apta (confirmar Físico/Disponible/Apartado); diferencia positiva con pago mixto; reintegro efectivo; reintegro por medio excepcional con autorización puntual de Dueña; revisar histórico y comprobante C-*; reimprimir/cancelar sin alterar datos; verificar que AnularVenta rechace una venta con cambios. No usar bases reales ni enviar impresión automáticamente.
+- Verificación automática final: `dotnet build LocalInfantil.sln --configuration Debug` correcta con 0 advertencias/0 errores; suite focalizada de Cambios 15/15; `dotnet test LocalInfantil.sln --configuration Debug --no-build` correcta, 369/369. Incluye migración V12/respaldo, límites y concurrencia de devolución, diferencia cero, cinco medios/combinado, autorización, búsqueda, snapshots y protección de anulación. Esta evidencia no sustituye la comprobación visual de WPF.
+- F06-T05 promociones sigue bloqueada por D-05; D-01 y PC real continúan pendientes antes de producción.
+
+## F07-T01 — Clientes opcionales
+
+- Verificación automática de implementación registrada el 2026-10-04; las pruebas y el build final se detallan en `PLAN.md`.
+- Inspección de interfaz pendiente. La comprobación del entorno de automatización devolvió `apps: []`; no se pudieron capturar ni operar ventanas WPF y no se generaron imágenes sintéticas.
+- Capturas pendientes, reales y a la misma resolución: 111 Clientes; 112 alta; 113 cliente seleccionado; 114 historial de venta/cambio; 115 POS sin cliente; 116 búsqueda; 117 cliente seleccionado y limpieza; 118 ticket con snapshot de nombre. Revisar a 1200×750 y comprobar además el mínimo de 980×620.
+- Al probar con una base ficticia aislada: crear un cliente con nombre, teléfono y observación; buscar por nombre y teléfono, recorrer páginas; editar y desactivar/reactivar; confirmar que la desactivación pide confirmación y conserva el historial; en POS verificar el estado inicial «Sin cliente», asociar/limpiar un cliente activo y completar una venta con pago total; comprobar que un cliente inactivo no puede asociarse a una nueva venta; revisar consulta e impresión del ticket para que muestren el nombre snapshot y nunca teléfono; verificar historial T-* y C-* con fecha/importe/referencia humana.
+- Validar inicio de sesión Dueña y Empleada: ambas pueden consultar por configuración inicial; Empleada no administra por defecto. Confirmar que los permisos individuales efectivos son respetados. No usar datos reales ni interpretar total vendido como deuda.
+- Fiado, cuenta corriente, abonos y saldos no forman parte de esta prueba ni están habilitados. La validación manual pendiente no se reporta como realizada.
+
+## F07-T02–T06 — Cuenta corriente (verificación visual/manual pendiente)
+
+- No se realizó validación manual de las ventanas. El entorno de automatización devolvió `apps: []`; no se generaron capturas sintéticas ni se alteraron bases históricas.
+- Capturas reales pendientes, todas a la misma resolución: 119 ficha de cliente con límite/saldo; 120 POS con venta parcial fiada; 121 POS con venta 100% fiada; 122 cuenta corriente; 123 registrar abono; 124 vista previa de aplicación FIFO; 125 recibo A-*; 126 ajuste; 127 elección F06 entre aplicar/reintegrar; 128 devolución aplicada a deuda; 129 anulación e historial.
+- Usar una base ficticia aislada y anotar antes su ruta. No usar la base provisional ni bases reales. Verificar: venta sin cliente sigue operando; fiado requiere cliente activo y permiso efectivo; Empleada sin concesión no ve/no ejecuta fiado y una denegación individual prevalece; el límite opcional bloquea excedentes; venta parcial registra solo lo recibido en caja; la venta totalmente fiada no crea entrada monetaria y aun así respeta la sesión de caja abierta requerida por D-38.
+- Probar cargos múltiples y abonos con más de un medio: comprobar orden FIFO, importe y medio de cada componente, saldo exacto posterior, recibo reconstruible y que repetir/abonar de más no genere saldo a favor ni una segunda venta. Confirmar que reiniciar la aplicación conserva saldo e historial.
+- Como Dueña, probar ajuste con motivo, rechazo de ajuste que genere saldo a favor y cambio de límite. Confirmar que Empleada no puede ejecutar esas acciones, incluso por invocación directa.
+- Para devolución F06 con deuda, revisar ambas elecciones: aplicar solo a la deuda de la venta original o reintegrar; inspeccionar la vista previa y confirmar expresamente. Cancelar no debe escribir. La aplicación a deuda nunca debe ser automática; cualquier remanente se reembolsa por el flujo F06/caja. Diferencia positiva no debe crear deuda.
+- Anular una venta fiada totalmente impaga y otra con pagos/abonos: la primera cancela deuda sin caja; la segunda cancela saldo impago y reembolsa únicamente dinero recibido, por los medios originales. Confirmar que una venta con cambio confirmado siga protegida contra anulación total.
+- Inspeccionar cliente, historial, cuenta y recibos: sin GUID, IDs técnicos, nombres internos de eventos ni payload de auditoría. Confirmar funcionamiento offline y que F00-T02/PC real siguen pendientes. No usar impresora real ni tratar el recibo interno como comprobante fiscal.
+- Estado reportado al 2026-10-04: pendientes todas las capturas 119–129 y los recorridos anteriores. No hay evidencia visual/manual y producción permanece NO habilitada.
+- Verificación automática asociada, 2026-10-04: build Debug 0 advertencias/0 errores; suite completa 386/386; filtro de Clientes/cuenta corriente 17/17, incluida migración V13→V14 con cliente, ventas con/sin cliente, caja y cambio histórico sin deuda retroactiva; `git diff --check` limpio. No sustituye las pruebas manuales de arriba.
+
+## F08 — respaldos y recuperación (pendiente de validación manual/remota)
+
+No se ejecutó OAuth, Drive real ni restauración visual durante la implementación: no se proporcionaron credenciales ni un Cloud Project. Tampoco se modificó una base del usuario. Toda prueba manual debe usar una base ficticia aislada y una carpeta temporal; no copiar ni señalar la DB real del local/desarrollo.
+
+### Preparar OAuth de prueba cuando exista autorización/Cloud Project
+
+1. En Google Cloud Console, crear/seleccionar un proyecto aislado de desarrollo, habilitar Google Drive API y configurar Google Auth Platform (nombre identificable LocalInfantil, email de soporte/contacto y audiencia apropiada para la cuenta de prueba).
+2. Declarar exclusivamente el scope `https://www.googleapis.com/auth/drive.file`; no agregar `drive`, `drive.readonly` ni otros scopes. Crear un OAuth client tipo **Desktop app** y conservar su Client ID como configuración pública no secreta. No crear ni distribuir un client secret.
+3. Si el proyecto queda en estado Testing, agregar explícitamente la cuenta de prueba como test user. La autorización en ese estado expira a los siete días; es solo una prueba temporal, no la configuración de producción.
+4. En una consola PowerShell de prueba, antes de iniciar la aplicación, establecer para ese proceso: `$env:LOCALINFANTIL_GOOGLE_CLIENT_ID = '<client-id-desktop>'`. No poner el valor en Git, logs, tickets ni archivos de datos. Iniciar la aplicación con `--dev-db` apuntando a una DB temporal aislada.
+5. Como Dueña, entrar en Respaldos, generar el código de recuperación, copiarlo fuera del directorio `Backups`, reingresarlo para confirmar y, si se desea, usar explícitamente «Imprimir hoja». Cancelar el diálogo de impresión no debe escribir archivo alguno. Guardar dos copias físicas, una fuera del local.
+6. Crear una copia manual. Abrir el navegador del sistema, completar el consentimiento y volver a la aplicación. Verificar que la lista remota muestra la copia solo después de la confirmación, con nombre `.libackup`, tamaño coincidente y sin PII ni tokens. Verificar en Drive la carpeta administrada LocalInfantil.
+7. Desconectar Internet y realizar únicamente operaciones comerciales ficticias en la DB temporal: deben funcionar; los fallos remotos no bloquean venta/caja ni abren un modal por cada operación. La copia local debe seguir disponible y el estado quedar pendiente. Restaurar la conectividad, reconectar/reintentar y comprobar que se reutiliza el mismo ID remoto sin duplicados.
+8. Probar la caducidad/revocación de credenciales solo con esta cuenta de prueba. La app debe indicar «Volver a conectar Google Drive» y preservar las copias locales. No usar la cuenta personal/producción para provocar una revocación.
+
+### Restauración aislada y PC nueva
+
+1. Preparar dos bases temporales independientes (A origen y B destino) y registrar sus rutas/hashes. A debe contener datos ficticios de prueba representativos (venta, pago, caja, cliente, cuenta y C-* cuando se prepare el fixture integral); nunca apuntar a una DB histórica/real.
+2. Crear un backup local y, cuando Drive real esté configurado, confirmar su subida. Copiar el código de recuperación fuera de A. Mantener la aplicación cerrada antes de copiar/alterar paquetes.
+3. Caso local: iniciar la app con base A, ir a Respaldos y seleccionar `.libackup`; probar clave incorrecta/archivo corrupto (deben rechazarse sin cambiar A); dejar caja abierta (debe rechazar); luego cerrar caja, reautenticar Dueña, importar/proteger el código original y restaurar confirmando expresamente. La app helper debe cerrar, reemplazar, abrir la DB restaurada y permitir comprobar los datos. No enviar trabajos de impresión reales.
+4. Cancelar en la confirmación final y comprobar que A conserva el mismo hash; la DB descifrada de staging debe limpiarse en una cancelación normal.
+5. Forzar solo en B una falla controlada de apertura/reemplazo (sin tocar A), comprobar rollback a la DB anterior y que el staging queda preservado para diagnóstico. Registrar el mensaje seguro y retirar a mano los temporales solo después de verificar hashes.
+6. Caso PC nueva: usar perfil Windows/VM limpio sin los archivos DPAPI de A; instalar una compilación de prueba, conectar la misma cuenta Drive desde navegador, listar las copias de la app, descargar una y proteger en DPAPI el código externo original. Descifrar/verificar, reautenticar Dueña, validar backup previo, confirmar reemplazo y comprobar apertura/históricos. Confirmar que el token/DPAPI anterior no es requerido.
+7. Verificar reintento/backoff, retención local (7 días, última copia y pendientes protegidos) y política remota (todos 0–7 días, una por día 8–30 priorizando cierre, >30 elegible). No probar borrado remoto destructivo fuera de un Drive de prueba. Si falla/queda ambiguo el listado, comprobar que no se inicia limpieza.
+8. Repetir la UI de Respaldos en 1200×750 y 980×620: estados sin copias, pendiente, confirmada, reconexión y error local; acción de consultar/descargar Drive y flujo de reautenticación/confirmación. No se generaron capturas de F08 durante esta ejecución.
+
+### Evidencia de esta implementación
+
+- Ejecutada en el equipo de desarrollo y sobre DB temporales: pruebas focalizadas 38/38 de paquete autenticado, checksum recovery, reconciliación sidecar/reinicio, protector fake, retry/ID remoto, retención local/Drive fake, scheduler/catch-up/no solapamiento, cola de cierre durable, bloqueo interproceso, snapshot WAL y E2E completo restaurado a otra base. Build Debug 0/0, suite 409/409, publicación e inicio del ejecutable registrados arriba.
+- No ejecutadas: autorización OAuth real, API Drive real, credenciales caducadas/revocadas, PC nueva, UI/manual de impresión de hoja/restauración, backup F08 durante operación de ventas con fixture E2E completo, pruebas de apagado/arranque manuales ni validación de PC/hardware real. No se afirma éxito para esos escenarios.
+- Referencia de política Google consultada el 2026-10-05: [OAuth Desktop/PKCE y loopback](https://developers.google.com/identity/protocols/oauth2/native-app), [consentimientos en Testing](https://support.google.com/cloud/answer/15549945?hl=en), [excepciones de verificación](https://support.google.com/cloud/answer/13464323?hl=en), [scope drive.file](https://developers.google.com/drive/api/guides/api-specific-auth). La elegibilidad de uso personal (<100 usuarios) no se presume: debe revisarse para la configuración real.
+
+## F11 — variantes por matriz, etiquetas y entrada POS (pendiente de validación visual/manual)
+
+No se realizaron pruebas manuales de F11 en esta sesión. La automatización de escritorio no expuso ventanas nativas (`apps: []`), por lo que no se generaron capturas sintéticas ni se afirma apertura visual, diálogo de impresión, cancelación o flujo manual de POS. Las pruebas automatizadas usan bases SQLite temporales aisladas. Para cualquier recorrido manual, usar exclusivamente `--dev-db` con una DB ficticia temporal; no usar ni modificar `%LOCALAPPDATA%\LocalInfantil\Prototype\localinfantil-prototype.db` ni una base histórica/real.
+
+### Recorrido a repetir cuando haya sesión gráfica
+
+1. Iniciar la aplicación de desarrollo con una ruta temporal aislada (`LocalInfantil.Wpf.exe --dev-db <ruta-temporal>`). Crear un producto ficticio. En su ficha, abrir **Crear por matriz**, ingresar varios talles/colores y generar la matriz. Desmarcar alguna combinación. Verificar que vista previa muestra códigos futuros consecutivos, que una combinación normalizada ya existente figura como tal y que cancelar no crea variantes.
+2. Confirmar un lote de 12 combinaciones (o una matriz equivalente), revisar códigos consecutivos e inmutables, una fila por combinación y auditoría. Confirmar que el alta no fija precio ni agrega stock. Repetir el mismo lote: no debe duplicar. Intentar talle solo, color solo y sin atributos sin introducir valores ficticios para `NULL`.
+3. Cargar precio/stock por los flujos existentes. Desde **Imprimir etiquetas**, comprobar códigos, nombre, variante y Disponible. Probar **Poner stock disponible**, **Limpiar cantidades**, cantidades 0/1/N y reimpresión. Validar el precio opcional; el barcode debe contener solamente el código interno y el código humano debe seguir legible debajo.
+4. Probar varios tamaños de etiqueta/márgenes/separaciones modificables. Revisar vista previa a página completa y multi-página; ninguna etiqueta ni barcode debe quedar cortado. Revisar Code128, quiet zone, contraste y textos para variantes con talle/color ausentes y nombre largo.
+5. Usar Microsoft Print to PDF para prueba si está disponible. En el diálogo Windows, cancelar y confirmar que no aparece un trabajo ni se altera inventario. Luego confirmar explícitamente un trabajo PDF de prueba y revisar la cantidad, paginación y contenido. No enviar trabajos a una impresora física en esta validación.
+6. Confirmar una recepción ficticia con dos variantes (por ejemplo 3 y 5 unidades). Abrir **Imprimir etiquetas de esta recepción** y revisar cantidades precargadas. Cancelar/cerrar impresión; comprobar que la recepción continúa confirmada y el stock conserva los valores posteriores a la recepción. Repetir con carga inicial desde la ficha: etiquetas opcionales con las cantidades establecidas.
+7. En POS, escribir un código interno exacto y Enter (sin lector), comprobar alta inmediata y foco. Repetirlo tres veces: una sola fila con cantidad 3. Probar código inexistente, variante sin precio, variante sin Disponible e inactiva: mensajes compactos, sin alta incorrecta y foco recuperado.
+8. Si se capturan pantallas, usar el mismo tamaño de ventana/resolución para capturas 138–144: (138) matriz, (139) duplicado, (140) selección etiquetas, (141) preview con precio, (142) sin precio, (143) recepción y cantidades propuestas, (144) POS con código. Mantener 1200×750 para comparación y verificar también 980×620 donde aplique. No versionar capturas si la política del repositorio las mantiene fuera de Git.
+
+Pendiente para F11-F: probar lector HID/teclado e impresora física elegidos para el local, verificar legibilidad, calibración, dimensiones y driver Windows en la PC real. No se conoce todavía edición/versión/arquitectura de Windows ni modelo de impresora/lector. F11 no queda cerrada por estas pruebas técnicas y producción no está habilitada.
+
+### Evidencia técnica F11
+
+- Base de desarrollo: `f7a804f029450306b7df3639d3fe0ab6689bace4`; trabajo en rama separada `feat/f11-etiquetas-codigos-batch`; sin commit ni push. El checkout F10 preexistente permaneció aparte y no se mezcló.
+- Pruebas agregadas: matriz 12 códigos, secuencia y stock sin cambios; normalización, duplicados, idempotencia, combinaciones opcionales, rollback total ante trigger de fallo y concurrencia; Code128 con quiet zone y round-trip; layout/paginación; consulta actual precio/Disponible agregado; escaneos repetidos, inexistente, sin stock/sin precio; precarga posterior a recepción y carga inicial.
+- Verificación final (2026-10-06): `dotnet restore LocalInfantil.sln` correcto; `dotnet build LocalInfantil.sln --configuration Debug --no-restore` correcto, 0 advertencias/0 errores; suite focalizada F11 41/41; suite completa con salida normal/detallada 461/461 en 5,3657 minutos; `git diff --check` limpio. La suite se ejecutó completa hasta finalizar, incluidos sus casos largos.
+- Inspección de automatización de escritorio: `apps: []`; no se pudo abrir/inspeccionar visualmente la ventana WPF ni se generaron capturas. Esta limitación no se registra como defecto funcional demostrado. Quedan pendientes el recorrido visual/manual y F11-F en hardware real.
+- No se tocaron bases reales ni se agregó una base `.db`; no se generaron capturas. Validación manual WPF/PDF y hardware real continúan pendientes.
+
+## F10 — preservación sobre F11 y validación de preproducción (2026-10-07)
+
+- Preservación: commit local `abc860ad1ab81eec7cead0183a75f144d9d6df9a` en `wip/f10-deployment-preserve`, mensaje `wip: preserve f10 deployment work`, con 23 archivos. `docs/ui-reference/` quedó fuera. No se publicó el respaldo WIP.
+- Traslado: `feat/f10-deployment` avanzó por fast-forward desde F10 hasta F11 `9b59094375a2b0fdc6f273a3c770377095311a1a`; reaplicación `cherry-pick -n` limpia, sin conflictos ni commit final. ZXing.Net 0.16.11 y schema V15 conservados; no se creó V16.
+- Restore y build: `dotnet restore LocalInfantil.sln --disable-parallel --maxcpucount:1 /nodeReuse:false` correcto. `dotnet build LocalInfantil.sln --configuration Debug --maxcpucount:1 /nodeReuse:false`: 0 errores y advertencias NU1900 porque el entorno no pudo acceder al índice de auditoría de `api.nuget.org`. Build final `--no-restore`, tras corregir los textos/comentarios del comportamiento de descarga: 0 errores y 8 advertencias (3 NU1900 y 5 nullable/xUnit preexistentes en tests de reportes). La concurrencia limitada fue necesaria: los intentos iniciales sin límite fallaron en el grafo de Restore sin emitir error de compilador; no se cerraron procesos dotnet ajenos.
+- Tests: suite completa con salida normal/detallada, 476/476 en 4,7494 minutos; pruebas focalizadas de actualizaciones/arranque/rutas 15/15; filtros F11 `EtiquetasTests` + `CodigosAutomaticosTests` 27/27 y `WpfPosTests` 12/12 (39/39 en total). Los tests usan DB temporales aisladas.
+- Publicación regenerada con `powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\Build-Installer.ps1`: Release self-contained `win-x64` en `artifacts/publish/net10-f10-win-x64`, 410 archivos / 151.798.645 bytes. Escaneo: 0 DB, respaldos, PDB, secretos ni archivos temporales prohibidos; `e_sqlite3.dll`, `ZXing.dll` y `libsodium.dll` presentes. Artefactos de publicación e instalador están ignorados por Git.
+- Inno Setup 6.7.3 compiló el instalador `artifacts/installer/LocalInfantil-Setup-0.9.0-net10-win-x64.exe` sin error, 48.148.989 bytes. Esto valida generación del artefacto, no instalación/desinstalación.
+- Humo de proceso: el ejecutable publicado se inició con `--dev-db` apuntando a una DB única temporal; el proceso permaneció activo aproximadamente ocho segundos, creó la DB temporal y cerró normalmente. No hubo inspección visual ni comprobación de navegación/flujo manual desde esta ejecución.
+- Pendiente: instalación limpia, upgrade y uninstall en entorno realmente aislado; simulaciones de interrupción/reinicio y recuperación del instalador; configurar canal GitHub y clave productiva, publicar y verificar release real; prueba visual/manual WPF; PC local, edición/build/arquitectura Windows, impresora y lector reales; validación fiscal/comercial de Dueña y contador (D-01/D-03); OAuth/Drive/restore reales F08. No se modificaron DB reales. Producción NO habilitada.
+
+## F12 - Mercado Pago Point (pendiente de validación manual/real, 2026-10-07)
+
+Evidencia técnica: rama `feat/f12-mercado-pago` desde `70b8606`; build Debug 0 errores/0 warnings CS; suite 525/525; focalizada F12 49/49 (HTTP fake, sin internet); publish Release self-contained win-x64 por pipeline F10 (410 archivos, 145,1 MB; SQLite, ZXing, libsodium presentes; sin DB/configs/secretos) + instalador 48.196.634 bytes. Sin commit/push. Producción NO habilitada.
+
+### Requisitos previos (Dueña)
+1. Cuenta de Mercado Pago con Point físico compatible (modo PDV activable) y credencial de prueba. No usar credencial ni dinero productivos en esta validación.
+2. PC con Windows y la build publicada o `dotnet run` con `--dev-db` temporal.
+
+### Recorrido con dinero de prueba
+1. Como Dueña, abrir **Mercado Pago**: estado "No configurado". Pegar el Access Token de prueba en **Conectar** y verificar "Credencial configurada" (el token no vuelve a mostrarse).
+2. **Buscar terminales**: debe listar el Point real con su modo. **Seleccionar** la terminal. Si no está en PDV, usar **Activar modo integrado** y verificar el cambio; si MP lo rechaza, debe mostrar el mensaje humano sin romper la configuración.
+3. **Probar conexión**: verificar "Conexión verificada".
+4. En POS, armar venta 100% Mercado Pago, presionar **Cobrar en Point** y aprobar en el Point físico: verificar "Pago aprobado", ticket, stock descontado una vez y movimiento de caja no efectivo.
+5. Repetir combinado (ej. $10.000 efectivo + resto MP): verificar sumas exactas, vuelto solo del efectivo y arqueo sin cambios por MP.
+6. Probar rechazo en el Point: verificar "Pago rechazado. No se registró venta." Probar cancelación antes de aprobar: verificar cancelación sin venta.
+7. Con un cobro pendiente sin resolver, intentar cerrar caja: debe bloquearse con "pendiente de resolver".
+8. Registrar un cambio con reintegro por Mercado Pago: verificar crédito reconocido + botón **Reembolsar** ejecuta el refund; verificar que elegir otro medio advierte que no habrá reembolso automático.
+9. Intentar anular una venta con pago MP: debe redirigir a devolución, no anular directo.
+10. Cortar internet con un cobro incierto: verificar "pendiente de verificar", que el resto sigue operando y que al volver la conexión se reconcilia sin duplicar.
+
+### Live tests automatizados
+Definir `LOCALINFANTIL_MP_TEST_ACCESS_TOKEN` (credencial de prueba) para `LiveMpTests`; sin la variable se omiten. Nunca credencial productiva en tests.
+
+Pendiente F12-T07: todo lo anterior con hardware/cuenta reales, más PC del local y D-01/D-03. No usar datos comerciales reales.
+
+## Recepciones — segunda pasada UX e identificación (2026-10-17)
+
+Estado: implementación pendiente de aprobación visual de la persona usuaria. No cambia el cierre de ninguna fase ni habilita producción.
+
+- Espacio superior: los TextBlock de Error/Mensaje mantenían su línea y margen aunque el texto fuera nulo; ahora se colapsan. Los contenedores del Shell solo agregan navegación/avisos y no una fila expansiva entre título y toolbar.
+- Historial: estilos locales de encabezado/celda/fila, altura de fila 40 DIP, divisores `Color.BorderSoftBrush`, selección completa con fondo semántico e indicador lateral; virtualización conservada. Proporciones de columnas 23/25/12/17/23 y maestro/detalle 59/41.
+- Ficha: altura por contenido, alineada arriba y limitada por el área disponible con scroll interno. Mantiene métricas, SKU/cantidad separados y acciones. El motivo existente se muestra antes de Solicitar reversión, porque el comando ya lo exige. No se cambió el caso de uso ni su validación.
+- Identificación: solo existen IDs técnicos; no se muestran como numeración. Cabecera «Recepción de mercadería». `comprobante_ref` sigue siendo opcional, se etiqueta «Comprobante del proveedor (opcional)» en la carga, «Comprobante» en historial y «No informado» cuando falta. La ventana de detalle lo muestra con etiqueta propia.
+- Datos: fixture NUEVA en `artifacts/publish/recepciones-ux-verificacion/fixture/recepciones-ficticias.db`, con 26 recepciones ficticias y casos con/sin comprobante, creada mediante casos de uso existentes. La instancia compilada se inició exclusivamente con `--dev-db` y esta ruta. No se abrió la base histórica/provisional ni se reutilizó `fase1.db` para pruebas.
+- Layout automatizado: 2/2 a 1680×900 y 1366×768, incluyendo Shell y aviso de desarrollo; verifica distancia subtítulo/búsqueda, altura por contenido, selección real, separadores y virtualización. Esto no sustituye la aprobación visual.
+- Build Debug aislado: 0 errores; salida final emitió 5 advertencias en tests de Reportes (3 CS8625 y 2 xUnit). La primera compilación completa también emitió CA1416 en `CredencialPropiaDpapi.cs`, ajeno a esta vista. Se usó `OutDir` absoluto dentro de `artifacts/publish/recepciones-ux-verificacion/out/` porque la instancia previa sigue abierta; no se cerraron procesos del usuario.
+- Suite completa terminada fuera del sandbox: **741/741 correctas**, 0 fallas/errores/omisiones, en 20,5248 minutos. Resultados en `artifacts/publish/recepciones-ux-verificacion/tests/suite-completa.trx`. Incluye `WpfRecepcionesResumenTests` 17/17, los 2/2 casos nuevos de layout y recursos 3/3. Los cinco casos anteriores de respaldos también pasaron en esta ejecución completa. No se interrumpió el runner: `Busqueda_rinde_en_catalogo_representativo` terminó correctamente en 19 min 8 s.
+- Recorrido interactivo: tras el ingreso manual de la persona usuaria, se observó la instancia NUEVA compilada con `--dev-db` y la fixture indicada. Se comprobaron selección y correspondencia del detalle, comprobante informado/ausente, apertura de ambas ventanas de detalle, segunda página (6 recepciones), búsqueda exacta desde la primera página (1 recepción), filtros confirmadas/revertidas y estados vacíos. No se solicitó ni confirmó ninguna reversión.
+- Capturas reales guardadas en `artifacts/publish/recepciones-ux-verificacion/captures/`: `recepciones-con-comprobante-1536x816.png`, `recepciones-sin-comprobante-1536x816.png`, `detalle-con-comprobante.png`, `detalle-sin-comprobante.png` y `recepciones-busqueda-confirmadas-1188x744.png`. Las dos capturas principales tienen el mismo tamaño maximizado disponible (1536×816); no se presentan como capturas de 1680×900 o 1366×768. Esas dos resoluciones se verificaron mediante layout automatizado, no mediante capturas interactivas de tamaño exacto.
+- Observación fuera de alcance: Buscar conserva el desplazamiento actual. Desde la página 2, una búsqueda con un único resultado puede aparecer vacía hasta volver a Anterior. Se dejó intacta la paginación, conforme al alcance visual; conviene revisar este comportamiento en otra tarea.
+- Pendientes: revisión y aprobación visual de las nuevas capturas por la persona usuaria; comprobación interactiva en las dos dimensiones exactas solicitadas y con una recepción de muchas líneas. El scroll interno se verificó por layout, pero no se generó una recepción extensa adicional solo para una captura.
+- Git: rama `feat/f12-mercado-pago`, WIP preservado (73 archivos versionados modificados y 24 no versionados de trabajos acumulados). Los binarios, fixture y capturas de esta verificación están ignorados por `artifacts/publish/`. `git diff --check` limpio. Sin staging, commit ni push.
+
+### Diagnóstico de las cinco fallas anteriores de respaldos
+
+No se asumieron preexistentes ni se cambió infraestructura. Los cinco casos se reprodujeron en la sesión anterior con `UnauthorizedAccessException` (`Access to the path is denied`) en `System.IO.FileSystem.ReplaceFile`. En `Fallo_antes_y_durante...`, ese error también reemplazó la IOException simulada que esperaba el test al intentar restaurar el archivo.
+
+| Test | Ruta temporal que construye el test | Punto del stack |
+|---|---|---|
+| `GestorRespaldosLocalesTests.Reinicio_limpia_temporales_reconcilia_huerfano_y_marca_sidecar_sin_archivo` | `%TEMP%/LocalInfantil.Tests/<GUID>/Backups/Queue/<backupId>.json` | `RecuperarAsync` → `GuardarManifiestoAsync` → `PublicarAtomico` → `File.Replace` |
+| `GestorRespaldosLocalesTests.Solicitud_de_cierre_es_durable_idempotente_y_se_completa` | `%TEMP%/LocalInfantil.Tests/<GUID>/Backups/Queue/cierre-close-123.json` | `SolicitarCierreCajaAsync` → `PublicarAtomico` → `File.Replace` |
+| `GestorRespaldosLocalesTests.Drive_reintenta_con_el_mismo_id_reservado_y_no_duplica` | `%TEMP%/LocalInfantil.Tests/<GUID>/Backups/Queue/<backupId>.json` | `SincronizarDriveAsync` → `GuardarEstadoRemotoAsync` → `PublicarAtomico` → `File.Replace` |
+| `IntercambioRestauracionTests.Reemplazo_correcto_verifica_staging_y_conserva_backup_previo` | `%TEMP%/LocalInfantil.Tests/<GUID>/active.db`, copia adyacente `.restore-<GUID>.tmp` y `active.pre.db` | `ReemplazarBaseVerificadaAsync` → `File.Replace` (también en recuperación) |
+| `IntercambioRestauracionTests.Fallo_antes_y_durante_reemplazo_restauran_base_anterior` | `%TEMP%/LocalInfantil.Tests/<GUID>/active.db`, `before.db`/`during.db`, `.rollback-<GUID>.tmp` | `ReemplazarBaseVerificadaAsync` → recuperación → `File.Replace` |
+
+Las rutas usan GUID nuevos por ejecución y los propios tests las limpian; no se conserva ni se inventa el GUID de una ejecución anterior. `%TEMP%` observado: `C:/Users/matia/AppData/Local/Temp`.
+
+Comprobación independiente sin SQLite, sin archivos abiertos ni readonly: `File.Replace` sobre dos `.txt` nuevos falló dentro del sandbox con HRESULT `0x80070005`, tanto en `C:/Users/matia/AppData/Local/Temp/LI-Recepciones-Replace-f9e7475053b04128bdb8ba8dd166dff5/` como en `artifacts/publish/recepciones-ux-verificacion/replace-55ee78cc4879430db870a9864c97c211/`. La misma operación fuera del sandbox, en `C:/Users/matia/AppData/Local/Temp/LI-Recepciones-Replace-Unrestricted-7a08a77827f746a7ba27f07dfe006b58/`, terminó correctamente. Los cinco tests también pasaron fuera del sandbox, sin cambios de código.
+
+Conclusión acotada: esas cinco fallas se aislaron a la restricción del sandbox sobre el reemplazo atómico, no a SQLite ni a la segunda pasada visual. Con esta evidencia no corresponde corregir respaldos; si el error apareciera fuera del sandbox en la PC de destino, requerirá una tarea separada de diagnóstico de permisos/handles. El resultado de la suite completa se registra aparte y no se deduce de estos cinco reintentos.

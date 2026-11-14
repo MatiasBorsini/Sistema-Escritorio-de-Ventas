@@ -1,0 +1,257 @@
+<Window x:Class="LocalInfantil.Wpf.Views.FichaProductoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding TituloVentana, Mode=OneWay}"
+        Width="1100" Height="700" MinWidth="960" MinHeight="620"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Color.SurfaceBrush}">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding TituloVentana, Mode=OneWay}"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding SubtituloVentana, Mode=OneWay}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">
+            <DockPanel>
+                <TextBlock VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Doble clic en el master abre esta ficha. Los cambios se guardan por sección. Esc o ✕ para salir."/>
+            </DockPanel>
+        </Border>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="230"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="0,0,1,0" Padding="16">
+                <StackPanel>
+                    <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Ficha.Producto.Nombre, FallbackValue=Nuevo producto}" TextWrapping="Wrap"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Producto activo" Visibility="{Binding Ficha.Producto.Activo, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Producto inactivo" Visibility="{Binding Ficha.Producto.Activo, Converter={StaticResource BoolToVisibilityInverted}, FallbackValue=Collapsed}"/>
+                    <Border Style="{StaticResource EstiloSeparador}"/>
+                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Datos generales" Command="{Binding SeleccionarSolapaCommand}" CommandParameter="Datos" HorizontalAlignment="Stretch" Margin="0,0,0,4"/>
+                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Variantes" Command="{Binding SeleccionarSolapaCommand}" CommandParameter="Variantes" IsEnabled="{Binding SolapasSecundariasHabilitadas}" Visibility="{Binding MostrarNavVariantes, Converter={StaticResource BoolToVisibility}}" HorizontalAlignment="Stretch" Margin="0,0,0,4"/>
+                    <Button Style="{StaticResource EstiloBotonSecundario}" Content="Estado y acciones" Command="{Binding SeleccionarSolapaCommand}" CommandParameter="Estado" IsEnabled="{Binding SolapasSecundariasHabilitadas}" Visibility="{Binding MostrarNavEstado, Converter={StaticResource BoolToVisibility}}" HorizontalAlignment="Stretch" Margin="0,0,0,4"/>
+                    <Border Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,16,0,0">
+                        <StackPanel>
+                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Edición independiente" TextWrapping="Wrap"/>
+                            <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="La lista principal queda enfocada en buscar productos." TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="20">
+                <StackPanel>
+                    <ProgressBar Style="{StaticResource EstiloOcupado}" Visibility="{Binding Ocupado, Converter={StaticResource BoolToVisibility}}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12" Visibility="{Binding ModoCreacion, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.PrimaryBrush}" Text="1 · Producto" Visibility="{Binding PasoC1Activo, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock FontSize="13" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="1 · Producto" Visibility="{Binding PasoC1Activo, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                        <TextBlock Margin="8,0" Foreground="{StaticResource Color.BorderBrush}" Text="→" VerticalAlignment="Center"/>
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.PrimaryBrush}" Text="2 · Variantes" Visibility="{Binding PasoC2Activo, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock FontSize="13" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="2 · Variantes" Visibility="{Binding PasoC2Activo, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                        <TextBlock Margin="8,0" Foreground="{StaticResource Color.BorderBrush}" Text="→" VerticalAlignment="Center"/>
+                        <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.PrimaryBrush}" Text="3 · Listo" Visibility="{Binding PasoC3Activo, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock FontSize="13" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="3 · Listo" Visibility="{Binding PasoC3Activo, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                    </StackPanel>
+                    <Border Margin="0,0,0,12" Padding="12" Background="{StaticResource Color.WarningBgBrush}" BorderBrush="{StaticResource Color.WarningTextBrush}" BorderThickness="1" CornerRadius="4" Visibility="{Binding ConfirmacionCierreVisible, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Foreground="{StaticResource Color.WarningTextBrush}" TextWrapping="Wrap" Text="El producto ya fue creado, pero todavía no tiene variantes. Podés completarlo ahora o hacerlo más tarde desde Catálogo."/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Seguir completando" Command="{Binding SeguirCompletandoCommand}"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Cerrar" Command="{Binding ConfirmarCierreCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Visibility="{Binding SolapaDatosVisible, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Datos generales" FontSize="16"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Editá la información comercial del producto."/>
+                        <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding Error}"/>
+                        <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding Mensaje}"/>
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Nombre"/>
+                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Marca (opcional)"/>
+                                <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding Marca, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Categoría"/>
+                                <ComboBox Style="{StaticResource EstiloCombo}" ItemsSource="{Binding Categorias}" SelectedItem="{Binding CategoriaSeleccionada}" DisplayMemberPath="Nombre" ToolTip="Categoría controlada (reemplaza el texto libre)"/>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Crear y continuar" Command="{Binding GuardarDatosCommand}" Visibility="{Binding EsCreacion, Converter={StaticResource BoolToVisibility}}"/>
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Guardar cambios" Command="{Binding GuardarDatosCommand}" Visibility="{Binding EsCreacion, Converter={StaticResource BoolToVisibilityInverted}}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding SolapaVariantesVisible, Converter={StaticResource BoolToVisibility}}">
+                        <DockPanel Margin="0,0,0,4" LastChildFill="False">
+                            <StackPanel DockPanel.Dock="Left">
+                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Variantes" FontSize="16"/>
+                                <TextBlock Style="{StaticResource EstiloAyuda}" Text="Gestioná talle, color, precio y stock inicial sin mezclar tareas." Margin="0,0,0,0"/>
+                            </StackPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Imprimir etiquetas" Click="ImprimirEtiquetas_Click" VerticalAlignment="Top" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="Crear por matriz" Click="CrearPorMatriz_Click" VerticalAlignment="Top" Margin="0,0,8,0"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="＋ Nueva variante" Command="{Binding SolicitarAltaCommand}" VerticalAlignment="Top" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding ErrorVariantes}"/>
+                        <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding MensajeVariantes}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="8*"/><ColumnDefinition Width="5*"/></Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,12,0" Padding="12">
+                                <StackPanel>
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding CantVariantesResumen, StringFormat=Variantes del producto (\{0\})}" Margin="0,0,0,4"/>
+                                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Seleccioná una fila para editarla." Margin="0,0,0,8"/>
+                        <StackPanel Visibility="{Binding PasoC3Visible, Converter={StaticResource BoolToVisibilityInverted}}">
+                        <DataGrid AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                                  ItemsSource="{Binding Ficha.Variantes}" SelectedItem="{Binding VarianteSeleccionada}"
+                                  MinHeight="140" MaxHeight="320" HorizontalScrollBarVisibility="Auto" BorderBrush="{StaticResource Color.BorderBrush}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Código interno" Binding="{Binding CodigoInterno}" Width="2*" MinWidth="110"/>
+                                <DataGridTextColumn Header="Talle" Binding="{Binding Talle, TargetNullValue=—}" Width="60"/>
+                                <DataGridTextColumn Header="Color" Binding="{Binding Color, TargetNullValue=—}" Width="80"/>
+                                <DataGridTextColumn Header="Stock" Binding="{Binding Existencias}" Width="60"/>
+                                <DataGridTextColumn Header="Precio vigente" Binding="{Binding PrecioMinor, Converter={StaticResource MinorToArs}}" Width="100"/>
+                                <DataGridTemplateColumn Header="Estado" Width="65">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock x:Name="EstadoTexto" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Inactiva"/>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding Activa}" Value="True">
+                                                    <Setter TargetName="EstadoTexto" Property="Text" Value="Activa"/>
+                                                    <Setter TargetName="EstadoTexto" Property="Foreground" Value="{StaticResource Color.SuccessTextBrush}"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                                </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" MinHeight="300">
+                                <StackPanel>
+                                    <StackPanel Visibility="{Binding MostrarVacioDetalle, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Seleccioná una variante" TextWrapping="Wrap"/>
+                                        <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Podés editar sus datos, precio o existencia inicial." TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding MostrarFormularioAlta, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="ALTA"/>
+                                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="Nueva variante"/>
+                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Completá solo talle y color." Margin="0,0,0,8"/>
+                                        <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="El código interno se genera solo (ej REM-001-03) y no se puede modificar." TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Talle"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding NuevoVarianteTalle, UpdateSourceTrigger=PropertyChanged}" ToolTip="Vacío = sin talle" Margin="0,0,0,8"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Color"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding NuevoVarianteColor, UpdateSourceTrigger=PropertyChanged}" ToolTip="Vacío = sin color" Margin="0,0,0,8"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                                            <Button Style="{StaticResource EstiloBotonQuiet}" Content="Cancelar" Command="{Binding CancelarAltaCommand}"/>
+                                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Agregar variante" Command="{Binding CrearVarianteCommand}" Margin="0,0,0,0"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding MostrarDetalleVariante, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock FontSize="10" FontWeight="Bold" Foreground="{StaticResource Color.PrimaryBrush}" Text="VARIANTE SELECCIONADA"/>
+                                        <DockPanel Margin="0,2,0,0">
+                                            <TextBlock FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding SkuSeleccionado}"/>
+                                            <Border DockPanel.Dock="Right" CornerRadius="10" Padding="8,2" VerticalAlignment="Center" Background="{StaticResource Color.SuccessBgBrush}" Visibility="{Binding VarianteSeleccionada.Activa, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                                                <TextBlock FontSize="11" FontWeight="Bold" Foreground="{StaticResource Color.SuccessTextBrush}" Text="Activa"/>
+                                            </Border>
+                                            <Border DockPanel.Dock="Right" CornerRadius="10" Padding="8,2" VerticalAlignment="Center" Background="{StaticResource Color.Surface2Brush}" Visibility="{Binding VarianteSeleccionada.Activa, Converter={StaticResource BoolToVisibilityInverted}, FallbackValue=Collapsed}">
+                                                <TextBlock FontSize="11" FontWeight="Bold" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Inactiva"/>
+                                            </Border>
+                                        </DockPanel>
+                                        <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding TalleColorSeleccionado, StringFormat=Talle \{0\}}" Margin="0,0,0,4"/>
+                                        <Border Style="{StaticResource EstiloSeparador}"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Datos de la variante"/>
+                                        <Grid Margin="0,4,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Talle"/>
+                                                <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding EditarTalle, UpdateSourceTrigger=PropertyChanged}" ToolTip="Vacío = sin talle" Margin="0,0,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Color"/>
+                                                <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding EditarColor, UpdateSourceTrigger=PropertyChanged}" ToolTip="Vacío = sin color" Margin="0,0,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Button Style="{StaticResource EstiloBotonPrimario}" Margin="0,8,0,0" HorizontalAlignment="Left" Content="Guardar cambios" Command="{Binding EditarVarianteCommand}"/>
+                                        <Border Style="{StaticResource EstiloSeparador}"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Precio"/>
+                                        <DockPanel Margin="0,0,0,4">
+                                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Precio vigente" VerticalAlignment="Center"/>
+                                            <TextBlock DockPanel.Dock="Right" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding PrecioVigenteSel, Converter={StaticResource MinorToArs}, Mode=OneWay, FallbackValue=—, TargetNullValue=—}"/>
+                                        </DockPanel>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Nuevo precio"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding PrecioTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Ej: 1234,50. Se crea un precio nuevo; el anterior queda en el historial." Margin="0,0,0,8"/>
+                                        <Button Style="{StaticResource EstiloBotonSecundario}" HorizontalAlignment="Left" Content="Actualizar precio" Command="{Binding FijarPrecioCommand}"/>
+                                        <Border Style="{StaticResource EstiloSeparador}"/>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Existencia inicial"/>
+                                        <DockPanel Margin="0,0,0,4">
+                                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="Stock físico actual" VerticalAlignment="Center"/>
+                                            <TextBlock DockPanel.Dock="Right" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding VarianteSeleccionada.Existencias, FallbackValue=—, StringFormat=\{0\} u.}"/>
+                                        </DockPanel>
+                                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Cantidad inicial"/>
+                                        <TextBox Style="{StaticResource EstiloCampoTexto}" Text="{Binding CantidadInicialTexto, UpdateSourceTrigger=PropertyChanged}" ToolTip="Cantidad entera mayor a cero" Margin="0,0,0,8"/>
+                                        <Button Style="{StaticResource EstiloBotonPrimario}" HorizontalAlignment="Left" Content="Establecer stock inicial" Command="{Binding EstablecerStockInicialCommand}"/>
+                                        <Button Style="{StaticResource EstiloBotonSecundario}" HorizontalAlignment="Left" Content="Imprimir etiquetas de la carga" Click="ImprimirEtiquetasCarga_Click" Visibility="{Binding EtiquetasCargaInicialDisponibles, Converter={StaticResource BoolToVisibility}}" Margin="0,6,0,0"/>
+                                        <TextBlock Margin="0,8,0,0" FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" TextWrapping="Wrap" Text="Usá esta operación únicamente para establecer el stock inicial. Para sumar mercadería después, usá Compras → Recepción de mercadería."/>
+                                        <Border Margin="0,12,0,0" Padding="12" Background="{StaticResource Color.Surface2Brush}" BorderBrush="{StaticResource Color.DestructiveBrush}" BorderThickness="1" CornerRadius="8">
+                                            <StackPanel>
+                                                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource Color.DestructiveBrush}" Text="Desactivar variante"/>
+                                                <TextBlock FontSize="11" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="No elimina el historial." Margin="0,0,0,8"/>
+                                                <Button Style="{StaticResource EstiloBotonDangerOutline}" HorizontalAlignment="Left" Content="Desactivar" Command="{Binding DesactivarVarianteCommand}" Margin="0,0,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <StackPanel Margin="0,16,0,0" HorizontalAlignment="Right" Visibility="{Binding MostrarContinuarCreacion, Converter={StaticResource BoolToVisibility}}">
+                            <Button Style="{StaticResource EstiloBotonPrimario}" Content="Continuar →" Command="{Binding IrAPasoCreacionCommand}" CommandParameter="3"/>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding PasoC3Visible, Converter={StaticResource BoolToVisibility}}">
+                            <Border Style="{StaticResource EstiloSeparador}"/>
+                            <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Listo: resumen del producto" FontSize="16"/>
+                            <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}" Text="{Binding Nombre}" TextWrapping="Wrap"/>
+                            <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding MarcaCategoriaResumen}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding CantVariantesResumen, StringFormat=\{0\} variante(s)}" Margin="0,0,16,0"/>
+                                <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="{Binding StockTotalResumen, StringFormat=Stock total: \{0\}}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button Style="{StaticResource EstiloBotonSecundario}" Content="← Agregar otra variante" Command="{Binding IrAPasoCreacionCommand}" CommandParameter="2"/>
+                                <Button Style="{StaticResource EstiloBotonPrimario}" Content="Terminar" Command="{Binding TerminarCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding SolapaEstadoVisible, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Style="{StaticResource EstiloEtiqueta}" Text="Estado y acciones" FontSize="16"/>
+                        <TextBlock Style="{StaticResource EstiloAyuda}" Text="Acciones poco frecuentes, separadas de la edición cotidiana."/>
+                        <TextBlock Style="{StaticResource EstiloMensajeError}" Text="{Binding ErrorEstado}"/>
+                        <TextBlock Style="{StaticResource EstiloMensajeExito}" Text="{Binding MensajeEstado}"/>
+                        <Border Style="{StaticResource EstiloAvisoInfo}">
+                            <TextBlock Foreground="{StaticResource Color.InfoTextBrush}" FontSize="13" TextWrapping="Wrap" Text="Las variantes activas siguen disponibles para operaciones del sistema. Desactivar no elimina el historial."/>
+                        </Border>
+                        <Border Background="{StaticResource Color.SurfaceBrush}" BorderBrush="{StaticResource Color.DestructiveBrush}" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,8,0,0">
+                            <DockPanel>
+                                <StackPanel>
+                                    <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource Color.DestructiveBrush}" Text="Desactivar producto"/>
+                                    <TextBlock FontSize="12" Foreground="{StaticResource Color.TextSecondaryBrush}" Text="No elimina el historial. Evita nuevas operaciones según las reglas del sistema." TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource EstiloBotonDangerOutline}" Content="Desactivar producto" Command="{Binding DesactivarProductoCommand}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</Window>

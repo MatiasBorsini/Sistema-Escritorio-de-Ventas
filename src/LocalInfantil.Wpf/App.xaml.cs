@@ -15,38 +15,62 @@ namespace LocalInfantil.Wpf;
 /// </summary>
 public partial class App : System.Windows.Application
 {
+    private ServiciosComerciales? _serviciosActivo;
+    private IAsyncDisposable? _leaseInstalacionActivo;
+
+    public void MantenerLeaseInstalacionHastaSalir(IAsyncDisposable lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        if (_leaseInstalacionActivo is not null)
+            throw new InvalidOperationException("Ya hay una instalación en curso.");
+        _leaseInstalacionActivo = lease;
+    }
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        string? rutaDev = null;
-        string? errorDev = null;
-        try
+        if(e.Args.Length>0&&string.Equals(e.Args[0],"--restore-swap",StringComparison.OrdinalIgnoreCase))
         {
-            rutaDev = SelectorBaseDesarrollo.Resolver(e.Args);
-        }
-        catch (Exception ex)
-        {
-            errorDev = ex.Message;
+            try{await IntercambiadorRestauracion.EjecutarHelperAsync(e.Args);}catch{ }
+            Shutdown(0);return;
         }
 
-        if (rutaDev is not null)
-        {
-            await IniciarModoDesarrolloAsync(rutaDev, errorDev);
-            return;
-        }
+        var inicio = ModoInicio.Resolver(e.Args);
 
-        if (errorDev is not null)
+        if (inicio.Destino == DestinoInicio.Error)
         {
-            // Provisional rechazada: mostrar error sin tocar esa base
-            var rootError = new AppRootViewModel(null, null, errorDev, new InicioViewModel());
+            // Ruta rechazada: mostrar error sin tocar ninguna base
+            var rootError = new AppRootViewModel(null, null, inicio.Error, new InicioViewModel());
             var winError = new MainWindow { DataContext = rootError };
-            // Mostrar mensaje informativo junto al prototipo existente
             winError.Show();
             return;
         }
 
-        // Sin base de desarrollo explícita: conservar comportamiento prototipo intacto
+        if (inicio.Destino == DestinoInicio.Desarrollo && inicio.RutaBase is not null)
+        {
+            await IniciarModoComercialAsync(inicio.RutaBase, null, esProduccion: false);
+            return;
+        }
+
+        if (inicio.Destino == DestinoInicio.PrototipoExplicito)
+        {
+            // Diagnóstico histórico explícito: sonda de solo prueba, sin migraciones.
+            AbrirSondaPrototipo();
+            return;
+        }
+
+        // Sin argumentos: modo PRODUCCIÓN (D-45). Jamás abre Prototype.
+        if (inicio.RutaBase is not null)
+        {
+            await IniciarModoComercialAsync(inicio.RutaBase, null, esProduccion: true);
+            return;
+        }
+    }
+
+    private void AbrirSondaPrototipo()
+    {
+        // Diagnóstico histórico explícito (--prototype): conserva el
+        // comportamiento anterior del prototipo intacto, sin migraciones.
         var mainWindow = new MainWindow
         {
             DataContext = new MainWindowViewModel(
@@ -59,31 +83,26 @@ public partial class App : System.Windows.Application
         mainWindow.Show();
     }
 
-    private async Task IniciarModoDesarrolloAsync(string rutaDev, string? errorPrevio)
+    private async Task IniciarModoComercialAsync(string rutaBase, string? errorPrevio, bool esProduccion)
     {
         ServiciosComerciales? servicios = null;
         string? error = errorPrevio;
         ViewModelBase contenidoInicial = new InicioViewModel();
+        var requiereBootstrap = false;
 
         try
         {
-            servicios = new ServiciosComerciales(rutaDev);
-            var migrador = new MigradorBaseDatos(rutaDev);
-            var respaldoDir = Path.Combine(Path.GetDirectoryName(rutaDev) ?? ".", "respaldos-dev");
-            Directory.CreateDirectory(respaldoDir);
-            await migrador.MigrarAsync(MigracionesF01.Todas, respaldoDir);
-
-            await using var sesion = await servicios.Fabrica.IniciarLecturaAsync();
-            var total = await servicios.RepoUsuarios.ContarTodosAsync(sesion);
-            if (total == 0)
-            {
-                // placeholder: se reemplaza tras crear root
-                contenidoInicial = new InicioViewModel();
-            }
-            else
-            {
-                contenidoInicial = new InicioViewModel();
-            }
+            servicios = new ServiciosComerciales(rutaBase);
+            var migrador = new MigradorBaseDatos(rutaBase);
+            // Producción usa la raíz real de respaldos (gestionada y retenida);
+            // desarrollo usa una carpeta junto a la base ficticia.
+            var respaldoDir = esProduccion
+                ? RutaBaseDatosProductiva.ObtenerDirRespaldos()
+                : Path.Combine(Path.GetDirectoryName(rutaBase) ?? ".", "respaldos-dev");
+            var inicio = await new InicializadorArranque(servicios).InicializarAsync(respaldoDir);
+            requiereBootstrap = inicio.RequiereBootstrapDuena;
+            EscribirEstadoRestauracion(Environment.GetCommandLineArgs(),"OK");
+            await servicios.CoordinadorRespaldos.IniciarAsync();
         }
         catch (Exception ex)
         {
@@ -91,28 +110,80 @@ public partial class App : System.Windows.Application
             servicios = null;
         }
 
-        AppRootViewModel root;
         if (servicios is null)
         {
-            root = new AppRootViewModel(null, rutaDev, error, contenidoInicial);
-        }
-        else
-        {
-            root = new AppRootViewModel(servicios, rutaDev, error, contenidoInicial);
-            await using var sesion = await servicios.Fabrica.IniciarLecturaAsync();
-            var total = await servicios.RepoUsuarios.ContarTodosAsync(sesion);
-            if (total == 0)
-            {
-                root.Mostrar(new BootstrapDuenaViewModel(servicios, async s => await root.AutenticadoAsync(s)));
-            }
-            else
-            {
-                root.Mostrar(new LoginViewModel(servicios, async s => await root.AutenticadoAsync(s)));
-            }
+            EscribirEstadoRestauracion(Environment.GetCommandLineArgs(),"ERROR no se pudo abrir la base restaurada");
+            var rootError = new AppRootViewModel(null, rutaBase, error, contenidoInicial);
+            var winError = new DevMainWindow { DataContext = rootError };
+            winError.Show();
+            return;
         }
 
-        var win = new DevMainWindow { DataContext = root };
-        win.Show();
+        _serviciosActivo = servicios;
+
+            var root = new AppRootViewModel(servicios, rutaBase, error, contenidoInicial, esProduccion);
+
+        // Cerrar sesión respeta la misma arquitectura que el inicio: Login
+        // siempre en LoginWindow. Se oculta la principal, se abre una
+        // LoginWindow nueva; si autentica, se vuelve a mostrar la principal;
+        // si se cierra sin autenticar, se cierra la aplicación.
+        void ConfigurarCierreSesion(DevMainWindow principal)
+        {
+            root.AlCerrarSesion = async () =>
+            {
+                principal.Hide();
+                var reautenticado = false;
+                Views.LoginWindow? ventanaReingreso = null;
+                var reingresoVm = new LoginViewModel(servicios, async s =>
+                {
+                    reautenticado = true;
+                    await root.AutenticadoAsync(s);
+                    if (principal.WindowState == WindowState.Minimized)
+                        principal.WindowState = WindowState.Normal;
+                    principal.Show();
+                    principal.Activate();
+                    ventanaReingreso?.Close();
+                });
+                ventanaReingreso = new Views.LoginWindow(reingresoVm, rutaBase);
+                ventanaReingreso.Closed += (_, _) =>
+                {
+                    if (!reautenticado)
+                        Shutdown();
+                };
+                ventanaReingreso.Show();
+            };
+        }
+
+        if (requiereBootstrap)
+        {
+            // Bootstrap de primera dueña preservado: misma ventana principal.
+            root.Mostrar(new BootstrapDuenaViewModel(servicios, async s => await root.AutenticadoAsync(s)));
+            var winBootstrap = new DevMainWindow { DataContext = root };
+            ConfigurarCierreSesion(winBootstrap);
+            winBootstrap.Show();
+            return;
+        }
+
+        // Ya existe configuración inicial: LoginWindow separada y compacta.
+        // Login exitoso → cerrar LoginWindow y abrir la principal.
+        var autenticado = false;
+        Views.LoginWindow? ventanaLogin = null;
+        var loginVm = new LoginViewModel(servicios, async s =>
+        {
+            autenticado = true;
+            await root.AutenticadoAsync(s);
+            var win = new DevMainWindow { DataContext = root };
+            ConfigurarCierreSesion(win);
+            win.Show();
+            ventanaLogin?.Close();
+        });
+        ventanaLogin = new Views.LoginWindow(loginVm, rutaBase);
+        ventanaLogin.Closed += (_, _) =>
+        {
+            if (!autenticado)
+                Shutdown();
+        };
+        ventanaLogin.Show();
     }
 
     private static void AbrirVistaPreviaImpresion(DocumentoImpresionDePrueba documento)
@@ -123,6 +194,31 @@ public partial class App : System.Windows.Application
         };
 
         ventana.ShowDialog();
+    }
+
+    private static void EscribirEstadoRestauracion(string[] args,string value)
+    {
+        for(var i=0;i<args.Length-1;i++)if(string.Equals(args[i],"--restore-verify",StringComparison.OrdinalIgnoreCase))try{File.WriteAllText(args[i+1],value);}catch{ }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        if (_serviciosActivo is not null)
+        {
+            try
+            {
+                if (_serviciosActivo.CoordinadorRespaldos.DetenerAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult())
+                    _serviciosActivo.CoordinadorRespaldos.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+            catch { /* El paquete pendiente queda para reconciliar en el próximo inicio. */ }
+        }
+        if (_leaseInstalacionActivo is not null)
+        {
+            try { _leaseInstalacionActivo.DisposeAsync().AsTask().GetAwaiter().GetResult(); }
+            catch { /* La conexión se cierra al salir del proceso si SQLite falla. */ }
+            _leaseInstalacionActivo = null;
+        }
+        base.OnExit(e);
     }
 }
 

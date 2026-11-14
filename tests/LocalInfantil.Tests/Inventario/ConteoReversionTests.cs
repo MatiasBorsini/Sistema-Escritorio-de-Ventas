@@ -20,27 +20,27 @@ public sealed class ConteoReversionTests
     public async Task Conteo_parcial_no_supone_cero_para_no_incluidas()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-P-004", "4", null), entorno.SesionDuena);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-P-006", "6", null), entorno.SesionDuena);
-        var v3 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-P-008", "8", null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.SesionDuena);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.SesionDuena);
+        var v3 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "8", null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5), new(v2, 8), new(v3, 3) }, "op-ini-parcial", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 5), new(v2, 10) }, "op-conteo-parcial", entorno.SesionDuena);
         var informe = await entorno.InformeAsync(conteoId);
         Assert.Equal(2, informe.Count);
         Assert.DoesNotContain(informe, l => l.VarianteId == v3);
-        Assert.Contains(informe, l => l.Sku == "REM-P-004" && l.Esperado == 5 && l.Contado == 5 && l.Diferencia == 0);
-        Assert.Contains(informe, l => l.Sku == "REM-P-006" && l.Esperado == 8 && l.Contado == 10 && l.Diferencia == 2);
+        Assert.Contains(informe, l => l.VarianteId == v1 && l.Esperado == 5 && l.Contado == 5 && l.Diferencia == 0);
+        Assert.Contains(informe, l => l.VarianteId == v2 && l.Esperado == 8 && l.Contado == 10 && l.Diferencia == 2);
     }
 
     [Fact]
     public async Task Diferencias_positiva_negativa_y_cero()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-D-004", "4", null), entorno.SesionDuena);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-D-006", "6", null), entorno.SesionDuena);
-        var v3 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-D-008", "8", null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.SesionDuena);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.SesionDuena);
+        var v3 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "8", null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5), new(v2, 5), new(v3, 5) }, "op-ini-dif", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 8), new(v2, 3), new(v3, 5) }, "op-conteo-dif", entorno.SesionDuena);
         await entorno.AprobarConteo.EjecutarAsync(conteoId, "op-aprob-dif", entorno.SesionDuena);
@@ -54,11 +54,11 @@ public sealed class ConteoReversionTests
     }
 
     [Fact]
-    public async Task Sku_duplicado_y_cantidades_invalidas_se_rechazan()
+    public async Task Variante_duplicada_y_cantidades_invalidas_se_rechazan()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-S-001", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
         await Assert.ThrowsAsync<ArgumentException>(() => entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 5), new(v1, 3) }, "op-dup", entorno.SesionDuena));
         await Assert.ThrowsAsync<InvalidOperationException>(() => entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new("no-existe", 5) }, "op-bad-variante", entorno.SesionDuena));
         Assert.Equal(0, await entorno.ConteosPorOperacionAsync("op-bad-variante"));
@@ -68,8 +68,8 @@ public sealed class ConteoReversionTests
     public async Task Borrador_corregido_y_luego_aprobado()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-B-001", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5) }, "op-ini-b", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 3) }, "op-conteo-b", entorno.SesionDuena);
         var informe1 = await entorno.InformeAsync(conteoId);
@@ -86,8 +86,8 @@ public sealed class ConteoReversionTests
     public async Task Doble_aprobacion_rechazada_incluso_tras_reapertura()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-DA-001", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5) }, "op-ini-da", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 7) }, "op-conteo-da", entorno.SesionDuena);
         await entorno.AprobarConteo.EjecutarAsync(conteoId, "op-aprob-da", entorno.SesionDuena);
@@ -101,8 +101,8 @@ public sealed class ConteoReversionTests
     public async Task Cambio_stock_entre_conteo_y_aprobacion_con_mismo_saldo_se_rechaza()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-CS-001", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5) }, "op-ini-cs", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 5) }, "op-conteo-cs", entorno.SesionDuena);
         await entorno.Ajuste.EjecutarAsync(v1, 3, "Entrada", "op-aj-cs1", entorno.SesionDuena);
@@ -119,9 +119,9 @@ public sealed class ConteoReversionTests
     public async Task Fallo_intermedio_en_aprobacion_no_deja_parciales()
     {
         using var entorno = await EntornoStocktake.CrearAsync();
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-FI-001", null, null), entorno.SesionDuena);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-FI-002", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5), new(v2, 5) }, "op-ini-fi", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteo.EjecutarAsync(new List<FilaConteo> { new(v1, 8), new(v2, 8) }, "op-conteo-fi", entorno.SesionDuena);
         await entorno.Ajuste.EjecutarAsync(v2, 1, "Movimiento", "op-aj-fi", entorno.SesionDuena);
@@ -142,8 +142,8 @@ public sealed class ConteoReversionTests
         await entorno.Permisos.EjecutarAsync(luciaId, PermisosCompras.RecepcionConfirmar, true, entorno.SesionDuena);
         var ana = await entorno.Login.EjecutarAsync("ana", "clave-ana-00000000");
         var lucia = await entorno.Login.EjecutarAsync("lucia", "clave-lucia-000000");
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-PD-001", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
         await entorno.Carga.EjecutarAsync(new List<FilaCargaInicial> { new(v1, 5) }, "op-ini-pd", entorno.SesionDuena);
         var conteoId = await entorno.CrearConteoConSesionAsync(new List<FilaConteo> { new(v1, 5) }, "op-conteo-pd", ana.IdSesion);
         Assert.NotNull(conteoId);
@@ -158,9 +158,9 @@ public sealed class ConteoReversionTests
     {
         using var entorno = await EntornoStocktake.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedorAsync(new NuevoProveedor("Mayorista"), entorno.SesionDuena);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-RV-004", "4", null), entorno.SesionDuena);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-RV-006", "6", null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.SesionDuena);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.SesionDuena);
         var recepcionId = await entorno.Recepcion.EjecutarAsync(proveedorId, new List<LineaRecepcion> { new(v1, 10, 8000, "ARS"), new(v2, 6, null, null) }, "op-rec-rv", "FC-001", entorno.SesionDuena);
         Assert.Equal(10, await entorno.ExistenciasDeAsync(v1));
         await entorno.Revertir.EjecutarAsync(recepcionId, "Error de carga", "op-rev-rv", entorno.SesionDuena);
@@ -178,8 +178,8 @@ public sealed class ConteoReversionTests
     {
         using var entorno = await EntornoStocktake.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedorAsync(new NuevoProveedor("Mayorista"), entorno.SesionDuena);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-RD-001", null, null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, null, null), entorno.SesionDuena);
         var recepcionId = await entorno.Recepcion.EjecutarAsync(proveedorId, new List<LineaRecepcion> { new(v1, 4, null, null) }, "op-rec-rd", null, entorno.SesionDuena);
         await entorno.Revertir.EjecutarAsync(recepcionId, "Duplicada", "op-rev-rd", entorno.SesionDuena);
         var reabierta = entorno.RevertirReabierta();
@@ -193,9 +193,9 @@ public sealed class ConteoReversionTests
     {
         using var entorno = await EntornoStocktake.CrearAsync();
         var proveedorId = await entorno.Proveedores.CrearProveedorAsync(new NuevoProveedor("Mayorista"), entorno.SesionDuena);
-        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), entorno.SesionDuena);
-        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-RI-004", "4", null), entorno.SesionDuena);
-        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "REM-RI-006", "6", null), entorno.SesionDuena);
+        var productoId = await entorno.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), entorno.SesionDuena);
+        var v1 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "4", null), entorno.SesionDuena);
+        var v2 = await entorno.CrearVariante.EjecutarAsync(new NuevaVariante(productoId, "6", null), entorno.SesionDuena);
         var recepcionId = await entorno.Recepcion.EjecutarAsync(proveedorId, new List<LineaRecepcion> { new(v1, 5, null, null), new(v2, 5, null, null) }, "op-rec-ri", null, entorno.SesionDuena);
         await entorno.Ajuste.EjecutarAsync(v1, -3, "Venta", "op-venta-ri", entorno.SesionDuena);
         Assert.Equal(2, await entorno.ExistenciasDeAsync(v1));
@@ -217,7 +217,7 @@ public sealed class ConteoReversionTests
             var catalogoV6 = MigracionesF01.Todas.Where(m => m.Version <= 6).ToList();
             Assert.Equal(new[] { 1, 2, 3, 4, 5, 6 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV6, null));
             await SembrarRecepcionSoloAsync(ruta);
-            Assert.Equal(new[] { 7, 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             var respaldo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(respaldo, "PRAGMA integrity_check;"));
             Assert.True(await TablaExisteAsync(ruta, "conteo"));
@@ -325,7 +325,7 @@ public sealed class ConteoReversionTests
             var proveedores = new RepositorioProveedores(_ids); var recepciones = new RepositorioRecepciones(_ids); var conteos = new RepositorioConteos(_ids); var apartados = new RepositorioApartados(_ids);
             var auditoria = new RepositorioAuditoria(new GeneradorIdsSecuencial("ev"), reloj); var usuarios = new RepositorioUsuarios(_ids); var permisos = new RepositorioPermisos();
             var autorizador = new Autorizador(_sesiones, usuarios, permisos, _fabrica, matriz); Autorizador = autorizador;
-            CrearProducto = new CrearProducto(productos, autorizador, _fabrica, auditoria, _ids, reloj);
+            CrearProducto = new CrearProducto(productos, new RepositorioCategorias(_ids), autorizador, _fabrica, auditoria, _ids, reloj);
             CrearVariante = new CrearVariante(variantes, productos, autorizador, _fabrica, auditoria, _ids, reloj);
             Carga = new CargarExistenciaInicial(movimientos, variantes, autorizador, _fabrica, auditoria, reloj);
             Ajuste = new AjustarInventario(movimientos, variantes, apartados, autorizador, _fabrica, auditoria, reloj);
@@ -333,7 +333,7 @@ public sealed class ConteoReversionTests
             CorregirConteo = new CorregirConteo(conteos, autorizador, _fabrica, auditoria, _ids);
             AprobarConteo = new AprobarConteo(conteos, movimientos, apartados, autorizador, _fabrica, auditoria, _ids, reloj);
             Revertir = new RevertirRecepcion(recepciones, movimientos, apartados, autorizador, _fabrica, auditoria, reloj);
-            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(_ids), apartados, _sesiones, _fabrica);
+            ConsultasInv = new ConsultasInventario(movimientos, variantes, new RepositorioConteos(_ids), apartados, productos, _sesiones, _fabrica);
             Proveedores = new JuegoProveedores(proveedores, autorizador, _fabrica, auditoria, _ids, reloj);
             Permisos = new ConfigurarPermiso(permisos, usuarios, autorizador, _fabrica, auditoria, _ids, reloj);
             Recepcion = new ConfirmarRecepcion(recepciones, proveedores, variantes, movimientos, autorizador, _fabrica, auditoria, reloj);

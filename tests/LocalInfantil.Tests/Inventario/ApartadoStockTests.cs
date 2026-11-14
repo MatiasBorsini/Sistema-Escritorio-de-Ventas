@@ -32,7 +32,7 @@ public sealed class ApartadoStockTests
             var catalogoV7 = MigracionesF01.Todas.Where(m => m.Version <= 7).ToList();
             Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7 }, await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV7, null));
             await SembrarFisicoAsync(ruta);
-            Assert.Equal(new[] { 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             var respaldo = Assert.Single(Directory.GetFiles(respaldos, "*.db"));
             Assert.Equal("ok", await ClaveValorAsync(respaldo, "PRAGMA integrity_check;"));
             Assert.True(await TablaExisteAsync(ruta, "apartado_movimiento"));
@@ -60,30 +60,30 @@ public sealed class ApartadoStockTests
     public async Task Ejemplo_10_apartar_1_reincorporar_y_descartar()
     {
         using var e = await Entorno.CrearAsync();
-        var (prod, v1) = await e.CargarVarianteConStockAsync("SKU-AP", 10);
+        var (prod, v1, codAP) = await e.CargarVarianteConStockAsync("SKU-AP", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
 
         await e.Apartar.EjecutarAsync(v1, 1, "roto", "op-apartar-1", e.SesionDuena);
-        var ex1 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP", e.SesionDuena))!;
+        var ex1 = (await e.Consultas.ObtenerClasificadaAsync(codAP, e.SesionDuena))!;
         Assert.Equal(10, ex1.Fisico);
         Assert.Equal(9, ex1.Disponible);
         Assert.Equal(1, ex1.Apartado);
 
         await e.Reincorporar.EjecutarAsync(v1, 1, "revisado apto", "op-reinc-1", e.SesionDuena);
-        var ex2 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP", e.SesionDuena))!;
+        var ex2 = (await e.Consultas.ObtenerClasificadaAsync(codAP, e.SesionDuena))!;
         Assert.Equal(10, ex2.Fisico);
         Assert.Equal(10, ex2.Disponible);
         Assert.Equal(0, ex2.Apartado);
 
         await e.Apartar.EjecutarAsync(v1, 1, "roto otra vez", "op-apartar-2", e.SesionDuena);
         await e.Baja.EjecutarAsync(v1, 1, "descartado", "op-baja-1", e.SesionDuena);
-        var ex3 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP", e.SesionDuena))!;
+        var ex3 = (await e.Consultas.ObtenerClasificadaAsync(codAP, e.SesionDuena))!;
         Assert.Equal(9, ex3.Fisico);
         Assert.Equal(9, ex3.Disponible);
         Assert.Equal(0, ex3.Apartado);
 
-        var hist = await e.Consultas.HistorialApartadosPorSkuAsync("SKU-AP", 10, 0, e.SesionDuena);
+        var hist = await e.Consultas.HistorialApartadosPorSkuAsync(codAP, 10, 0, e.SesionDuena);
         Assert.Equal(4, hist.Count);
         Assert.Contains(hist, h => h.Tipo == "apartar");
         Assert.Contains(hist, h => h.Tipo == "reincorporar");
@@ -97,12 +97,12 @@ public sealed class ApartadoStockTests
     public async Task Apartar_mas_que_disponible_rechaza_sin_parciales()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP2", 10);
+        var (_, v1, codAP2) = await e.CargarVarianteConStockAsync("SKU-AP2", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => e.Apartar.EjecutarAsync(v1, 11, "mucho", "op-ap-malo", e.SesionDuena));
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP2", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP2, e.SesionDuena))!;
         Assert.Equal(10, ex.Fisico);
         Assert.Equal(0, ex.Apartado);
         Assert.False(await e.HayAuditoriaDeAsync("op-ap-malo"));
@@ -112,7 +112,7 @@ public sealed class ApartadoStockTests
     public async Task Retirar_mas_que_apartado_rechaza()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP3", 10);
+        var (_, v1, codAP3) = await e.CargarVarianteConStockAsync("SKU-AP3", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
         await e.Apartar.EjecutarAsync(v1, 1, "roto", "op-ap-ok", e.SesionDuena);
@@ -121,7 +121,7 @@ public sealed class ApartadoStockTests
             () => e.Reincorporar.EjecutarAsync(v1, 2, "mucho", "op-re-malo", e.SesionDuena));
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => e.Baja.EjecutarAsync(v1, 2, "mucho", "op-ba-malo", e.SesionDuena));
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP3", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP3, e.SesionDuena))!;
         Assert.Equal(10, ex.Fisico);
         Assert.Equal(9, ex.Disponible);
         Assert.Equal(1, ex.Apartado);
@@ -131,7 +131,7 @@ public sealed class ApartadoStockTests
     public async Task Cantidades_invalidas_y_motivo_rechazados()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP4", 10);
+        var (_, v1, codAP4) = await e.CargarVarianteConStockAsync("SKU-AP4", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
 
@@ -147,7 +147,7 @@ public sealed class ApartadoStockTests
     public async Task Ajuste_negativo_no_consume_apartadas()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP5", 10);
+        var (_, v1, codAP5) = await e.CargarVarianteConStockAsync("SKU-AP5", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.AjusteStock, true, e.SesionDuena);
         await e.Apartar.EjecutarAsync(v1, 4, "revisión", "op-ap-aj", e.SesionDuena);
@@ -155,7 +155,7 @@ public sealed class ApartadoStockTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => e.Ajuste.EjecutarAsync(v1, -7, "merma", "op-aj-malo", e.SesionDuena));
         await e.Ajuste.EjecutarAsync(v1, -6, "merma", "op-aj-ok", e.SesionDuena);
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP5", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP5, e.SesionDuena))!;
         Assert.Equal(4, ex.Fisico);
         Assert.Equal(0, ex.Disponible);
         Assert.Equal(4, ex.Apartado);
@@ -170,20 +170,20 @@ public sealed class ApartadoStockTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCompras.RecepcionRevertir, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Prov"), e.SesionDuena);
-        var (_, v1) = await e.CrearVarianteSinStockAsync("SKU-AP6");
+        var (_, v1, codAP6) = await e.CrearVarianteSinStockAsync("SKU-AP6");
         var recId = await e.Recepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 10, null, null) }, "op-rec-ap6", null, e.SesionDuena);
         await e.Apartar.EjecutarAsync(v1, 3, "golpe", "op-ap-rec", e.SesionDuena);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => e.Revertir.EjecutarAsync(recId, "error", "op-rev-malo", e.SesionDuena));
         Assert.False(await e.HayReversionAsync(recId));
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP6", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP6, e.SesionDuena))!;
         Assert.Equal(10, ex.Fisico);
         Assert.Equal(7, ex.Disponible);
 
         await e.Reincorporar.EjecutarAsync(v1, 3, "apto", "op-reinc-rec", e.SesionDuena);
         await e.Revertir.EjecutarAsync(recId, "error", "op-rev-ok", e.SesionDuena);
-        var ex2 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP6", e.SesionDuena))!;
+        var ex2 = (await e.Consultas.ObtenerClasificadaAsync(codAP6, e.SesionDuena))!;
         Assert.Equal(0, ex2.Fisico);
     }
 
@@ -192,14 +192,14 @@ public sealed class ApartadoStockTests
     {
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
-        var (_, v1, v2) = await e.CargarDosVariantesAsync("SKU-AP7A", "SKU-AP7B", 10, 5);
+        var (_, v1, v2, codAP7A, codAP7B) = await e.CargarDosVariantesAsync("SKU-AP7A", "SKU-AP7B", 10, 5);
         var cid = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 10) }, "op-conteo-ap7", e.SesionDuena);
         var informe = await e.ConsultasConteos.InformeAsync(cid, e.SesionDuena);
         Assert.Single(informe);
 
         await e.Apartar.EjecutarAsync(v1, 2, "revisión", "op-ap-foto", e.SesionDuena);
         await e.Reincorporar.EjecutarAsync(v1, 2, "apto", "op-re-foto", e.SesionDuena);
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP7A", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP7A, e.SesionDuena))!;
         Assert.Equal(10, ex.Fisico);
         Assert.Equal(0, ex.Apartado);
 
@@ -209,7 +209,7 @@ public sealed class ApartadoStockTests
         var cid2 = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 10) }, "op-conteo-ap7b", e.SesionDuena);
         await e.Aprobar.EjecutarAsync(cid2, "op-aprob-ok", e.SesionDuena);
         Assert.Equal("aprobado", await e.EstadoConteoAsync(cid2));
-        var ex2 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP7B", e.SesionDuena))!;
+        var ex2 = (await e.Consultas.ObtenerClasificadaAsync(codAP7B, e.SesionDuena))!;
         Assert.Equal(5, ex2.Fisico);
     }
 
@@ -218,19 +218,19 @@ public sealed class ApartadoStockTests
     {
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
-        var (_, v1, _) = await e.CargarDosVariantesAsync("SKU-AP8A", "SKU-AP8B", 10, 0);
+        var (_, v1, _, codAP8A, codAP8B) = await e.CargarDosVariantesAsync("SKU-AP8A", "SKU-AP8B", 10, 0);
         await e.Apartar.EjecutarAsync(v1, 2, "revisión", "op-ap-inv", e.SesionDuena);
 
         var cidOk = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 10) }, "op-c-ok", e.SesionDuena);
         await e.Aprobar.EjecutarAsync(cidOk, "op-a-ok", e.SesionDuena);
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP8A", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP8A, e.SesionDuena))!;
         Assert.Equal(10, ex.Fisico);
         Assert.Equal(2, ex.Apartado);
 
         var cidMalo = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 1) }, "op-c-malo", e.SesionDuena);
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => e.Aprobar.EjecutarAsync(cidMalo, "op-a-mala", e.SesionDuena));
-        var ex2 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP8A", e.SesionDuena))!;
+        var ex2 = (await e.Consultas.ObtenerClasificadaAsync(codAP8A, e.SesionDuena))!;
         Assert.Equal(10, ex2.Fisico);
     }
 
@@ -238,7 +238,7 @@ public sealed class ApartadoStockTests
     public async Task Idempotencia_y_concurrencia_mismo_operacion_id()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP9", 10);
+        var (_, v1, codAP9) = await e.CargarVarianteConStockAsync("SKU-AP9", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
 
         await e.Apartar.EjecutarAsync(v1, 2, "m", "op-dup", e.SesionDuena);
@@ -256,7 +256,7 @@ public sealed class ApartadoStockTests
         }
 
         Assert.Equal(1, exitos);
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP9", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP9, e.SesionDuena))!;
         Assert.Equal(3, ex.Apartado);
     }
 
@@ -264,7 +264,7 @@ public sealed class ApartadoStockTests
     public async Task Autorizacion_revocacion_y_auditoria()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP10", 10);
+        var (_, v1, codAP10) = await e.CargarVarianteConStockAsync("SKU-AP10", 10);
         var anaId = await e.Alta.EjecutarAsync(new NuevoUsuario("ana", RolesLocal.Empleada), "clave-ana-00000000", e.SesionDuena);
         var ana = await e.Login.EjecutarAsync("ana", "clave-ana-00000000");
 
@@ -292,7 +292,7 @@ public sealed class ApartadoStockTests
     public async Task Baja_fallida_sin_parciales()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP11", 10);
+        var (_, v1, codAP11) = await e.CargarVarianteConStockAsync("SKU-AP11", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
         await e.Apartar.EjecutarAsync(v1, 2, "roto", "op-ap-rb", e.SesionDuena);
@@ -303,7 +303,7 @@ public sealed class ApartadoStockTests
         Assert.Equal(movsAntes, await e.ContarMovimientosAsync(v1));
         Assert.Equal(0, await e.ContarApartadosAsync(v1, "op-ba-mala"));
         Assert.False(await e.HayAuditoriaDeAsync("op-ba-mala"));
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP11", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP11, e.SesionDuena))!;
         Assert.Equal(10, ex.Fisico);
         Assert.Equal(2, ex.Apartado);
     }
@@ -312,7 +312,7 @@ public sealed class ApartadoStockTests
     public async Task Consultas_fisico_disponible_apartado_historial_y_vendible()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP12", 10);
+        var (_, v1, codAP12) = await e.CargarVarianteConStockAsync("SKU-AP12", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
         await e.Apartar.EjecutarAsync(v1, 3, "golpe", "op-ap-h", e.SesionDuena);
@@ -323,7 +323,7 @@ public sealed class ApartadoStockTests
         Assert.Null(await e.Consultas.ObtenerClasificadaAsync("NO-EXISTE", e.SesionDuena));
         Assert.Empty(await e.Consultas.HistorialApartadosPorSkuAsync("NO-EXISTE", 10, 0, e.SesionDuena));
 
-        var hist = await e.Consultas.HistorialApartadosPorSkuAsync("SKU-AP12", 10, 0, e.SesionDuena);
+        var hist = await e.Consultas.HistorialApartadosPorSkuAsync(codAP12, 10, 0, e.SesionDuena);
         var fila = Assert.Single(hist);
         Assert.Equal("apartar", fila.Tipo);
         Assert.Equal(3, fila.Cantidad);
@@ -341,15 +341,15 @@ public sealed class ApartadoStockTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         var prov = await e.CrearProveedor.EjecutarAsync(new NuevoProveedor("Prov"), e.SesionDuena);
-        var (_, v1) = await e.CrearVarianteSinStockAsync("SKU-AP13");
+        var (_, v1, codAP13) = await e.CrearVarianteSinStockAsync("SKU-AP13");
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 5) }, "op-carga-ap13", e.SesionDuena);
-        var ex1 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP13", e.SesionDuena))!;
+        var ex1 = (await e.Consultas.ObtenerClasificadaAsync(codAP13, e.SesionDuena))!;
         Assert.Equal(5, ex1.Fisico);
         Assert.Equal(5, ex1.Disponible);
 
         await e.Apartar.EjecutarAsync(v1, 2, "revisión", "op-ap-rec", e.SesionDuena);
         await e.Recepcion.EjecutarAsync(prov, new[] { new LineaRecepcion(v1, 3, null, null) }, "op-rec-ap13", null, e.SesionDuena);
-        var ex2 = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP13", e.SesionDuena))!;
+        var ex2 = (await e.Consultas.ObtenerClasificadaAsync(codAP13, e.SesionDuena))!;
         Assert.Equal(8, ex2.Fisico);
         Assert.Equal(6, ex2.Disponible);
         Assert.Equal(2, ex2.Apartado);
@@ -359,14 +359,14 @@ public sealed class ApartadoStockTests
     public async Task ViewModel_apartado_buscar_operar_baja_logout()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP14", 10);
+        var (_, v1, codAP14) = await e.CargarVarianteConStockAsync("SKU-AP14", 10);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
         var ses = await svc.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
         var vm = new LocalInfantil.Wpf.ViewModels.ApartadoViewModel(svc, () => ses.IdSesion);
 
-        vm.SkuBusqueda = "SKU-AP14";
+        vm.SkuBusqueda = codAP14;
         await vm.BuscarAsyncPublic();
         Assert.Null(vm.Error);
         Assert.NotNull(vm.Existencia);
@@ -393,14 +393,14 @@ public sealed class ApartadoStockTests
         Assert.True(vm.ConfirmacionBajaVisible);
         await vm.CancelarBajaAsyncPublic();
         Assert.False(vm.ConfirmacionBajaVisible);
-        var exSinBaja = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP14", e.SesionDuena))!;
+        var exSinBaja = (await e.Consultas.ObtenerClasificadaAsync(codAP14, e.SesionDuena))!;
         Assert.Equal(2, exSinBaja.Apartado);
 
         await vm.SolicitarBajaAsyncPublic();
         await vm.ConfirmarBajaAsyncPublic();
         Assert.Null(vm.Error);
         Assert.False(vm.ConfirmacionBajaVisible);
-        var exBaja = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP14", e.SesionDuena))!;
+        var exBaja = (await e.Consultas.ObtenerClasificadaAsync(codAP14, e.SesionDuena))!;
         Assert.Equal(8, exBaja.Fisico);
         Assert.Equal(0, exBaja.Apartado);
 
@@ -413,14 +413,14 @@ public sealed class ApartadoStockTests
     public async Task ViewModel_empleada_permiso_especifico_y_doble_confirmacion()
     {
         using var e = await Entorno.CrearAsync();
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP15", 10);
+        var (_, v1, codAP15) = await e.CargarVarianteConStockAsync("SKU-AP15", 10);
         var anaId = await e.Alta.EjecutarAsync(new NuevoUsuario("ana", RolesLocal.Empleada), "clave-ana-00000000", e.SesionDuena);
         await e.Permisos.EjecutarAsync(anaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         var svc = new ServiciosComerciales(e.Ruta);
         var sesAna = await svc.CasoIniciarSesion.EjecutarAsync("ana", "clave-ana-00000000");
         var vm = new LocalInfantil.Wpf.ViewModels.ApartadoViewModel(svc, () => sesAna.IdSesion);
 
-        vm.SkuBusqueda = "SKU-AP15";
+        vm.SkuBusqueda = codAP15;
         await vm.BuscarAsyncPublic();
         Assert.Null(vm.Error);
         vm.CantidadTexto = "2";
@@ -432,11 +432,11 @@ public sealed class ApartadoStockTests
         vm.Motivo = "baja";
         await vm.SolicitarBajaAsyncPublic();
         await vm.ConfirmarBajaAsyncPublic();
-        Assert.Contains("Permiso denegado", vm.Error ?? "");
+        Assert.Contains("No tenés permiso para autorizar bajas definitivas", vm.Error ?? "");
 
         await vm.ConfirmarBajaAsyncPublic();
-        Assert.Contains("Permiso denegado", vm.Error ?? "");
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP15", e.SesionDuena))!;
+        Assert.Contains("No tenés permiso para autorizar bajas definitivas", vm.Error ?? "");
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP15, e.SesionDuena))!;
         Assert.Equal(2, ex.Apartado);
         Assert.Equal(10, ex.Fisico);
     }
@@ -451,7 +451,7 @@ public sealed class ApartadoStockTests
             var catalogoV7 = MigracionesF01.Todas.Where(m => m.Version <= 7).ToList();
             await new MigradorBaseDatos(ruta).MigrarAsync(catalogoV7, null);
             await SembrarConteoV7Async(ruta);
-            Assert.Equal(new[] { 8 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
+            Assert.Equal(new[] { 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, await new MigradorBaseDatos(ruta).MigrarAsync(MigracionesF01.Todas, respaldos));
             using var e = await Entorno.AbrirAsync(ruta);
             await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.ConteoAprobar, true, e.SesionDuena);
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -468,11 +468,11 @@ public sealed class ApartadoStockTests
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.NoVendibleGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.BajaDefinitivaAutorizar, true, e.SesionDuena);
-        var (_, v1) = await e.CargarVarianteConStockAsync("SKU-AP16", 10);
+        var (_, v1, codAP16) = await e.CargarVarianteConStockAsync("SKU-AP16", 10);
         var cid = await e.CrearConteo.EjecutarAsync(new[] { new FilaConteo(v1, 10) }, "op-c-baja", e.SesionDuena);
         await e.Apartar.EjecutarAsync(v1, 3, "roto", "op-ap-baja", e.SesionDuena);
         await e.Baja.EjecutarAsync(v1, 3, "descartado", "op-ba-baja", e.SesionDuena);
-        var ex = (await e.Consultas.ObtenerClasificadaAsync("SKU-AP16", e.SesionDuena))!;
+        var ex = (await e.Consultas.ObtenerClasificadaAsync(codAP16, e.SesionDuena))!;
         Assert.Equal(7, ex.Fisico);
         Assert.Equal(0, ex.Apartado);
 
@@ -559,6 +559,7 @@ public sealed class ApartadoStockTests
         public CorregirConteo CorregirConteo { get; }
         public AprobarConteo Aprobar { get; }
         public ConsultasInventario Consultas { get; }
+        public ConsultasCatalogo Catalogo { get; }
         public ConsultasConteos ConsultasConteos { get; }
         public CrearProveedor CrearProveedor { get; }
         public ConfirmarRecepcion Recepcion { get; }
@@ -573,8 +574,8 @@ public sealed class ApartadoStockTests
         public string DuenaId { get; }
         private readonly string _dir;
 
-        public Entorno(string dir, string ruta, FabricaConexionesSqlite fabrica, CrearProducto cprod, CrearVariante cvar, CargarExistenciaInicial carga, ApartarStock apartar, ReincorporarStock reinc, BajaDefinitivaApartado baja, AjustarInventario ajuste, CrearConteo crearConteo, CorregirConteo corregir, AprobarConteo aprobar, ConsultasInventario consultas, ConsultasConteos consultasConteos, CrearProveedor crearProv, ConfirmarRecepcion recep, RevertirRecepcion revertir, ConfigurarPermiso perm, CrearUsuario alta, IniciarSesion login, RepositorioApartados reposApartados, RepositorioMovimientos reposMovimientos, RepositorioAuditoria reposAuditoria, string sesion, string duenaId)
-        { _dir = dir; Ruta = ruta; Fabrica = fabrica; CrearProducto = cprod; CrearVariante = cvar; Cargar = carga; Apartar = apartar; Reincorporar = reinc; Baja = baja; Ajuste = ajuste; CrearConteo = crearConteo; CorregirConteo = corregir; Aprobar = aprobar; Consultas = consultas; ConsultasConteos = consultasConteos; CrearProveedor = crearProv; Recepcion = recep; Revertir = revertir; Permisos = perm; Alta = alta; Login = login; ReposApartados = reposApartados; ReposMovimientos = reposMovimientos; ReposAuditoria = reposAuditoria; SesionDuena = sesion; DuenaId = duenaId; }
+        public Entorno(string dir, string ruta, FabricaConexionesSqlite fabrica, CrearProducto cprod, CrearVariante cvar, CargarExistenciaInicial carga, ApartarStock apartar, ReincorporarStock reinc, BajaDefinitivaApartado baja, AjustarInventario ajuste, CrearConteo crearConteo, CorregirConteo corregir, AprobarConteo aprobar, ConsultasInventario consultas, ConsultasCatalogo catalogo, ConsultasConteos consultasConteos, CrearProveedor crearProv, ConfirmarRecepcion recep, RevertirRecepcion revertir, ConfigurarPermiso perm, CrearUsuario alta, IniciarSesion login, RepositorioApartados reposApartados, RepositorioMovimientos reposMovimientos, RepositorioAuditoria reposAuditoria, string sesion, string duenaId)
+        { _dir = dir; Ruta = ruta; Fabrica = fabrica; CrearProducto = cprod; CrearVariante = cvar; Cargar = carga; Apartar = apartar; Reincorporar = reinc; Baja = baja; Ajuste = ajuste; CrearConteo = crearConteo; CorregirConteo = corregir; Aprobar = aprobar; Consultas = consultas; Catalogo = catalogo; ConsultasConteos = consultasConteos; CrearProveedor = crearProv; Recepcion = recep; Revertir = revertir; Permisos = perm; Alta = alta; Login = login; ReposApartados = reposApartados; ReposMovimientos = reposMovimientos; ReposAuditoria = reposAuditoria; SesionDuena = sesion; DuenaId = duenaId; }
 
         public static async Task<Entorno> CrearAsync()
         {
@@ -611,7 +612,7 @@ public sealed class ApartadoStockTests
             var conteoRepo = new RepositorioConteos(ids);
             var provRepo = new RepositorioProveedores(ids);
             var recepRepo = new RepositorioRecepciones(ids);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var cargar = new CargarExistenciaInicial(movRepo, varRepo, autorizador, fabrica, auditoria, reloj);
             var apartar = new ApartarStock(apartRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);
@@ -621,57 +622,62 @@ public sealed class ApartadoStockTests
             var crearConteo = new CrearConteo(conteoRepo, varRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);
             var corregir = new CorregirConteo(conteoRepo, autorizador, fabrica, auditoria, ids);
             var aprobar = new AprobarConteo(conteoRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, ids, reloj);
-            var consultas = new ConsultasInventario(movRepo, varRepo, conteoRepo, apartRepo, sesiones, fabrica);
+            var consultas = new ConsultasInventario(movRepo, varRepo, conteoRepo, apartRepo, prodRepo, sesiones, fabrica);
+            var catalogo = new ConsultasCatalogo(prodRepo, varRepo, sesiones, fabrica);
             var consultasConteos = new ConsultasConteos(conteoRepo, sesiones, fabrica);
             var crearProv = new CrearProveedor(provRepo, autorizador, fabrica, auditoria, ids, reloj);
             var confirmarRec = new ConfirmarRecepcion(recepRepo, provRepo, varRepo, movRepo, autorizador, fabrica, auditoria, reloj);
             var revertirRec = new RevertirRecepcion(recepRepo, movRepo, apartRepo, autorizador, fabrica, auditoria, reloj);
             var duenaId = await alta.EjecutarAsync(new NuevoUsuario("duena", RolesLocal.Duena), "clave-duena-000000", null);
             var sesion = await login.EjecutarAsync("duena", "clave-duena-000000");
-            return new Entorno(dir, ruta, fabrica, crearProd, crearVar, cargar, apartar, reinc, baja, ajuste, crearConteo, corregir, aprobar, consultas, consultasConteos, crearProv, confirmarRec, revertirRec, perm, alta, login, apartRepo, movRepo, auditoria, sesion.IdSesion, duenaId);
+            return new Entorno(dir, ruta, fabrica, crearProd, crearVar, cargar, apartar, reinc, baja, ajuste, crearConteo, corregir, aprobar, consultas, catalogo, consultasConteos, crearProv, confirmarRec, revertirRec, perm, alta, login, apartRepo, movRepo, auditoria, sesion.IdSesion, duenaId);
         }
 
         public void Dispose() { if (Directory.Exists(_dir)) Directory.Delete(_dir, true); }
 
-        public async Task<(string Prod, string V1)> CargarVarianteConStockAsync(string sku, long cantidad)
+        public async Task<(string Prod, string V1, string Cod)> CargarVarianteConStockAsync(string sku, long cantidad)
         {
             await Permisos.EjecutarAsync(DuenaId, PermisosCatalogo.ProductosGestionar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosCatalogo.VariantesGestionar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosInventario.CargaInicialEstablecer, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosInventario.ConteoRegistrar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosInventario.ConteoAprobar, true, SesionDuena);
-            var prod = await CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + sku, null, null), SesionDuena);
-            var v1 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, sku, "M", null), SesionDuena);
+            var prod = await CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + sku, null, "cat-otr"), SesionDuena);
+            var v1 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", null), SesionDuena);
+            var cod = (await Catalogo.ObtenerVarianteAsync(v1, SesionDuena))!.CodigoInterno;
             await Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, cantidad) }, "op-carga-" + sku, SesionDuena);
-            return (prod, v1);
+            return (prod, v1, cod);
         }
 
-        public async Task<(string Prod, string V1)> CrearVarianteSinStockAsync(string sku)
+        public async Task<(string Prod, string V1, string Cod)> CrearVarianteSinStockAsync(string sku)
         {
             await Permisos.EjecutarAsync(DuenaId, PermisosCatalogo.ProductosGestionar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosCatalogo.VariantesGestionar, true, SesionDuena);
-            var prod = await CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + sku, null, null), SesionDuena);
-            var v1 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, sku, null, null), SesionDuena);
-            return (prod, v1);
+            var prod = await CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + sku, null, "cat-otr"), SesionDuena);
+            var v1 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), SesionDuena);
+            var cod = (await Catalogo.ObtenerVarianteAsync(v1, SesionDuena))!.CodigoInterno;
+            return (prod, v1, cod);
         }
 
-        public async Task<(string Prod, string V1, string V2)> CargarDosVariantesAsync(string sku1, string sku2, long cant1, long cant2)
+        public async Task<(string Prod, string V1, string V2, string Cod1, string Cod2)> CargarDosVariantesAsync(string sku1, string sku2, long cant1, long cant2)
         {
             await Permisos.EjecutarAsync(DuenaId, PermisosCatalogo.ProductosGestionar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosCatalogo.VariantesGestionar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosInventario.CargaInicialEstablecer, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosInventario.ConteoRegistrar, true, SesionDuena);
             await Permisos.EjecutarAsync(DuenaId, PermisosInventario.ConteoAprobar, true, SesionDuena);
-            var prod = await CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + sku1, null, null), SesionDuena);
-            var v1 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, sku1, "M", null), SesionDuena);
-            var v2 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, sku2, null, null), SesionDuena);
+            var prod = await CrearProducto.EjecutarAsync(new NuevoProducto("Prod-" + sku1, null, "cat-otr"), SesionDuena);
+            var v1 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, "M", null), SesionDuena);
+            var v2 = await CrearVariante.EjecutarAsync(new NuevaVariante(prod, null, null), SesionDuena);
+            var cod1 = (await Catalogo.ObtenerVarianteAsync(v1, SesionDuena))!.CodigoInterno;
+            var cod2 = (await Catalogo.ObtenerVarianteAsync(v2, SesionDuena))!.CodigoInterno;
             await Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, cant1) }, "op-carga-" + sku1, SesionDuena);
             if (cant2 > 0)
             {
                 await Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v2, cant2) }, "op-carga-" + sku2, SesionDuena);
             }
 
-            return (prod, v1, v2);
+            return (prod, v1, v2, cod1, cod2);
         }
 
         public async Task<long> ContarMovimientosAsync(string varianteId)

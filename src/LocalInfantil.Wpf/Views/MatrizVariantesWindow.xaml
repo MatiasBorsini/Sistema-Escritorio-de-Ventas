@@ -1,0 +1,42 @@
+<Window x:Class="LocalInfantil.Wpf.Views.MatrizVariantesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Crear variantes" Width="760" Height="560" MinWidth="680" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{StaticResource Color.SurfaceBrush}" PreviewKeyDown="Window_PreviewKeyDown">
+    <DockPanel Margin="18">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Variantes por matriz" FontSize="21" FontWeight="SemiBold" Foreground="{StaticResource Color.TextBrush}"/>
+            <TextBlock Text="Escribí talles y colores separados por coma o línea. No se modifica el stock." Margin="0,3,0,0" Foreground="{StaticResource Color.TextSecondaryBrush}"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <TextBlock Text="{Binding Error}" Foreground="{StaticResource Color.ErrorTextBrush}" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Mensaje}" Foreground="{StaticResource Color.TextSecondaryBrush}" Margin="0,3,0,6"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Generar matriz" Style="{StaticResource EstiloBotonSecundario}" Command="{Binding GenerarMatrizCommand}" Margin="6,0"/>
+                <Button Content="Vista previa" Style="{StaticResource EstiloBotonSecundario}" Command="{Binding PrevisualizarCommand}"/>
+                <Button Content="Crear variantes" Style="{StaticResource EstiloBotonPrimario}" Command="{Binding CrearCommand}" Margin="6,0,0,0"/>
+            </StackPanel>
+        </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,8">
+                <TextBlock Text="Talles" Foreground="{StaticResource Color.TextBrush}" FontWeight="SemiBold"/>
+                <TextBox Text="{Binding Talles, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,8">
+                <TextBlock Text="Colores" Foreground="{StaticResource Color.TextBrush}" FontWeight="SemiBold"/>
+                <TextBox Text="{Binding Colores, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource EstiloCampoTexto}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
+            </StackPanel>
+            <DataGrid Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding Filas}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" IsReadOnly="False" BorderBrush="{StaticResource Color.BorderBrush}">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Crear" Binding="{Binding Seleccionada, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                    <DataGridTextColumn Header="Talle" Binding="{Binding TalleTexto}" IsReadOnly="True" Width="110"/>
+                    <DataGridTextColumn Header="Color" Binding="{Binding ColorTexto}" IsReadOnly="True" Width="*"/>
+                    <DataGridTextColumn Header="Código futuro" Binding="{Binding Codigo}" IsReadOnly="True" Width="150"/>
+                    <DataGridTextColumn Header="Estado" Binding="{Binding Estado}" IsReadOnly="True" Width="110"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+    </DockPanel>
+</Window>

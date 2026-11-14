@@ -19,7 +19,7 @@ public sealed class WpfCatalogTests
     {
         using var e = await Entorno.CrearAsync();
         await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), e.SesionDuena));
-        await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.CrearVariante.EjecutarAsync(new NuevaVariante("prod", "SKU1", null, null), e.SesionDuena));
+        await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.CrearVariante.EjecutarAsync(new NuevaVariante("prod", null, null), e.SesionDuena));
         await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.FijarPrecio.EjecutarAsync("var", 1000, e.SesionDuena));
         await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial("var", 5) }, Guid.NewGuid().ToString("N"), e.SesionDuena));
     }
@@ -32,8 +32,8 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.PreciosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
-        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", "Mimo", "Ninia"), e.SesionDuena);
-        var varId = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "SKU-1", "M", "Rojo"), e.SesionDuena);
+        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", "Mimo", "cat-rem"), e.SesionDuena);
+        var varId = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "M", "Rojo"), e.SesionDuena);
         var precioId = await e.FijarPrecio.EjecutarAsync(varId, 2500, e.SesionDuena);
         Assert.NotEmpty(precioId);
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(varId, 10) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
@@ -55,9 +55,9 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(luciaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         var sAna = await e.Login.EjecutarAsync("ana", "clave-ana-00000000");
         var sLucia = await e.Login.EjecutarAsync("lucia", "clave-lucia-000000");
-        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Pantalon", null, null), sAna.IdSesion);
+        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Pantalon", null, "cat-pan"), sAna.IdSesion);
         await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.CrearProducto.EjecutarAsync(new NuevoProducto("Otro", null, null), sLucia.IdSesion));
-        var varId = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "SKU-A", null, null), sAna.IdSesion);
+        var varId = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, null, null), sAna.IdSesion);
         await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.FijarPrecio.EjecutarAsync(varId, 1000, sAna.IdSesion));
         var pid = await e.FijarPrecio.EjecutarAsync(varId, 1200, sLucia.IdSesion);
         Assert.NotEmpty(pid);
@@ -70,7 +70,7 @@ public sealed class WpfCatalogTests
         var anaId = await e.Alta.EjecutarAsync(new NuevoUsuario("ana", RolesLocal.Empleada), "clave-ana-00000000", e.SesionDuena);
         await e.Permisos.EjecutarAsync(anaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         var sAna = await e.Login.EjecutarAsync("ana", "clave-ana-00000000");
-        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), sAna.IdSesion);
+        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), sAna.IdSesion);
         Assert.NotEmpty(prodId);
         await e.Permisos.EjecutarAsync(anaId, PermisosCatalogo.ProductosGestionar, false, e.SesionDuena);
         await Assert.ThrowsAsync<AccesoDenegadoException>(() => e.CrearProducto.EjecutarAsync(new NuevoProducto("Otra", null, null), sAna.IdSesion));
@@ -82,8 +82,8 @@ public sealed class WpfCatalogTests
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Buzo", "Marca", "Cat"), e.SesionDuena);
-        await e.EditarProducto.EjecutarAsync(prodId, new EdicionProducto("Buzo Editado", null, null), e.SesionDuena);
+        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Buzo", "Marca", "cat-buz"), e.SesionDuena);
+        await e.EditarProducto.EjecutarAsync(prodId, new EdicionProducto("Buzo Editado", null, "cat-buz"), e.SesionDuena);
         var ficha = await e.Consultas.ObtenerFichaAsync(prodId, DateTime.UtcNow.ToString("o"), e.SesionDuena);
         Assert.Equal("Buzo Editado", ficha!.Producto.Nombre);
         Assert.Null(ficha.Producto.Marca);
@@ -93,20 +93,28 @@ public sealed class WpfCatalogTests
     }
 
     [Fact]
-    public async Task Variantes_con_y_sin_talle_color_y_sku_duplicado()
+    public async Task Variantes_con_y_sin_talle_color_y_codigos_unicos()
     {
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "SKU-1", "M", "Rojo"), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "SKU-2", null, null), e.SesionDuena);
-        var v3 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "SKU-3", "L", null), e.SesionDuena);
+        var prodId = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), e.SesionDuena);
+        var prod = await e.Consultas.ObtenerProductoAsync(prodId, e.SesionDuena);
+        Assert.NotNull(prod);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "M", "Rojo"), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, null, null), e.SesionDuena);
+        var v3 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "L", null), e.SesionDuena);
         Assert.NotEqual(v1, v2);
-        await Assert.ThrowsAnyAsync<Exception>(() => e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "SKU-1", "XL", "Azul"), e.SesionDuena));
-        await e.EditarVariante.EjecutarAsync(v2, new EdicionVariante("XL", "Azul"), e.SesionDuena);
+        // Código interno automático: la cuarta variante también se crea, con
+        // código secuencial único (el duplicado manual ya no existe).
+        var v4 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(prodId, "XL", "Azul"), e.SesionDuena);
+        await e.EditarVariante.EjecutarAsync(v2, new EdicionVariante("S", "Verde"), e.SesionDuena);
         var ficha = await e.Consultas.ObtenerFichaAsync(prodId, DateTime.UtcNow.ToString("o"), e.SesionDuena);
-        Assert.Equal(3, ficha!.Variantes.Count);
+        Assert.Equal(4, ficha!.Variantes.Count);
+        var codigos = ficha.Variantes.Select(v => v.CodigoInterno).ToList();
+        Assert.Equal(4, codigos.Distinct().Count());
+        Assert.All(codigos, c => Assert.StartsWith(prod.CodigoInterno + "-", c));
+        _ = v4;
     }
 
     [Fact]
@@ -119,8 +127,8 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
         for (int i = 0; i < 5; i++)
         {
-            var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto($"Prod-{i:D2}", null, null), e.SesionDuena);
-            var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, $"SKU-{i:D2}", null, null), e.SesionDuena);
+            var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto($"Prod-{i:D2}", null, "cat-otr"), e.SesionDuena);
+            var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
             await e.FijarPrecio.EjecutarAsync(vid, 1000 + i * 100, e.SesionDuena);
             await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(vid, i + 1) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         }
@@ -142,8 +150,8 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.PreciosGestionar, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, null), e.SesionDuena);
-        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-P", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Remera", null, "cat-rem"), e.SesionDuena);
+        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
         await e.FijarPrecio.EjecutarAsync(vid, 1000, e.SesionDuena);
         await e.FijarPrecio.EjecutarAsync(vid, 1500, e.SesionDuena);
         var ficha = await e.Consultas.ObtenerFichaAsync(pid, DateTime.UtcNow.ToString("o"), e.SesionDuena);
@@ -165,9 +173,9 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-1", null, null), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-2", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "6", null), e.SesionDuena);
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 5), new FilaCargaInicial(v2, 7) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         var ficha = await e.Consultas.ObtenerFichaAsync(pid, DateTime.UtcNow.ToString("o"), e.SesionDuena);
         Assert.Equal(2, ficha!.Variantes.Count);
@@ -182,9 +190,9 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-1", null, null), e.SesionDuena);
-        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-2", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var v1 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
+        var v2 = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "6", null), e.SesionDuena);
         var op = Guid.NewGuid().ToString("N");
         await Assert.ThrowsAsync<ArgumentException>(() => e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 0), new FilaCargaInicial(v2, 5) }, op, e.SesionDuena));
         await Assert.ThrowsAsync<ArgumentException>(() => e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(v1, 3), new FilaCargaInicial(v1, 4) }, Guid.NewGuid().ToString("N"), e.SesionDuena));
@@ -199,8 +207,8 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-1", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(vid, 5) }, Guid.NewGuid().ToString("N"), e.SesionDuena);
         await Assert.ThrowsAsync<InvalidOperationException>(() => e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(vid, 3) }, Guid.NewGuid().ToString("N"), e.SesionDuena));
     }
@@ -212,8 +220,8 @@ public sealed class WpfCatalogTests
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosInventario.CargaInicialEstablecer, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-1", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
         var op = Guid.NewGuid().ToString("N");
         await e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(vid, 5) }, op, e.SesionDuena);
         await Assert.ThrowsAsync<InvalidOperationException>(() => e.Cargar.EjecutarAsync(new[] { new FilaCargaInicial(vid, 5) }, op, e.SesionDuena));
@@ -264,11 +272,93 @@ public sealed class WpfCatalogTests
 
     // ViewModel: estado y comandos
     [Fact]
+    public async Task Catalogo_carga_primera_pagina_al_mostrarse_por_primera_vez()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        for (int i = 0; i < 3; i++) await e.CrearProducto.EjecutarAsync(new NuevoProducto($"ProdAuto-{i}", null, "cat-otr"), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
+
+        // Al inicializar, el VM debe cargar productos automáticamente
+        await vm.InicializarAsyncPublic();
+
+        Assert.True(vm.Filas.Count >= 3);
+        Assert.Null(vm.Error);
+        // La primera fila debe estar seleccionada automáticamente
+        Assert.NotNull(vm.FilaSeleccionada);
+    }
+
+    [Fact]
+    public async Task Inicializacion_dos_llamadas_rapidas_solo_una_carga()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-1", null, "cat-otr"), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
+
+        // Dos llamadas concurrentes rápidas
+        var t1 = vm.InicializarAsyncPublic();
+        var t2 = vm.InicializarAsyncPublic();
+        await Task.WhenAll(t1, t2);
+
+        // Solo debe haber una carga (la primera), sin error
+        Assert.Null(vm.Error);
+        Assert.True(vm.Filas.Count >= 1);
+    }
+
+    [Fact]
+    public async Task Inicializacion_fallida_permite_reintento()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-Reintento", null, "cat-otr"), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        string? sesionActual = "sesion-inexistente";
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesionActual);
+
+        // Primera carga falla (sesión inválida): queda Fallida, no Inicializada
+        await vm.InicializarAsyncPublic();
+        Assert.NotNull(vm.Error);
+
+        // Al volverse válida la sesión, una llamada posterior reintenta y carga
+        sesionActual = sesVm.IdSesion;
+        await vm.InicializarAsyncPublic();
+        Assert.Null(vm.Error);
+        Assert.True(vm.Filas.Count >= 1);
+        Assert.NotNull(vm.FilaSeleccionada);
+    }
+
+    [Fact]
+    public async Task Inicializacion_exitosa_no_recarga_al_volver()
+    {
+        using var e = await Entorno.CrearAsync();
+        await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
+        await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod-1", null, "cat-otr"), e.SesionDuena);
+        var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
+        var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
+        var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
+
+        await vm.InicializarAsyncPublic();
+        var primeraCarga = vm.Filas.Count;
+
+        // Simular volver a la pantalla: llamar InicializarAsync nuevamente
+        await vm.InicializarAsyncPublic();
+
+        // No debe recargar (misma cantidad de filas)
+        Assert.Equal(primeraCarga, vm.Filas.Count);
+    }
+
+    [Fact]
     public async Task ViewModel_busqueda_y_paginacion()
     {
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
-        for (int i = 0; i < 3; i++) await e.CrearProducto.EjecutarAsync(new NuevoProducto($"ProdVM-{i}", null, null), e.SesionDuena);
+        for (int i = 0; i < 3; i++) await e.CrearProducto.EjecutarAsync(new NuevoProducto($"ProdVM-{i}", null, "cat-otr"), e.SesionDuena);
         var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
         var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
         var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
@@ -284,8 +374,8 @@ public sealed class WpfCatalogTests
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, null), e.SesionDuena);
-        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, "SKU-VM", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("Prod", null, "cat-otr"), e.SesionDuena);
+        var vid = await e.CrearVariante.EjecutarAsync(new NuevaVariante(pid, null, null), e.SesionDuena);
         var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
         var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
         var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
@@ -294,7 +384,7 @@ public sealed class WpfCatalogTests
         vm.PrecioTexto = "12,34";
         await vm.FijarPrecioAsyncPublic();
         Assert.NotNull(vm.Error);
-        Assert.Contains("denegado", vm.Error!.ToLowerInvariant());
+        Assert.Contains("no tenés permiso para fijar precios", vm.Error!.ToLowerInvariant());
         Assert.Equal("12,34", vm.PrecioTexto);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.PreciosGestionar, true, e.SesionDuena);
         // nueva sesión para ver permiso revocado
@@ -315,17 +405,20 @@ public sealed class WpfCatalogTests
         using var e = await Entorno.CrearAsync();
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.ProductosGestionar, true, e.SesionDuena);
         await e.Permisos.EjecutarAsync(e.DuenaId, PermisosCatalogo.VariantesGestionar, true, e.SesionDuena);
-        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdFicha", null, null), e.SesionDuena);
+        var pid = await e.CrearProducto.EjecutarAsync(new NuevoProducto("ProdFicha", null, "cat-rem"), e.SesionDuena);
+        var prod = await e.Consultas.ObtenerProductoAsync(pid, e.SesionDuena);
+        Assert.NotNull(prod);
         var svcVm = new LocalInfantil.Wpf.Infra.ServiciosComerciales(e.Ruta);
         var sesVm = await svcVm.CasoIniciarSesion.EjecutarAsync("duena", "clave-duena-000000");
         var vm = new LocalInfantil.Wpf.ViewModels.CatalogoViewModel(svcVm, () => sesVm.IdSesion);
-        vm.ProductoSeleccionado = new ProductoRegistrado(pid, "ProdFicha", null, null, true);
+        vm.ProductoSeleccionado = prod;
         await vm.VerFichaAsyncPublic();
         Assert.NotNull(vm.Ficha);
-        vm.NuevoVarianteSku = "SKU-FICHA";
+        // Código interno automático: la usuaria no lo escribe.
         await vm.CrearVarianteAsyncPublic();
         Assert.NotNull(vm.Ficha);
-        Assert.Contains(vm.Ficha!.Variantes, v => v.Sku == "SKU-FICHA");
+        var unica = Assert.Single(vm.Ficha!.Variantes);
+        Assert.Equal($"{prod.CodigoInterno}-01", unica.CodigoInterno);
     }
 
     private sealed class RelojAvance : IReloj
@@ -380,8 +473,8 @@ public sealed class WpfCatalogTests
             var varRepo = new RepositorioVariantes(ids);
             var precioRepo = new RepositorioPrecios(ids);
             var movRepo = new RepositorioMovimientos(ids);
-            var crearProd = new CrearProducto(prodRepo, autorizador, fabrica, auditoria, ids, reloj);
-            var editarProd = new EditarProducto(prodRepo, autorizador, fabrica, auditoria, ids);
+            var crearProd = new CrearProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids, reloj);
+            var editarProd = new EditarProducto(prodRepo, new RepositorioCategorias(ids), autorizador, fabrica, auditoria, ids);
             var desactivarProd = new DesactivarProducto(prodRepo, varRepo, autorizador, fabrica, auditoria, ids);
             var crearVar = new CrearVariante(varRepo, prodRepo, autorizador, fabrica, auditoria, ids, reloj);
             var editarVar = new EditarVariante(varRepo, autorizador, fabrica, auditoria, ids);

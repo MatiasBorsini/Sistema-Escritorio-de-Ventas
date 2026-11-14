@@ -11,8 +11,15 @@
             </ResourceDictionary.MergedDictionaries>
             <infra:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <infra:BoolToVisibilityInvertedConverter x:Key="BoolToVisibilityInverted"/>
+        <infra:BoolInvertidoConverter x:Key="BoolInvertido"/>
+        <infra:DiferenciaColorConverter x:Key="DiferenciaColor"/>
+        <infra:FechaCortaConverter x:Key="FechaCorta"/>
         <infra:NullToVisibilityConverter x:Key="NullToVisibility"/>
         <infra:MinorToArsConverter x:Key="MinorToArs"/>
+        <infra:MinorConSignoToArsConverter x:Key="MinorConSignoToArs"/>
+        <infra:MedioPagoAEtiquetaConverter x:Key="MedioAEtiqueta"/>
+        <infra:CeroVisibleConverter x:Key="CeroVisible"/>
+        <infra:CajaTextoHumanoConverter x:Key="CajaTextoHumano"/>
         <DataTemplate DataType="{x:Type viewModels:InicioViewModel}">
             <views:InicioView />
         </DataTemplate>
@@ -37,6 +44,12 @@
         <DataTemplate DataType="{x:Type viewModels:CatalogoViewModel}">
             <views:CatalogoView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ClientesViewModel}">
+            <views:ClientesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:CuentaCorrienteViewModel}">
+            <views:CuentaCorrienteView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:ProveedoresViewModel}">
             <views:ProveedoresView />
         </DataTemplate>
@@ -57,6 +70,33 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type viewModels:PortadaViewModel}">
             <views:PortadaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:PosViewModel}">
+            <views:PosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:VentasConsultaViewModel}">
+            <views:VentasConsultaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:CambiosViewModel}">
+            <views:CambiosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:CajaViewModel}">
+            <views:CajaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ArqueoCiegoViewModel}">
+            <views:ArqueoCajaView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:RespaldosViewModel}">
+            <views:RespaldosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ReportesViewModel}">
+            <views:ReportesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ActualizacionesViewModel}">
+            <views:ActualizacionesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ConfiguracionMercadoPagoViewModel}">
+            <views:ConfiguracionMercadoPagoView />
         </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
